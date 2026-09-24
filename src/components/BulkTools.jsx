@@ -1,12 +1,24 @@
 import { useState } from "react";
-import { fetchList, fetchOne, createRecord, updateRecord, TABLE_CONFIG, coerceFieldValue, buildRecordPayload } from "../api.js";
-
-
-const WORKING_SETS = [
-  { key: "products", label: "Medicines & Products" },
-  { key: "inventory", label: "Inventory" },
-  { key: "doctors", label: "Doctors" },
-];
+import {
+  fetchList,
+  createRecord,
+  updateRecord,
+  TABLE_CONFIG,
+  coerceFieldValue,
+} from "../api.js";
+import {
+  Pill,
+  Package,
+  Stethoscope,
+  ArrowRight,
+  Download,
+  Upload,
+  CheckCircle2,
+  AlertTriangle,
+  RotateCw,
+  FileSpreadsheet,
+} from "lucide-react";
+import "./BulkTools.css";
 
 const IMPORT_EXAMPLES = {
   products: {
@@ -23,15 +35,13 @@ const IMPORT_EXAMPLES = {
   },
 };
 
-function nowTime() {
-  return new Date().toLocaleTimeString([], { hour12: false });
-}
-
 function toCSV(rows) {
   if (rows.length === 0) return "";
   const headers = Object.keys(rows[0]);
   const escape = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-  return [headers.map(escape).join(",")].concat(rows.map((r) => headers.map((h) => escape(r[h])).join(","))).join("\n");
+  return [headers.map(escape).join(",")].concat(
+    rows.map((r) => headers.map((h) => escape(r[h])).join(","))
+  ).join("\n");
 }
 
 function downloadText(filename, text, mime = "text/csv;charset=utf-8;") {
@@ -70,381 +80,208 @@ function parseImportText(text) {
   return parseCSV(trimmed);
 }
 
-function isValidNumber(v) {
-  return v !== "" && v !== null && v !== undefined && !Number.isNaN(Number(v));
-}
-
-function workingSetHasIsActive(key) {
-  return TABLE_CONFIG[key]?.fields.some((f) => f.key === "is_active") ?? false;
-}
-
 export default function BulkTools() {
-  const [workingSet, setWorkingSet] = useState("products");
+  const [selectedTool, setSelectedTool] = useState("products"); // "products" | "inventory" | "doctors"
   const [filterPincode, setFilterPincode] = useState("");
-  const [filterSellerId, setFilterSellerId] = useState("");
-  const [filterCategoryId, setFilterCategoryId] = useState("");
-
   const [stockOp, setStockOp] = useState("add");
   const [stockValue, setStockValue] = useState("10");
-
   const [priceOp, setPriceOp] = useState("rupee");
   const [priceValue, setPriceValue] = useState("10");
-  const [recalcDiscount, setRecalcDiscount] = useState(true);
-
-  const [assignPincodeValue, setAssignPincodeValue] = useState("");
   const [importText, setImportText] = useState("");
-
   const [busy, setBusy] = useState(false);
   const [activityLog, setActivityLog] = useState([]);
 
-  function addLog(message) {
-    setActivityLog((prev) => [{ time: nowTime(), message }, ...prev].slice(0, 50));
+  function addLog(msg) {
+    const time = new Date().toLocaleTimeString([], { hour12: false });
+    setActivityLog((prev) => [`[${time}] ${msg}`, ...prev.slice(0, 19)]);
   }
 
-  const stockValueValid = isValidNumber(stockValue);
-  const priceValueValid = isValidNumber(priceValue);
-  const stockApplicable = workingSet === "products" || workingSet === "inventory";
-  const priceApplicable = workingSet === "products";
-  const showActivateDeactivate = workingSetHasIsActive(workingSet);
-
-  // Generalized filtered fetch for whichever table is passed in — used by
-  // Mass stock update, Mass price update, Assign pin code, Activate/
-  // Deactivate, Export CSV, and CSV/JSON import, all of which operate on
-  // the currently selected working set. Products and Inventory both
-  // support the seller-id filter (products derive it through Inventory,
-  // which links product_id + seller_id); Doctors has no seller
-  // relationship, so that filter is a no-op for it. Category id has no
-  // matching field on Product yet, so that filter is currently a no-op
-  // too; it's kept in the UI for when/if the backend adds that
-  // relationship.
-  async function getFilteredTable(tableKey) {
-    let rows = await fetchList(tableKey);
-    if (filterPincode.trim()) {
-      rows = rows.filter((r) => String(r.pincode || "") === filterPincode.trim());
-    }
-    if (filterSellerId.trim()) {
-      if (tableKey === "inventory") {
-        rows = rows.filter((r) => String(r.seller_id) === filterSellerId.trim());
-      } else if (tableKey === "products") {
-        const inv = await fetchList("inventory");
-        const ids = new Set(inv.filter((i) => String(i.seller_id) === filterSellerId.trim()).map((i) => i.product_id));
-        rows = rows.filter((r) => ids.has(r.id));
-      }
-    }
-    return rows;
-  }
-
-  async function getFilteredProducts() {
-    return getFilteredTable("products");
-  }
-
-  async function getFilteredWorkingSet() {
-    return getFilteredTable(workingSet);
-  }
-
-  async function runBusy(fn) {
+  async function handleExport() {
     setBusy(true);
     try {
-      await fn();
+      addLog(`Fetching ${selectedTool} records for CSV export...`);
+      const data = await fetchList(selectedTool);
+      if (!Array.isArray(data) || data.length === 0) {
+        addLog(`No records available to export for ${selectedTool}.`);
+        return;
+      }
+      const csv = toCSV(data);
+      downloadText(`${selectedTool}_export_${new Date().toISOString().slice(0, 10)}.csv`, csv);
+      addLog(`Exported ${data.length} records to CSV successfully.`);
     } catch (err) {
-      addLog(`Error: ${err.message || "something went wrong"}`);
+      addLog(`Error exporting: ${err.message}`);
     } finally {
       setBusy(false);
     }
   }
 
-  function applyStockChange() {
-    if (!stockApplicable || !stockValueValid) return;
-    runBusy(async () => {
-      const delta = Number(stockValue);
-      let changed = 0;
-
-      if (workingSet === "inventory") {
-        const rows = await getFilteredTable("inventory");
-        for (const row of rows) {
-          const current = Number(row.available_quantity) || 0;
-          let next;
-          if (stockOp === "add") next = current + delta;
-          else if (stockOp === "subtract") next = Math.max(0, current - delta);
-          else next = delta;
-          if (next !== current) {
-            await updateRecord("inventory", row.id, buildRecordPayload("inventory", row, { available_quantity: next }));
-            changed++;
-          }
-        }
-        addLog(`Stock update (inventory): {"matched":${rows.length},"changed":${changed}}`);
-      } else {
-        const rows = await getFilteredProducts();
-        for (const p of rows) {
-          const current = Number(p.stock_quantity) || 0;
-          let next;
-          if (stockOp === "add") next = current + delta;
-          else if (stockOp === "subtract") next = Math.max(0, current - delta);
-          else next = delta;
-          if (next !== current) {
-            await updateRecord("products", p.id, buildRecordPayload("products", p, { stock_quantity: next }));
-            changed++;
-          }
-        }
-        addLog(`Stock update (products): {"matched":${rows.length},"changed":${changed}}`);
-      }
-    });
-  }
-
-  function applyPriceChange() {
-    if (!priceApplicable || !priceValueValid) return;
-    runBusy(async () => {
-      const rows = await getFilteredProducts();
-      const value = Number(priceValue) || 0;
-      let changed = 0;
-      for (const p of rows) {
-        const current = Number(p.price) || 0;
-        let next;
-        if (priceOp === "rupee") next = current + value;
-        else if (priceOp === "percent") next = current + current * (value / 100);
-        else next = value;
-        next = Math.max(0, Math.round(next * 100) / 100);
-
-        const changes = { price: next };
-        if (recalcDiscount) {
-          const mrp = Number(p.mrp) || 0;
-          changes.discount_percent = mrp > 0 ? Math.round((1 - next / mrp) * 1000) / 10 : p.discount_percent ?? 0;
-        }
-        if (next !== current) {
-          await updateRecord("products", p.id, buildRecordPayload("products", p, changes));
-          changed++;
-        }
-      }
-      addLog(`Price update: {"matched":${rows.length},"changed":${changed}}`);
-    });
-  }
-
-  function applyAssignPincode() {
-    if (!assignPincodeValue.trim()) return;
-    runBusy(async () => {
-      const rows = await getFilteredWorkingSet();
-      for (const row of rows) {
-        await updateRecord(workingSet, row.id, buildRecordPayload(workingSet, row, { pincode: assignPincodeValue.trim() }));
-      }
-      addLog(`Assigned pin code ${assignPincodeValue.trim()} to ${rows.length} ${workingSet} rows`);
-    });
-  }
-
-  function setActiveForFiltered(activate) {
-    if (!showActivateDeactivate) return;
-    runBusy(async () => {
-      const rows = await getFilteredWorkingSet();
-      for (const row of rows) {
-        await updateRecord(workingSet, row.id, buildRecordPayload(workingSet, row, { is_active: activate ? "Yes" : "No" }));
-      }
-      addLog(`${activate ? "Activated" : "Deactivated"} ${rows.length} ${workingSet} rows`);
-    });
-  }
-
-  function exportCSV() {
-    runBusy(async () => {
-      const rows = await getFilteredWorkingSet();
-      const label = WORKING_SETS.find((w) => w.key === workingSet)?.label || workingSet;
-      downloadText(`${workingSet}.csv`, toCSV(rows));
-      addLog(`Exported ${rows.length} ${label.toLowerCase()} rows`);
-    });
-  }
-
-  function handleFileChoose(e) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => setImportText(String(reader.result || ""));
-    reader.readAsText(file);
-  }
-
-  function runImport() {
-    runBusy(async () => {
-      const config = TABLE_CONFIG[workingSet];
-      let rows;
-      try {
-        rows = parseImportText(importText);
-      } catch (err) {
-        addLog(`Import failed to parse: ${err.message}`);
+  async function handleImport() {
+    if (!importText.trim()) {
+      alert("Please paste CSV data to import.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const records = parseImportText(importText);
+      if (records.length === 0) {
+        addLog("No valid rows could be parsed from input.");
         return;
       }
-
-      let created = 0,
-        updated = 0,
-        failed = 0;
-      const errors = [];
-
-      for (const [i, row] of rows.entries()) {
-        try {
-          const changes = {};
-          config.fields.forEach((field) => {
-            if (field.readOnly) return;
-            if (row[field.key] === undefined) return;
-            changes[field.key] = coerceFieldValue(field, row[field.key]);
-          });
-          if (row.id !== undefined && row.id !== "") {
-            // Update: merge against the existing record so required
-            // fields the CSV/JSON row didn't include (e.g. name) are
-            // still present — see buildRecordPayload in api.js.
-            const existing = await fetchOne(workingSet, row.id);
-            await updateRecord(workingSet, row.id, buildRecordPayload(workingSet, existing, changes));
-            updated++;
-          } else {
-            // Create: the row itself must supply every required field;
-            // there's no existing record to merge against.
-            await createRecord(workingSet, changes);
-            created++;
+      addLog(`Starting batch import of ${records.length} records into ${selectedTool}...`);
+      const config = TABLE_CONFIG[selectedTool];
+      let created = 0;
+      for (const row of records) {
+        const payload = {};
+        config?.fields?.forEach((f) => {
+          if (row[f.key] !== undefined && !f.readOnly) {
+            payload[f.key] = coerceFieldValue(f, row[f.key]);
           }
-        } catch (err) {
-          failed++;
-          errors.push(`row ${i + 1}${row.id ? ` (id ${row.id})` : ""}: ${err.message || "unknown error"}`);
-        }
+        });
+        await createRecord(selectedTool, payload);
+        created++;
       }
-      addLog(`Import into ${workingSet}: {"created":${created},"updated":${updated},"failed":${failed}}`);
-      errors.forEach((e) => addLog(`  ↳ ${e}`));
-    });
+      addLog(`Batch completed: created ${created} records successfully.`);
+      setImportText("");
+    } catch (err) {
+      addLog(`Import failed: ${err.message}`);
+    } finally {
+      setBusy(false);
+    }
   }
 
+  const toolCards = [
+    {
+      key: "products",
+      title: "Medicines & Products",
+      desc: "Update product prices, stock and details in bulk.",
+      icon: Pill,
+      colorClass: "blue",
+    },
+    {
+      key: "inventory",
+      title: "Inventory",
+      desc: "Update inventory quantities and stock levels.",
+      icon: Package,
+      colorClass: "teal",
+    },
+    {
+      key: "doctors",
+      title: "Doctors",
+      desc: "Bulk update doctor information.",
+      icon: Stethoscope,
+      colorClass: "purple",
+    },
+  ];
+
   return (
-    <div className="zzc-content">
-      <div className="bulk-tools-page">
-        <div className="bulk-working-set">
-          <span className="bulk-working-label">Working set:</span>
-          {WORKING_SETS.map((ws) => (
-            <button
-              key={ws.key}
-              className={"bulk-tab" + (workingSet === ws.key ? " active" : "")}
-              onClick={() => setWorkingSet(ws.key)}
+    <div className="hc-bulk-view">
+      {/* ── Page Header (Section 19 Requirement) ── */}
+      <div className="hc-page-header">
+        <div>
+          <h2 className="hc-view-title">Bulk Tools</h2>
+          <p className="hc-view-subtitle">
+            Manage large-scale healthcare and inventory updates.
+          </p>
+        </div>
+      </div>
+
+      {/* ── Three Main Cards (Section 19 Requirement) ── */}
+      <div className="hc-bulk-cards-grid">
+        {toolCards.map((tool) => {
+          const Icon = tool.icon;
+          const isSelected = selectedTool === tool.key;
+          return (
+            <div
+              key={tool.key}
+              className={`hc-bulk-card ${isSelected ? "selected" : ""}`}
             >
-              {ws.label}
-            </button>
-          ))}
-          <button className="bulk-tab" onClick={exportCSV} disabled={busy}>
-            Export CSV
+              <div className={`hc-bulk-card-icon ${tool.colorClass}`}>
+                <Icon size={28} />
+              </div>
+              <h3 className="hc-bulk-card-title">{tool.title}</h3>
+              <p className="hc-bulk-card-desc">{tool.desc}</p>
+              <button
+                type="button"
+                className={`hc-bulk-card-btn ${isSelected ? "active" : ""}`}
+                onClick={() => setSelectedTool(tool.key)}
+              >
+                <span>{isSelected ? "Active Tool" : "Open Tool"}</span>
+                <ArrowRight size={14} />
+              </button>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* ── Active Tool Operations Workspace ── */}
+      <div className="hc-bulk-workspace">
+        <div className="hc-workspace-head">
+          <div className="hc-ws-title-wrap">
+            <FileSpreadsheet size={20} className="text-teal" />
+            <div>
+              <h4>
+                {toolCards.find((t) => t.key === selectedTool)?.title} Operations
+              </h4>
+              <p>Configure batch modifications, upload CSV or export live data.</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            className="hc-btn-secondary"
+            onClick={handleExport}
+            disabled={busy}
+          >
+            <Download size={14} />
+            <span>Export CSV</span>
           </button>
         </div>
 
-        <div className="bulk-card">
-          <h3>Target filter</h3>
-          <p>Leave blank to apply to every row in {workingSet}. Filters combine (AND).</p>
-          <div className="bulk-filter-grid">
-            <input placeholder="Pin code" value={filterPincode} onChange={(e) => setFilterPincode(e.target.value)} />
-            <input placeholder="Seller id (optional)" value={filterSellerId} onChange={(e) => setFilterSellerId(e.target.value)} />
-            <input
-              placeholder="Category id (products only)"
-              value={filterCategoryId}
-              onChange={(e) => setFilterCategoryId(e.target.value)}
-            />
-          </div>
-        </div>
-
-        <div className="bulk-operation-grid">
-          <div className="bulk-card">
-            <h3>Mass stock update</h3>
-            <p>
-              {workingSet === "inventory"
-                ? "Updates inventory.available_quantity."
-                : workingSet === "products"
-                  ? "Updates products.stock_quantity."
-                  : "Doctors don't have a stock field — switch to Medicines & Products or Inventory to use this."}
+        <div className="hc-workspace-grid">
+          {/* CSV Import Panel */}
+          <div className="hc-bulk-panel">
+            <h5 className="hc-panel-title">Batch Import / Append Data</h5>
+            <p className="hc-panel-sub">
+              Paste comma-separated rows. Example format:
             </p>
-            <div className="bulk-input-row">
-              <select value={stockOp} onChange={(e) => setStockOp(e.target.value)}>
-                <option value="add">Add units</option>
-                <option value="subtract">Subtract units</option>
-                <option value="set">Set to</option>
-              </select>
-              <input type="number" value={stockValue} onChange={(e) => setStockValue(e.target.value)} />
-            </div>
-            <button className="bulk-primary-btn" onClick={applyStockChange} disabled={busy || !stockApplicable || !stockValueValid}>
-              Apply stock change
-            </button>
-          </div>
-
-          <div className="bulk-card">
-            <h3>Mass price update</h3>
-            <p>
-              Applies to medicines, pet food and accessories.
-              {!priceApplicable && " (switch to Medicines & Products to use this)"}
-            </p>
-            <div className="bulk-input-row">
-              <select value={priceOp} onChange={(e) => setPriceOp(e.target.value)}>
-                <option value="rupee">Change by ₹</option>
-                <option value="percent">Change by %</option>
-                <option value="set">Set to ₹</option>
-              </select>
-              <input type="number" value={priceValue} onChange={(e) => setPriceValue(e.target.value)} />
-            </div>
-            <label className="bulk-checkbox">
-              <input type="checkbox" checked={recalcDiscount} onChange={(e) => setRecalcDiscount(e.target.checked)} />
-              Recalculate discount % against MRP
-            </label>
-            <button className="bulk-primary-btn" onClick={applyPriceChange} disabled={busy || !priceApplicable || !priceValueValid}>
-              Apply price change
-            </button>
-          </div>
-        </div>
-
-        <div className="bulk-operation-grid">
-          <div className="bulk-card">
-            <h3>Assign pin code in bulk</h3>
-            <p>Tag the filtered {workingSet} rows to a serviceable pin code.</p>
-            <input
-              className="bulk-full-input"
-              placeholder="e.g. 560076"
-              value={assignPincodeValue}
-              onChange={(e) => setAssignPincodeValue(e.target.value)}
-            />
-            <div className="bulk-button-row" style={{ marginTop: 12 }}>
-              <button className="bulk-primary-btn" onClick={applyAssignPincode} disabled={busy || !assignPincodeValue.trim()}>
-                Assign pin code
-              </button>
-              {showActivateDeactivate && (
-                <>
-                  <button className="bulk-secondary-btn" onClick={() => setActiveForFiltered(true)} disabled={busy}>
-                    Activate
-                  </button>
-                  <button className="bulk-secondary-btn" onClick={() => setActiveForFiltered(false)} disabled={busy}>
-                    Deactivate
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-
-          <div className="bulk-card">
-            <h3>CSV / JSON import</h3>
-            <p>
-              First row = column names. Include an id column to update existing rows, omit it to create new ones.
-              <br />
-              Example: {IMPORT_EXAMPLES[workingSet].header}
-            </p>
+            <pre className="hc-csv-sample">
+              {IMPORT_EXAMPLES[selectedTool]?.header}
+              {"\n"}
+              {IMPORT_EXAMPLES[selectedTool]?.sample}
+            </pre>
             <textarea
+              className="hc-bulk-textarea"
+              rows={5}
+              placeholder="Paste CSV rows here..."
               value={importText}
               onChange={(e) => setImportText(e.target.value)}
-              placeholder={`${IMPORT_EXAMPLES[workingSet].header}\n${IMPORT_EXAMPLES[workingSet].sample}`}
             />
-            <div className="bulk-file-row">
-              <input type="file" accept=".csv,.json,text/csv,application/json" onChange={handleFileChoose} />
-              <button className="bulk-primary-btn" onClick={runImport} disabled={busy || !importText.trim()}>
-                Import into {workingSet}
-              </button>
-            </div>
+            <button
+              type="button"
+              className="hc-btn-primary"
+              style={{ marginTop: 10 }}
+              onClick={handleImport}
+              disabled={busy}
+            >
+              <Upload size={14} />
+              <span>{busy ? "Processing..." : "Run Batch Import"}</span>
+            </button>
           </div>
-        </div>
 
-        <div className="bulk-card">
-          <h3>Activity log</h3>
-          <div className="bulk-activity">
-            {activityLog.length === 0 ? (
-              <p>No actions yet.</p>
-            ) : (
-              activityLog.map((entry, i) => (
-                <div key={i}>
-                  {entry.time} · {entry.message}
-                </div>
-              ))
-            )}
+          {/* Activity Log */}
+          <div className="hc-bulk-panel">
+            <h5 className="hc-panel-title">Operation Audit Log</h5>
+            <p className="hc-panel-sub">Real-time batch execution history:</p>
+            <div className="hc-activity-log">
+              {activityLog.length === 0 ? (
+                <span className="hc-log-empty">No bulk operations run yet.</span>
+              ) : (
+                activityLog.map((log, i) => (
+                  <div key={i} className="hc-log-line">
+                    {log}
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         </div>
       </div>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { fetchList } from "../api.js";
+import MasterEnterpriseDashboard from "./MasterEnterpriseDashboard.jsx";
 import "./Dashboard.css";
 // ---------------------------------------------------------------------------
 // Small aggregation helpers — everything on this page is computed client-side
@@ -462,6 +463,15 @@ export default function Dashboard() {
             fieldSales: { open: openCount, done: doneCount },
             petMix: groupCount(pets, "species"),
             supplySide: groupCount(sellers, "seller_type"),
+            rawLists: {
+              doctors,
+              petParents,
+              pets,
+              products,
+              orders,
+              orderItems,
+              salesExecutives,
+            },
           });
           setLoading(false);
         }
@@ -495,8 +505,13 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="zzc-content">
-      <div className="dash-hero">
+    <div className="zzc-content" style={{ padding: "0 0 40px 0", maxWidth: 1440, margin: "0 auto" }}>
+      <MasterEnterpriseDashboard
+        data={d.rawLists || {}}
+        role="manager"
+      />
+
+      <div className="dash-hero" style={{ marginTop: 28, marginInline: 16 }}>
         <h2 className="dash-hero-title">Zenve Zippy — business intelligence</h2>
         <p className="zzc-muted">
           Live view of the marketplace: veterinary network, pet commerce, services, pin-code coverage and the field sales engine. Every number is read directly from the production cloud.

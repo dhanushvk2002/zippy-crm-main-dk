@@ -1,0 +1,240 @@
+/* ==========================================================================
+   HealthcareClinicsView.css — Clinics & Hospitals Directory
+   ========================================================================== */
+
+.hc-clinics-view {
+  padding: 1.5rem 1.75rem 3rem;
+  max-width: 1540px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.hc-clinics-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: #ffffff;
+  padding: 12px 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+  margin-bottom: 1.5rem;
+}
+
+.hc-clinics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 1.25rem;
+}
+
+.hc-clinic-card {
+  background: #ffffff;
+  border-radius: 16px;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  padding: 1.25rem;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+}
+
+.hc-clinic-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px -4px rgba(2, 132, 199, 0.12), 0 2px 6px rgba(15, 23, 42, 0.04);
+  border-color: rgba(2, 132, 199, 0.35);
+}
+
+.hc-clinic-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.hc-clinic-icon-frame {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: #e0f2fe;
+  color: #0284c7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hc-clinic-name {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 8px 0;
+  line-height: 1.35;
+}
+
+.hc-clinic-address-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 0.78rem;
+  color: #475569;
+  margin-bottom: 6px;
+  line-height: 1.4;
+}
+
+.hc-icon-pin {
+  color: #ef4444;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.hc-clinic-phone-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.78rem;
+  color: #0284c7;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.hc-icon-phone {
+  color: #0284c7;
+  flex-shrink: 0;
+}
+
+.hc-clinic-metrics-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.hc-cmetric-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #f8fafc;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(226, 232, 240, 0.8);
+}
+
+.hc-cmetric-icon {
+  flex-shrink: 0;
+}
+
+.hc-cmetric-num {
+  display: block;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.hc-cmetric-lbl {
+  display: block;
+  font-size: 0.68rem;
+  color: #64748b;
+}
+
+.hc-clinic-timings {
+  font-size: 0.74rem;
+  color: #0d9488;
+  font-weight: 600;
+  margin: 0 0 12px 0;
+}
+
+.hc-clinic-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: auto;
+}
+
+.hc-btn-clinic-view {
+  height: 36px;
+  background: #f8fafc;
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  border-radius: 10px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #334155;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.hc-btn-clinic-view:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.hc-btn-clinic-edit {
+  height: 36px;
+  background: #0284c7;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #ffffff;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.hc-btn-clinic-edit:hover {
+  background: #0369a1;
+}
+
+.hc-clinic-crud {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+.hc-clinic-detail-modal {
+  width: 100%;
+  max-width: 580px;
+  background: #ffffff;
+  border-radius: 18px;
+  box-shadow: 0 20px 40px -10px rgba(15, 23, 42, 0.25);
+  overflow: hidden;
+  margin: auto;
+}
+
+.hc-clinic-modal-body {
+  padding: 1.5rem;
+}
+
+.hc-clinic-modal-body h3 {
+  font-size: 1.2rem;
+  color: #0f172a;
+  margin: 0 0 8px 0;
+}
+
+.hc-modal-clinic-addr,
+.hc-modal-clinic-phone {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.84rem;
+  color: #475569;
+  margin: 4px 0;
+}
+
+.hc-modal-fac-box {
+  background: #f8fafc;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(226, 232, 240, 0.85);
+  margin-top: 12px;
+}
+
+.hc-modal-fac-box h5 {
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 4px 0;
+}
+
+.hc-modal-fac-box p {
+  font-size: 0.8rem;
+  color: #64748b;
+  margin: 0;
+}

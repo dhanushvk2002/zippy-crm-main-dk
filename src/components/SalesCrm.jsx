@@ -1,5 +1,47 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
-import { VscSearch, VscEye } from "react-icons/vsc";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import StylishSearchIcon from "./StylishSearchIcon.jsx";
+import StylizedEyeIcon from "./StylizedEyeIcon.jsx";
+import LiveEyeCheckerModal from "./LiveEyeCheckerModal.jsx";
+import ModernDatePicker from "./ModernDatePicker.jsx";
+import AttendanceView from "./AttendanceView.jsx";
+import useTheme from "../useTheme.js";
+import {
+  ListTodo,
+  CheckCircle2,
+  CalendarDays,
+  Calendar,
+  Stethoscope,
+  Users,
+  MapPin,
+  TrendingUp,
+  Target,
+  ArrowRight,
+  Clock,
+  Sparkles,
+  BarChart3,
+  PieChart,
+  Award,
+  Layers,
+  ShieldCheck,
+  ChevronDown,
+  LogOut,
+  LogIn,
+  Sun,
+  Moon,
+  Info,
+  ChevronRight,
+  Activity,
+  Flame,
+  Home,
+  ClipboardCheck,
+  FileText,
+  Globe,
+  User,
+  Settings,
+  Bell,
+  Search,
+} from "lucide-react";
+import MasterEnterpriseDashboard from "./MasterEnterpriseDashboard.jsx";
 import {
   fetchList,
   TABLE_CONFIG,
@@ -7,6 +49,7 @@ import {
   displayFieldValue,
   buildRecordPayload,
   updateRecord,
+  createRecord,
   API_BASE,
 } from "../api.js";
 import logo from "../assets/zenve-zippy-logo.png";
@@ -20,7 +63,42 @@ import {
   formatMonthLabel,
   getAvailableMonthOptions,
 } from "./planData.js";
-import { fetchSubmissionReports, createSubmissionReport, updateSubmissionReport, deleteSubmissionReport } from "./reportData.js";
+import DoctorAvatar from "./DoctorAvatar.jsx";
+import { getDoctorGender } from "../genderHelper.js";
+import {
+  fetchSubmissionReports,
+  createSubmissionReport,
+  updateSubmissionReport,
+  deleteSubmissionReport,
+} from "./reportData.js";
+
+/* ─────────────────────────────────────────────────────────
+   ROLES & ONLINE STATUS HELPERS
+───────────────────────────────────────────────────────── */
+const ROLES = {
+  EXECUTIVE: "executive",
+  MANAGER: "manager",
+  REGIONAL: "regional",
+};
+
+const ROLE_TITLES = {
+  executive: "Sales Executive",
+  manager: "Sales Manager",
+  regional: "Regional Manager",
+};
+
+function checkUserIsOnline(userRole, id) {
+  if (!id) return true;
+  try {
+    const saved = localStorage.getItem("zippy_crm_online_users");
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      const key = `${userRole}_${id}`;
+      return parsed[key] !== false;
+    }
+  } catch (e) {}
+  return true;
+}
 
 /* ─────────────────────────────────────────────────────────
    ROLE → TABLE KEY MAP
@@ -34,14 +112,17 @@ const ROLE_TABLE_KEY = {
 /* ─────────────────────────────────────────────────────────
    SMALL SHARED UI COMPONENTS
 ───────────────────────────────────────────────────────── */
-function Stat({ icon, title, value, text, type }) {
+function Stat({ icon, title, value, text, type, trend }) {
   return (
     <div className="stat-card">
       <div className={`stat-icon ${type}`}>{icon}</div>
-      <div>
-        <span>{title}</span>
-        <strong>{value}</strong>
-        <small>{text}</small>
+      <div className="stat-content">
+        <div className="stat-header-row">
+          <span className="stat-title">{title}</span>
+          {trend && <span className={`stat-trend-tag ${type}`}>{trend}</span>}
+        </div>
+        <strong className="stat-val">{value}</strong>
+        <small className="stat-hint">{text}</small>
       </div>
     </div>
   );
@@ -49,45 +130,122 @@ function Stat({ icon, title, value, text, type }) {
 
 function Chart({ title, categories, targets, achieved }) {
   const max = Math.max(1, ...targets, ...achieved);
+  const hasData = targets.some((t) => t > 0) || achieved.some((a) => a > 0);
+
   return (
-    <div className="panel">
+    <div className="panel chart-panel">
       <div className="panel-title">
-        <h2>{title}</h2>
+        <div className="panel-title-wrap">
+          <div className="panel-title-icon-badge">
+            <BarChart3 size={17} />
+          </div>
+          <h2>{title}</h2>
+        </div>
         <div className="legend">
-          <span><i className="blue-dot" />Target</span>
-          <span><i className="green-dot" />Achieved</span>
+          <span className="legend-chip target">
+            <i className="blue-dot" />
+            Target
+          </span>
+          <span className="legend-chip achieved">
+            <i className="green-dot" />
+            Achieved
+          </span>
         </div>
       </div>
-      <div className="chart">
-        {categories.map((cat, i) => (
-          <div className="month" key={cat}>
-            <div className="bars">
-              <div className="bar target" style={{ height: `${(targets[i] / max) * 145}px` }} />
-              <div className="bar achieved" style={{ height: `${(achieved[i] / max) * 145}px` }} />
-            </div>
-            <small>{cat}</small>
+      <div className="chart-container">
+        <div className="chart">
+          {categories.map((cat, i) => {
+            const tgt = targets[i] || 0;
+            const ach = achieved[i] || 0;
+            const tgtHeight = max > 0 ? (tgt / max) * 135 : 0;
+            const achHeight = max > 0 ? (ach / max) * 135 : 0;
+
+            return (
+              <div className="month" key={cat}>
+                <div className="bars">
+                  <div
+                    className="bar target"
+                    style={{ height: `${Math.max(6, tgtHeight)}px` }}
+                    title={`Target: ${tgt}`}
+                  >
+                    {tgt > 0 && <span className="bar-val-tip">{tgt}</span>}
+                  </div>
+                  <div
+                    className="bar achieved"
+                    style={{ height: `${Math.max(6, achHeight)}px` }}
+                    title={`Achieved: ${ach}`}
+                  >
+                    {ach > 0 && <span className="bar-val-tip">{ach}</span>}
+                  </div>
+                </div>
+                <small className="bar-category-label">{cat}</small>
+                <div className="bar-sub-ratio">
+                  <span className="tgt">{tgt}</span>/<span className="ach">{ach}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        {!hasData && (
+          <div className="chart-empty-state">
+            <Activity size={15} />
+            <span>Awaiting field activity for this priority cycle</span>
           </div>
-        ))}
+        )}
       </div>
     </div>
   );
 }
 
 function Achievement({ percentage, achieved, progress, pending }) {
+  const pctNum = Math.min(100, Math.max(0, parseInt(percentage) || 0));
+  const deg = (pctNum / 100) * 360;
+
   return (
-    <div className="panel">
-      <div className="panel-title"><h2>Achievement Overview</h2></div>
+    <div className="panel achievement-panel">
+      <div className="panel-title">
+        <div className="panel-title-wrap">
+          <div className="panel-title-icon-badge amber">
+            <Award size={17} />
+          </div>
+          <h2>Achievement Overview</h2>
+        </div>
+        <span className="panel-rate-pill">{pctNum}% Target Rate</span>
+      </div>
       <div className="achievement">
-        <div className="donut">
-          <div>
-            <strong>{percentage}</strong>
+        <div
+          className="donut"
+          style={{
+            background: `conic-gradient(var(--primary, #007c71) 0deg ${deg}deg, #e2e8f0 ${deg}deg 360deg)`,
+          }}
+        >
+          <div className="donut-center">
+            <strong>{pctNum}%</strong>
             <span>Achieved</span>
           </div>
         </div>
         <div className="achievement-list">
-          <div><span><i className="green-dot" />Achieved</span><strong>{achieved}</strong></div>
-          <div><span><i className="orange-dot" />In Progress</span><strong>{progress}</strong></div>
-          <div><span><i className="red-dot" />Pending</span><strong>{pending}</strong></div>
+          <div className="achieve-item green">
+            <div className="achieve-label">
+              <i className="green-dot" />
+              <span>Achieved</span>
+            </div>
+            <strong>{achieved}</strong>
+          </div>
+          <div className="achieve-item orange">
+            <div className="achieve-label">
+              <i className="orange-dot" />
+              <span>In Progress</span>
+            </div>
+            <strong>{progress}</strong>
+          </div>
+          <div className="achieve-item red">
+            <div className="achieve-label">
+              <i className="red-dot" />
+              <span>Pending</span>
+            </div>
+            <strong>{pending}</strong>
+          </div>
         </div>
       </div>
     </div>
@@ -96,25 +254,40 @@ function Achievement({ percentage, achieved, progress, pending }) {
 
 function Performers({ title, people }) {
   return (
-    <div className="panel">
-      <div className="panel-title"><h2>{title}</h2></div>
-      {people.length === 0 ? (
-        <p style={{ color: "#7f8b98", fontSize: 13 }}>No data yet.</p>
-      ) : (
-        people.map((person, index) => (
-          <div className="performer" key={person[0]}>
-            <div className="rank">{index + 1}</div>
-            <div className="person-avatar">{person[0].charAt(0)}</div>
-            <div className="person">
-              <strong>{person[0]}</strong>
-              <small>{person[1]}</small>
-            </div>
-            <div className="performance">
-              <div className="progress"><div style={{ width: person[2] }} /></div>
-              <strong>{person[2]}</strong>
-            </div>
+    <div className="panel performers-panel">
+      <div className="panel-title">
+        <div className="panel-title-wrap">
+          <div className="panel-title-icon-badge purple">
+            <MapPin size={17} />
           </div>
-        ))
+          <h2>{title}</h2>
+        </div>
+      </div>
+      {people.length === 0 ? (
+        <div className="panel-empty-placeholder">
+          <p>No area pin codes mapped yet.</p>
+        </div>
+      ) : (
+        <div className="performers-list">
+          {people.map((person, index) => (
+            <div className="performer-row" key={person[0]}>
+              <div className={`performer-rank-badge rank-${index + 1}`}>
+                #{index + 1}
+              </div>
+              <div className="performer-avatar">{person[0].charAt(0)}</div>
+              <div className="performer-details">
+                <strong>{person[0]}</strong>
+                <small>{person[1]}</small>
+              </div>
+              <div className="performer-metric">
+                <div className="performer-progress-track">
+                  <div className="performer-progress-fill" style={{ width: person[2] }} />
+                </div>
+                <span className="performer-pct-text">{person[2]}</span>
+              </div>
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );
@@ -123,55 +296,112 @@ function Performers({ title, people }) {
 function DashTable({ title, headers, rows }) {
   return (
     <div className="panel table-panel">
-      <div className="panel-title"><h2>{title}</h2></div>
-      <table>
-        <thead><tr>{headers.map((h) => <th key={h}>{h}</th>)}</tr></thead>
-        <tbody>
-          {rows.length === 0 ? (
-            <tr><td colSpan={headers.length} style={{ color: "#7f8b98" }}>No data yet</td></tr>
-          ) : (
-            rows.map((row, i) => (
-              <tr key={i}>{row.map((cell, ci) => <td key={ci}>{cell}</td>)}</tr>
-            ))
-          )}
-        </tbody>
-      </table>
+      <div className="panel-title">
+        <div className="panel-title-wrap">
+          <div className="panel-title-icon-badge cyan">
+            <Users size={17} />
+          </div>
+          <h2>{title}</h2>
+        </div>
+      </div>
+      <div className="dash-table-wrapper">
+        <table className="dash-table">
+          <thead>
+            <tr>
+              {headers.map((h) => (
+                <th key={h}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length === 0 ? (
+              <tr>
+                <td colSpan={headers.length} style={{ color: "#7f8b98", textAlign: "center", padding: "1.5rem" }}>
+                  No team performance data yet
+                </td>
+              </tr>
+            ) : (
+              rows.map((row, i) => (
+                <tr key={i}>
+                  {row.map((cell, ci) => (
+                    <td key={ci}>{cell}</td>
+                  ))}
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
 
 function StatusList({ title, rows }) {
   return (
-    <div className="panel">
-      <div className="panel-title"><h2>{title}</h2></div>
-      {rows.map((r) => (
-        <div className="lead-row" key={r[0]}>
-          <strong>{r[0]}</strong>
-          <div className="lead-progress"><div style={{ width: r[2] }} /></div>
-          <span>{r[1]}</span>
+    <div className="panel status-panel">
+      <div className="panel-title">
+        <div className="panel-title-wrap">
+          <div className="panel-title-icon-badge blue">
+            <Layers size={17} />
+          </div>
+          <h2>{title}</h2>
         </div>
-      ))}
+      </div>
+      <div className="status-rows-container">
+        {rows.map((r) => {
+          const name = r[0];
+          const count = r[1];
+          const pct = r[2];
+          const typeCls = name.toLowerCase().replace(/\s+/g, "-");
+
+          return (
+            <div className={`lead-row ${typeCls}`} key={name}>
+              <div className="lead-row-header">
+                <span className={`lead-badge ${typeCls}`}>{name}</span>
+                <span className="lead-count">{count} tasks ({pct})</span>
+              </div>
+              <div className="lead-progress">
+                <div
+                  className={`lead-progress-fill ${typeCls}`}
+                  style={{ width: pct }}
+                />
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
 
 function UpcomingList({ title, rows }) {
   return (
-    <div className="panel">
-      <div className="panel-title"><h2>{title}</h2></div>
-      {rows.length === 0 ? (
-        <p style={{ color: "#7f8b98", fontSize: 13 }}>Nothing coming up.</p>
-      ) : (
-        rows.map((r, i) => (
-          <div className="followup" key={i}>
-            <div className="person-avatar">{r[0].charAt(0)}</div>
-            <div className="followup-info">
-              <strong>{r[0]}</strong>
-              <small>{r[1]}</small>
-            </div>
-            <span>{r[2]}</span>
+    <div className="panel upcoming-panel">
+      <div className="panel-title">
+        <div className="panel-title-wrap">
+          <div className="panel-title-icon-badge orange">
+            <Calendar size={17} />
           </div>
-        ))
+          <h2>{title}</h2>
+        </div>
+      </div>
+      {rows.length === 0 ? (
+        <div className="panel-empty-placeholder">
+          <p>No upcoming tasks scheduled.</p>
+        </div>
+      ) : (
+        <div className="upcoming-list">
+          {rows.map((r, i) => (
+            <div className="followup-item" key={i}>
+              <div className="followup-avatar">{r[0].charAt(0)}</div>
+              <div className="followup-info">
+                <strong>{r[0]}</strong>
+                <small>{r[1]}</small>
+              </div>
+              <span className="followup-date-tag">{r[2]}</span>
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );
@@ -232,7 +462,7 @@ function useSalesData() {
 /* ─────────────────────────────────────────────────────────
    PROFILE MODAL
 ───────────────────────────────────────────────────────── */
-function ProfileModal({ tableKey, record, onClose, onSaved }) {
+function ProfileModal({ tableKey, record, isOnline = true, onToggleLogin, onClose, onSaved }) {
   const config = TABLE_CONFIG[tableKey];
   const fields = config.fields;
   const [values, setValues] = useState(() => {
@@ -279,14 +509,28 @@ function ProfileModal({ tableKey, record, onClose, onSaved }) {
       </select>
     );
     if (field.type === "number") return <input id={id} type="number" step="any" value={value ?? ""} required={field.required} onChange={(e) => handleChange(field.key, e.target.value)} />;
-    if (field.type === "date") return <input id={id} type="date" value={value ?? ""} required={field.required} onChange={(e) => handleChange(field.key, e.target.value)} />;
+    if (field.type === "date") return <ModernDatePicker id={id} value={value ?? ""} required={field.required} onChange={(e) => handleChange(field.key, e.target.value)} />;
     return <input id={id} value={value ?? ""} required={field.required} onChange={(e) => handleChange(field.key, e.target.value)} />;
   }
 
   return (
     <div className="zzc-modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="zzc-modal">
-        <h2>{record.name || "Profile"}</h2>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', marginBottom: '1rem' }}>
+          <DoctorAvatar name={record.name} size={48} isOnline={isOnline} />
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <h2 style={{ margin: 0 }}>{record.name || "Profile"}</h2>
+              <span className={isOnline ? "user-online-pill" : "user-offline-pill"}>
+                <span className={isOnline ? "online-pulse-dot" : "offline-pulse-dot"}></span>
+                {isOnline ? "Online (Logged In)" : "Offline (Logged Out)"}
+              </span>
+            </div>
+            <span style={{ fontSize: '0.78rem', color: 'var(--muted-foreground)' }}>
+              {tableKey ? tableKey.replace(/_/g, " ").toUpperCase() : "SALES EXECUTIVE"}
+            </span>
+          </div>
+        </div>
         {error && <div className="rpt-call-error">{error}</div>}
         <form id="profileForm" className="zzc-modal-form" onSubmit={handleSave}>
           {fields.map((field) => (
@@ -296,9 +540,39 @@ function ProfileModal({ tableKey, record, onClose, onSaved }) {
             </div>
           ))}
         </form>
-        <div className="zzc-modal-actions">
-          <button type="button" className="zzc-btn zzc-btn-outline" onClick={onClose} disabled={saving}>Cancel</button>
-          <button type="submit" form="profileForm" className="zzc-btn zzc-btn-primary" disabled={saving}>{saving ? "Saving…" : "Save"}</button>
+        <div className="zzc-modal-actions" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          {onToggleLogin && (
+            <button
+              type="button"
+              className={`zzc-btn ${isOnline ? "zzc-btn-outline" : "zzc-btn-primary"}`}
+              onClick={onToggleLogin}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+            >
+              {isOnline ? (
+                <>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                    <polyline points="16 17 21 12 16 7"></polyline>
+                    <line x1="21" y1="12" x2="9" y2="12"></line>
+                  </svg>
+                  <span>Log Out (Go Offline)</span>
+                </>
+              ) : (
+                <>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
+                    <polyline points="10 17 15 12 10 7"></polyline>
+                    <line x1="15" y1="12" x2="3" y2="12"></line>
+                  </svg>
+                  <span>Log In (Go Online)</span>
+                </>
+              )}
+            </button>
+          )}
+          <div style={{ display: 'flex', gap: '8px', marginLeft: 'auto' }}>
+            <button type="button" className="zzc-btn zzc-btn-outline" onClick={onClose} disabled={saving}>Cancel</button>
+            <button type="submit" form="profileForm" className="zzc-btn zzc-btn-primary" disabled={saving}>{saving ? "Saving…" : "Save"}</button>
+          </div>
         </div>
       </div>
     </div>
@@ -325,7 +599,7 @@ function PreCallModal({ visit, onClose, onSave }) {
       <div className="zzc-modal rpt-call-modal">
         <div className="rpt-call-modal-header">
           <div>
-            <h2>Pre Call — {visit.doctorName}</h2>
+            <h2>Pre Visit — {visit.doctorName}</h2>
             <p className="rpt-call-modal-sub">Sno: {visit.advaitNo} · <span className="rpt-doc-tag">{visit.tag}</span></p>
             <p className="rpt-call-modal-sub">
               Phone: {visit.phone || "—"} · City: {visit.city || "—"} · Pin: {visit.pincode || "—"} · Specialization: {visit.tag || "—"}
@@ -355,7 +629,7 @@ function PreCallModal({ visit, onClose, onSave }) {
             </div>
           </div>
           <div className="rpt-call-field rpt-call-field-full">
-            <label>Call Objective</label>
+            <label>Visit Objective</label>
             <input
               value={objective}
               onChange={(e) => setObjective(e.target.value)}
@@ -363,7 +637,7 @@ function PreCallModal({ visit, onClose, onSave }) {
             />
           </div>
           <div className="rpt-call-field rpt-call-field-full">
-            <label>Pre-Call Notes</label>
+            <label>Pre-Visit Notes</label>
             <textarea
               rows={3}
               value={notes}
@@ -375,7 +649,7 @@ function PreCallModal({ visit, onClose, onSave }) {
 
         <div className="rpt-call-modal-footer">
           <button type="button" className="rpt-btn-outline" onClick={onClose}>Cancel</button>
-          <button type="submit" form="preCallForm" className="rpt-btn-primary">Save Pre Call</button>
+          <button type="submit" form="preCallForm" className="rpt-btn-primary">Save Pre Visit</button>
         </div>
       </div>
     </div>
@@ -415,7 +689,7 @@ function PostCallModal({ visit, onClose, onSave }) {
       <div className="zzc-modal rpt-call-modal">
         <div className="rpt-call-modal-header">
           <div>
-            <h2>Post Call — {visit.doctorName}</h2>
+            <h2>Post Visit — {visit.doctorName}</h2>
             <p className="rpt-call-modal-sub">Sno: {visit.advaitNo} · <span className="rpt-doc-tag">{visit.tag}</span></p>
             <p className="rpt-call-modal-sub">
               Phone: {visit.phone || "—"} · City: {visit.city || "—"} · Pin: {visit.pincode || "—"} · Specialization: {visit.tag || "—"}
@@ -446,7 +720,7 @@ function PostCallModal({ visit, onClose, onSave }) {
           </div>
           <div className="rpt-call-row">
             <div className="rpt-call-field">
-              <label>Call Outcome *</label>
+              <label>Visit Outcome *</label>
               <select value={outcome} onChange={(e) => setOutcome(e.target.value)} required>
                 <option>Interested</option>
                 <option>Prescribed</option>
@@ -457,7 +731,7 @@ function PostCallModal({ visit, onClose, onSave }) {
             </div>
             <div className="rpt-call-field">
               <label>Next Visit Date</label>
-              <input type="date" value={nextVisit} onChange={(e) => setNextVisit(e.target.value)} />
+              <ModernDatePicker value={nextVisit} onChange={(e) => setNextVisit(e.target.value)} />
             </div>
           </div>
           <div className="rpt-call-field rpt-call-field-full">
@@ -515,12 +789,12 @@ function ReportedCallsModal({ visits, onClose }) {
     <div className="zzc-modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="zzc-modal rpt-reported-modal">
         <div className="rpt-call-modal-header">
-          <h2>Reported Calls ({reported.length})</h2>
+          <h2>Reported Visits ({reported.length})</h2>
           <button className="rpt-call-close" onClick={onClose} type="button">✕</button>
         </div>
         <div className="rpt-reported-body">
           {reported.length === 0 ? (
-            <p style={{ color: "var(--muted-foreground)", textAlign: "center", padding: "1.5rem 0" }}>No reported calls yet.</p>
+            <p style={{ color: "var(--muted-foreground)", textAlign: "center", padding: "1.5rem 0" }}>No reported visits yet.</p>
           ) : (
             <div className="table-panel" style={{ overflow: "auto" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: ".75rem" }}>
@@ -541,9 +815,12 @@ function ReportedCallsModal({ visits, onClose }) {
                     <tr key={v.id}>
                       <td>{v.advaitNo}</td>
                       <td>
-                        <div className="rpt-doc-cell">
-                          <strong>{v.doctorName}</strong>
-                          <span className="rpt-doc-tag">{v.tag}</span>
+                        <div className="rpt-doc-cell" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                          <DoctorAvatar name={v.doctorName} size={34} />
+                          <div>
+                            <strong>{v.doctorName}</strong>
+                            <span className="rpt-doc-tag" style={{ marginLeft: '0.4rem' }}>{v.tag}</span>
+                          </div>
                         </div>
                       </td>
                       <td>{v.phone || "—"}</td>
@@ -752,7 +1029,7 @@ function SubmitReportModal({
                 Also include remaining {totalVisits - reportedCount} pending doctors as completed visits
               </label>
               <p style={{ margin: "4px 0 0 24px", fontSize: "0.78rem", color: "var(--muted-foreground)" }}>
-                Currently {reportedCount} of {totalVisits} doctors have detailed post-call records.
+                Currently {reportedCount} of {totalVisits} doctors have detailed post-visit records.
               </p>
             </div>
           ) : (
@@ -837,7 +1114,7 @@ function ReportDetailsModal({ report, role, onClose, onFeedbackSaved, onDelete }
         </div>
 
         <div style={{ padding: "1rem 1.25rem", overflowY: "auto", flex: 1, display: "flex", flexDirection: "column", gap: "1rem" }}>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", alignItems: "center", background: "var(--accent)", padding: "10px 14px", borderRadius: "8px" }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", alignItems: "center", background: "#f8fafc", border: "1px solid #e2e8f0", padding: "10px 14px", borderRadius: "8px" }}>
             <span style={{ fontSize: "0.82rem", color: "var(--muted-foreground)" }}>Sent To:</span>
             <span style={{ fontSize: "0.82rem", fontWeight: 600, color: "var(--foreground)" }}>{recipientLabel}</span>
             <span style={{ marginLeft: "auto", fontSize: "0.78rem", color: "var(--muted-foreground)" }}>
@@ -869,7 +1146,7 @@ function ReportDetailsModal({ report, role, onClose, onFeedbackSaved, onDelete }
                       </div>
                       <span className="rpt-status-badge reported">Reported</span>
                     </div>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", fontSize: "0.82rem", background: "var(--accent)", padding: "8px", borderRadius: "6px" }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", fontSize: "0.82rem", background: "#f8fafc", border: "1px solid #e2e8f0", padding: "8px", borderRadius: "6px" }}>
                       <div>
                         <span style={{ color: "var(--muted-foreground)" }}>Product / Brands: </span>
                         <strong>{v.brands || "—"}</strong>
@@ -880,13 +1157,13 @@ function ReportDetailsModal({ report, role, onClose, onFeedbackSaved, onDelete }
                       </div>
                       {v.preCallObjective && (
                         <div style={{ gridColumn: "span 2" }}>
-                          <span style={{ color: "var(--muted-foreground)" }}>Pre-Call Objective: </span>
+                          <span style={{ color: "var(--muted-foreground)" }}>Pre-Visit Objective: </span>
                           <span>{v.preCallObjective}</span>
                         </div>
                       )}
                       {v.callOutcome && (
                         <div style={{ gridColumn: "span 2" }}>
-                          <span style={{ color: "var(--muted-foreground)" }}>Call Outcome: </span>
+                          <span style={{ color: "var(--muted-foreground)" }}>Visit Outcome: </span>
                           <span>{v.callOutcome}</span>
                         </div>
                       )}
@@ -1178,7 +1455,7 @@ function ReceivedReportsSection({ data, role, currentRecord }) {
           </div>
           <div className="rpt-field">
             <label>Filter by Date</label>
-            <input type="date" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} />
+            <ModernDatePicker value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} placeholder="Filter by date..." />
           </div>
           {dateFilter && (
             <button className="rpt-btn-outline" onClick={() => setDateFilter("")} style={{ height: 36 }}>
@@ -1220,8 +1497,12 @@ function ReceivedReportsSection({ data, role, currentRecord }) {
                   <tr key={r.id}>
                     <td style={{ fontWeight: 600 }}>{r.report_date}</td>
                     <td>
-                      <div className="rpt-doc-cell">
-                        <div className="rpt-doc-avatar">{r.executive_name?.charAt(0) || "E"}</div>
+                      <div className="rpt-doc-cell" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <DoctorAvatar
+                          name={r.executive_name}
+                          size={36}
+                          isOnline={checkUserIsOnline(ROLES.EXECUTIVE, r.executive_id)}
+                        />
                         <div>
                           <strong>{r.executive_name}</strong>
                           <div className="rpt-doc-pin" style={{ marginTop: 2 }}>
@@ -1300,7 +1581,7 @@ function ReceivedReportsSection({ data, role, currentRecord }) {
    - Executive: submit reports to Manager, Regional Manager, or Both
    - Manager & Regional Manager: review received reports & give coaching feedback
 ───────────────────────────────────────────────────────── */
-function ViewDoctorModal({ doctor, onClose }) {
+export function ViewDoctorModal({ doctor, onClose }) {
   if (!doctor) return null;
   
   const docName = doctor.doctorName || doctor.name || "—";
@@ -1313,16 +1594,11 @@ function ViewDoctorModal({ doctor, onClose }) {
       <div className="zzc-modal" style={{ maxWidth: 450, borderRadius: 12, overflow: "hidden", padding: 0 }}>
         
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', padding: '1.25rem 1.5rem', borderBottom: '1px solid #e2e8f0', position: 'relative' }}>
+        <div style={{ display: 'flex', alignItems: 'center', padding: '1.25rem 1.5rem', borderBottom: '1px solid #e2e8f0', position: 'relative', gap: '1rem' }}>
           
-          <div style={{ 
-            width: 44, height: 44, borderRadius: '50%', backgroundColor: '#e0f7fa', color: 'var(--primary, #00796b)', 
-            display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '1.15rem' 
-          }}>
-            {avatarChar}
-          </div>
+          <DoctorAvatar name={docName} size={48} />
           
-          <div style={{ flex: 1, textAlign: 'center', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ flex: 1, textAlign: 'left', display: 'flex', flexDirection: 'column' }}>
             <span style={{ fontWeight: 700, fontSize: '1.05rem', color: '#1e293b' }}>{docName}</span>
             <span style={{ fontSize: '0.8rem', color: '#64748b', marginTop: 2 }}>{spec}</span>
           </div>
@@ -1387,6 +1663,7 @@ function ReportsView({ data, execId, role, managerId, regionalId, currentRecord 
   const [submitted, setSubmitted] = useState(false);
   const [lastSubmissionReceipt, setLastSubmissionReceipt] = useState(null);
   const [viewingDoctor, setViewingDoctor] = useState(null);
+  const [showLiveEyeChecker, setShowLiveEyeChecker] = useState(false);
 
   // The visits list — seeded from real API doctors in the exec's territory
   const exec = data.executives.find((e) => e.id === execId) || data.executives[0];
@@ -1773,7 +2050,7 @@ function ReportsView({ data, execId, role, managerId, regionalId, currentRecord 
           </div>
           <div className="rpt-field">
             <label>Report Date *</label>
-            <input type="date" value={reportDate} onChange={(e) => setReportDate(e.target.value)} />
+            <ModernDatePicker value={reportDate} onChange={(e) => setReportDate(e.target.value)} required />
           </div>
           <div className="rpt-field">
             <label>Send Report To *</label>
@@ -1788,13 +2065,30 @@ function ReportsView({ data, execId, role, managerId, regionalId, currentRecord 
               className="rpt-btn-outline"
               onClick={() => setShowReported(true)}
             >
-              View Reported Calls ({reportedCount})
+              View Reported Visits ({reportedCount})
             </button>
             <button
               className="rpt-btn-outline"
               onClick={() => setShowHistoryModal(true)}
             >
               Submission History
+            </button>
+            <button
+              type="button"
+              className="rpt-btn-outline"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                borderColor: "#00796b",
+                color: "#00796b",
+                fontWeight: 600,
+                background: "#f0fdfa"
+              }}
+              onClick={() => setShowLiveEyeChecker(true)}
+              title="Interactive Live Eyes Checking & Simulation"
+            >
+              <StylizedEyeIcon width={18} height={11} live={true} /> Live Eyes Checking
             </button>
             <button
               className={"rpt-btn-primary" + (submitted ? " rpt-btn-success" : "")}
@@ -1821,8 +2115,26 @@ function ReportsView({ data, execId, role, managerId, regionalId, currentRecord 
               placeholder="Type name, S No., or speciality…"
               value={doctorSearch}
               onChange={(e) => setDoctorSearch(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && addableDoctors.length > 0) {
+                  e.preventDefault();
+                  setSelectedDoctor(String(addableDoctors[0].id));
+                }
+              }}
             />
-            <span className="rpt-search-icon"><VscSearch /></span>
+            <button
+              type="button"
+              className="rpt-search-icon"
+              title="Search doctor"
+              aria-label="Search doctor"
+              onClick={() => {
+                if (addableDoctors.length > 0) {
+                  setSelectedDoctor(String(addableDoctors[0].id));
+                }
+              }}
+            >
+              <StylishSearchIcon size={26} />
+            </button>
           </div>
         </div>
 
@@ -1968,12 +2280,7 @@ function ReportsView({ data, execId, role, managerId, regionalId, currentRecord 
                     <td className="rpt-advait-no">{v.advaitNo}</td>
                     <td>
                       <div className="rpt-doc-cell" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                        <div style={{
-                          width: 36, height: 36, borderRadius: '50%', backgroundColor: '#e0f7fa', color: 'var(--primary, #00796b)',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '1rem', flexShrink: 0
-                        }}>
-                          {(v.doctorName || "").replace(/^dr\.?\s*/i, '').trim().charAt(0).toUpperCase() || "D"}
-                        </div>
+                        <DoctorAvatar name={v.doctorName} size={36} />
                         <div>
                           {v.doctorName}
                         </div>
@@ -2018,7 +2325,7 @@ function ReportsView({ data, execId, role, managerId, regionalId, currentRecord 
                           setViewingDoctor({ ...fullDoc, ...v });
                         }}
                       >
-                        <VscEye size={18} />
+                        <StylizedEyeIcon width={22} height={14} />
                       </button>
                     </td>
                     <td>
@@ -2026,17 +2333,17 @@ function ReportsView({ data, execId, role, managerId, regionalId, currentRecord 
                         <button
                           className="rpt-btn-sm rpt-btn-outline"
                           onClick={() => setPreCallVisit(v)}
-                          title="Fill pre-call details"
+                          title="Fill pre-visit details"
                         >
-                          Pre Call
+                          Pre Visit
                         </button>
                         {v.status === "Reported" ? (
                           <button
                             className="rpt-btn-sm rpt-btn-edit"
                             onClick={() => setEditCallVisit(v)}
-                            title="Edit reported call"
+                            title="Edit reported visit"
                           >
-                            Edit Call
+                            Edit Visit
                           </button>
                         ) : (
                           <button
@@ -2044,7 +2351,7 @@ function ReportsView({ data, execId, role, managerId, regionalId, currentRecord 
                             onClick={() => setPostCallVisit(v)}
                             title="Mark as reported"
                           >
-                            Post Call
+                            Post Visit
                           </button>
                         )}
                       </div>
@@ -2109,6 +2416,12 @@ function ReportsView({ data, execId, role, managerId, regionalId, currentRecord 
         />
       )}
 
+      {showLiveEyeChecker && (
+        <LiveEyeCheckerModal
+          onClose={() => setShowLiveEyeChecker(false)}
+        />
+      )}
+
       {preCallVisit && (
         <PreCallModal
           visit={preCallVisit}
@@ -2138,15 +2451,481 @@ function ReportsView({ data, execId, role, managerId, regionalId, currentRecord 
 }
 
 /* ─────────────────────────────────────────────────────────
+   ADD DOCTOR MODAL
+───────────────────────────────────────────────────────── */
+function AddDoctorModal({ exec, onClose, onSave }) {
+  const [formData, setFormData] = useState({
+    name: "",
+    qualification: "",
+    specializations: "",
+    phone: "",
+    experience_years: "",
+    consultation_fee: "",
+    verification_status: "pending",
+    is_active: "Yes",
+    pincode: "",
+    city: ""
+  });
+  const [clinicInside, setClinicInside] = useState(null);
+  const [clinicOutside, setClinicOutside] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  // Digital Signature state (PNG upload)
+  const [digitalSignature, setDigitalSignature] = useState("");
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  // Convert uploaded PNG image to clean digital signature format
+  const handleSignatureFileUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const maxDim = 600;
+        let w = img.width;
+        let h = img.height;
+        if (w > maxDim || h > maxDim) {
+          if (w > h) {
+            h = Math.round((h * maxDim) / w);
+            w = maxDim;
+          } else {
+            w = Math.round((w * maxDim) / h);
+            h = maxDim;
+          }
+        }
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, w, h);
+
+        const imgData = ctx.getImageData(0, 0, w, h);
+        const d = imgData.data;
+        // Process background: convert paper background into transparent digital stroke
+        for (let i = 0; i < d.length; i += 4) {
+          const r = d[i], g = d[i + 1], b = d[i + 2];
+          const brightness = (r + g + b) / 3;
+          if (brightness > 200) {
+            d[i + 3] = 0; // Transparent
+          } else if (brightness > 130) {
+            const alpha = 255 - ((brightness - 130) / 70) * 255;
+            d[i + 3] = Math.max(0, Math.min(255, alpha));
+            d[i] = 15; d[i + 1] = 23; d[i + 2] = 42; // Rich dark blue ink
+          } else {
+            d[i] = 15; d[i + 1] = 23; d[i + 2] = 42; // Rich dark blue ink
+          }
+        }
+        ctx.putImageData(imgData, 0, 0);
+        const converted = canvas.toDataURL("image/png");
+        setDigitalSignature(converted);
+      };
+      img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleDetectLocation = () => {
+    if (!navigator.geolocation) {
+      alert("Geolocation is not supported by your browser");
+      return;
+    }
+    setLocationLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const { latitude, longitude } = position.coords;
+          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
+          const data = await res.json();
+          if (data && data.address) {
+            setFormData(prev => ({
+              ...prev,
+              city: data.address.city || data.address.town || data.address.village || prev.city,
+              pincode: data.address.postcode || prev.pincode
+            }));
+          }
+        } catch (err) {
+          console.error("Geocoding failed", err);
+          alert("Failed to auto-detect location.");
+        } finally {
+          setLocationLoading(false);
+        }
+      },
+      (err) => {
+        console.error(err);
+        alert("Failed to get current position.");
+        setLocationLoading(false);
+      }
+    );
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    setError("");
+    try {
+      const payload = { ...formData };
+      if (payload.experience_years) payload.experience_years = Number(payload.experience_years);
+      else payload.experience_years = null;
+      if (payload.consultation_fee) payload.consultation_fee = Number(payload.consultation_fee);
+      else payload.consultation_fee = null;
+      if (digitalSignature) {
+        payload.digital_signature = digitalSignature;
+      }
+      
+      const newDoc = await createRecord("doctors", payload);
+      
+      const uploadImage = async (file, type) => {
+        const formDataUpload = new FormData();
+        formDataUpload.append("file", file);
+        const res = await fetch(`${API_BASE}/doctors/${newDoc.id}/documents?document_type=${type}`, {
+          method: "POST",
+          body: formDataUpload
+        });
+        if (!res.ok) throw new Error("Failed to upload image " + type);
+      };
+
+      if (clinicInside) await uploadImage(clinicInside, "clinic_inside");
+      if (clinicOutside) await uploadImage(clinicOutside, "clinic_outside");
+      if (digitalSignature && digitalSignature.startsWith("data:image")) {
+        try {
+          const resBlob = await fetch(digitalSignature);
+          const blob = await resBlob.blob();
+          const sigFile = new File([blob], `doctor_${newDoc.id}_signature.png`, { type: "image/png" });
+          await uploadImage(sigFile, "signature");
+        } catch (sigErr) {
+          console.warn("Signature doc upload fallback:", sigErr);
+        }
+      }
+      
+      onSave();
+    } catch (err) {
+      setError(err.message || "Failed to add doctor");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="zzc-modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="zzc-modal rpt-call-modal" style={{ maxWidth: 640 }}>
+        {/* Header with Doctor Badge */}
+        <div className="rpt-call-modal-header">
+          <div className="modal-header-icon-wrap">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"></path>
+              <path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"></path>
+              <path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"></path>
+              <path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"></path>
+            </svg>
+          </div>
+          <div style={{ flex: 1 }}>
+            <h2>Add New Doctor</h2>
+            <p className="rpt-call-modal-sub">Enter practitioner credentials, clinic location, verification media & digital signature</p>
+          </div>
+          <button className="rpt-call-close" onClick={onClose} type="button" title="Close">✕</button>
+        </div>
+
+        <form className="rpt-call-form" onSubmit={handleSubmit}>
+          {error && <div className="rpt-call-error">{error}</div>}
+
+          {/* ── SECTION 1: DOCTOR CREDENTIALS ── */}
+          <div className="rpt-modal-section-title">
+            <span>🧑‍⚕️ Doctor Credentials & Information</span>
+          </div>
+
+          <div className="rpt-call-row">
+            <div className="rpt-call-field">
+              <label>Doctor Name *</label>
+              <input
+                name="name"
+                value={formData.name}
+                onChange={handleChange}
+                placeholder="e.g. Dr. Rajesh Sharma"
+                required
+              />
+            </div>
+            <div className="rpt-call-field">
+              <label>Phone Number *</label>
+              <input
+                name="phone"
+                value={formData.phone}
+                onChange={handleChange}
+                placeholder="e.g. +91 98765 43210"
+                required
+              />
+            </div>
+          </div>
+
+          <div className="rpt-call-row">
+            <div className="rpt-call-field">
+              <label>Qualification</label>
+              <input
+                name="qualification"
+                value={formData.qualification}
+                onChange={handleChange}
+                placeholder="e.g. BVSc & AH, MVSc"
+              />
+            </div>
+            <div className="rpt-call-field">
+              <label>Specialization</label>
+              <input
+                name="specializations"
+                value={formData.specializations}
+                onChange={handleChange}
+                placeholder="e.g. Small Animal Surgery, Canine Specialist"
+              />
+            </div>
+          </div>
+
+          <div className="rpt-call-row">
+            <div className="rpt-call-field">
+              <label>Experience (Years)</label>
+              <input
+                type="number"
+                name="experience_years"
+                value={formData.experience_years}
+                onChange={handleChange}
+                placeholder="e.g. 8"
+                min="0"
+              />
+            </div>
+            <div className="rpt-call-field">
+              <label>Consultation Fee (₹)</label>
+              <input
+                type="number"
+                name="consultation_fee"
+                value={formData.consultation_fee}
+                onChange={handleChange}
+                placeholder="e.g. 500"
+                min="0"
+              />
+            </div>
+          </div>
+
+          {/* ── SECTION 2: CLINIC LOCATION & TERRITORY ── */}
+          <div className="rpt-modal-section-title">
+            <span>📍 Clinic Territory & Location</span>
+            <button
+              type="button"
+              className="rpt-detect-loc-pill"
+              onClick={handleDetectLocation}
+              disabled={locationLoading}
+            >
+              {locationLoading ? "Detecting..." : "📍 Auto-Detect Location"}
+            </button>
+          </div>
+
+          <div className="rpt-call-row">
+            <div className="rpt-call-field">
+              <label>Pin Code *</label>
+              <input
+                name="pincode"
+                value={formData.pincode}
+                onChange={handleChange}
+                placeholder="e.g. 560034"
+              />
+            </div>
+            <div className="rpt-call-field">
+              <label>City *</label>
+              <input
+                name="city"
+                value={formData.city}
+                onChange={handleChange}
+                placeholder="e.g. Bengaluru"
+              />
+            </div>
+          </div>
+
+          {/* ── SECTION 3: CLINIC VERIFICATION PHOTOS ── */}
+          <div className="rpt-modal-section-title">
+            <span>🏥 Clinic Verification Photos</span>
+          </div>
+
+          <div className="rpt-call-row">
+            <div className="rpt-call-field">
+              <label>Clinic Inside Image</label>
+              <input
+                type="file"
+                id="clinic-inside-file"
+                accept="image/*"
+                style={{ display: "none" }}
+                onChange={(e) => setClinicInside(e.target.files[0] || null)}
+              />
+              <label htmlFor="clinic-inside-file" className={`clinic-img-dropcard ${clinicInside ? 'has-file' : ''}`}>
+                <div className="clinic-drop-icon">🏥</div>
+                <div className="clinic-drop-info">
+                  {clinicInside ? (
+                    <>
+                      <span className="clinic-drop-title">✓ {clinicInside.name}</span>
+                      <span className="clinic-drop-sub">{(clinicInside.size / 1024).toFixed(1)} KB · Click to change</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="clinic-drop-title">Upload Inside Image</span>
+                      <span className="clinic-drop-sub">JPG, PNG or WEBP (Max 5MB)</span>
+                    </>
+                  )}
+                </div>
+                <span className="clinic-drop-btn">{clinicInside ? "Change" : "Browse"}</span>
+              </label>
+            </div>
+
+            <div className="rpt-call-field">
+              <label>Clinic Outside Image</label>
+              <input
+                type="file"
+                id="clinic-outside-file"
+                accept="image/*"
+                style={{ display: "none" }}
+                onChange={(e) => setClinicOutside(e.target.files[0] || null)}
+              />
+              <label htmlFor="clinic-outside-file" className={`clinic-img-dropcard ${clinicOutside ? 'has-file' : ''}`}>
+                <div className="clinic-drop-icon">📷</div>
+                <div className="clinic-drop-info">
+                  {clinicOutside ? (
+                    <>
+                      <span className="clinic-drop-title">✓ {clinicOutside.name}</span>
+                      <span className="clinic-drop-sub">{(clinicOutside.size / 1024).toFixed(1)} KB · Click to change</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="clinic-drop-title">Upload Outside Image</span>
+                      <span className="clinic-drop-sub">JPG, PNG or WEBP (Max 5MB)</span>
+                    </>
+                  )}
+                </div>
+                <span className="clinic-drop-btn">{clinicOutside ? "Change" : "Browse"}</span>
+              </label>
+            </div>
+          </div>
+
+          {/* ── SECTION 4: DOCTOR DIGITAL SIGNATURE SECTION (PNG UPLOAD) ── */}
+          <div className="rpt-modal-section-title">
+            <span>✍️ Doctor Digital Signature</span>
+          </div>
+
+          <div className="doc-sig-container">
+            <div className="doc-sig-upload-area">
+              <input
+                type="file"
+                id="doctor-sig-upload-file"
+                accept="image/png, image/jpeg, image/webp"
+                onChange={handleSignatureFileUpload}
+                style={{ display: "none" }}
+              />
+              <label htmlFor="doctor-sig-upload-file" className="doc-sig-upload-btn">
+                <span>📁 Choose Signature Image (PNG / JPG)</span>
+              </label>
+              <div style={{ color: "#64748b", fontSize: "0.78rem", marginTop: 8 }}>
+                Upload photo or PNG signature. Background will automatically convert into clean transparent digital ink.
+              </div>
+            </div>
+
+            {digitalSignature && (
+              <div className="doc-sig-preview-card">
+                <div className="doc-sig-preview-header">
+                  <span className="doc-sig-badge">✓ Transparent Signature Converted</span>
+                  <button
+                    type="button"
+                    className="doc-sig-remove-btn"
+                    onClick={() => {
+                      setDigitalSignature("");
+                    }}
+                  >
+                    ✕ Remove
+                  </button>
+                </div>
+                <div className="doc-sig-preview-img-box">
+                  <img src={digitalSignature} alt="Digital Signature" className="doc-sig-preview-img" />
+                  <div>
+                    <span className="doc-sig-line">Doctor Digital Signature</span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ── SECTION 5: ACCOUNT & VERIFICATION STATUS ── */}
+          <div className="rpt-modal-section-title">
+            <span>⚙️ Practice & Verification Status</span>
+          </div>
+
+          <div className="rpt-call-row">
+            <div className="rpt-call-field">
+              <label>Verification Status</label>
+              <select name="verification_status" value={formData.verification_status} onChange={handleChange}>
+                <option value="pending">Pending Verification</option>
+                <option value="verified">Verified & Approved</option>
+              </select>
+            </div>
+            <div className="rpt-call-field">
+              <label>Is Active</label>
+              <select name="is_active" value={formData.is_active} onChange={handleChange}>
+                <option value="Yes">Yes (Active Practice)</option>
+                <option value="No">No (Inactive / On Hold)</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="rpt-call-modal-footer">
+            <button type="button" className="rpt-btn-outline" onClick={onClose} disabled={saving}>
+              Cancel
+            </button>
+            <button type="submit" className="rpt-btn-primary" disabled={saving}>
+              {saving ? "Saving Doctor…" : "Save Doctor"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────
    DOCTORS VIEW
    - Real-time doctors from API filtered by exec's pincodes
    - Proper heading matching Reports page style
    - Consistent CSS classes
 ───────────────────────────────────────────────────────── */
-function DoctorsView({ data, execId }) {
+function DoctorsView({ data, execId, role }) {
   const [search, setSearch] = useState("");
   const [filterPincode, setFilterPincode] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
+  const [isAddOpen, setIsAddOpen] = useState(false);
+  const [selectedSigDoc, setSelectedSigDoc] = useState(null);
+  const [viewingDoctor, setViewingDoctor] = useState(null);
+  const [preVisitDoctor, setPreVisitDoctor] = useState(null);
+  const [postVisitDoctor, setPostVisitDoctor] = useState(null);
+  const [doctorVisits, setDoctorVisits] = useState({});
+
+  const makeVisitObj = (doc) => {
+    const existing = doctorVisits[doc.id] || {};
+    return {
+      id: doc.id,
+      doctorName: doc.name,
+      advaitNo: doc.id,
+      tag: doc.specializations || doc.qualification || "Doctor",
+      phone: doc.phone,
+      city: doc.city,
+      pincode: doc.pincode,
+      brands: existing.brands || "—",
+      campaign: existing.campaign || "—",
+      status: existing.status || "Pending",
+      preCallObjective: existing.preCallObjective || "",
+      preCallNotes: existing.preCallNotes || "",
+      callOutcome: existing.callOutcome || "Interested",
+      feedback: existing.feedback || "",
+      workWith: existing.workWith || "",
+      nextVisitDate: existing.nextVisitDate || "",
+    };
+  };
 
   const exec = data.executives.find((e) => e.id === execId) || data.executives[0];
 
@@ -2209,44 +2988,49 @@ function DoctorsView({ data, execId }) {
     <div className="doc-view-wrap">
 
       {/* ── PAGE TITLE — same pattern as Reports ── */}
-      <div className="crm-page-title">
+      <div className="crm-page-title" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <h2>Doctors in My Region</h2>
+        {role === "executive" && (
+          <button className="rpt-btn-primary" onClick={() => setIsAddOpen(true)}>
+            + Add Doctor
+          </button>
+        )}
       </div>
 
       {/* ── STAT PILLS ── */}
-      <div className="doc-stat-row">
-        <div className="doc-stat-card">
-          <div className="stat-icon orange">⊞</div>
-          <div>
-            <span>Pin Codes</span>
-            <strong>{pincodeList.length || myPincodes.size}</strong>
-            <small>Assigned coverage</small>
-          </div>
-        </div>
-        <div className="doc-stat-card">
-          <div className="stat-icon blue">₹</div>
-          <div>
-            <span>Total Doctors</span>
-            <strong>{myDoctors.length}</strong>
-            <small>In my Region</small>
-          </div>
-        </div>
-        <div className="doc-stat-card">
-          <div className="stat-icon green">✓</div>
-          <div>
-            <span>Active</span>
-            <strong>{activeCount}</strong>
-            <small>Available for visits</small>
-          </div>
-        </div>
-        <div className="doc-stat-card">
-          <div className="stat-icon red">○</div>
-          <div>
-            <span>Inactive</span>
-            <strong>{myDoctors.length - activeCount}</strong>
-            <small>Not currently active</small>
-          </div>
-        </div>
+      <div className="stats doc-stat-row">
+        <Stat
+          icon={<MapPin size={20} />}
+          title="Pin Codes"
+          value={pincodeList.length || myPincodes.size}
+          text="Assigned coverage"
+          type="orange"
+          trend="Territory"
+        />
+        <Stat
+          icon={<Stethoscope size={20} />}
+          title="Total Doctors"
+          value={myDoctors.length}
+          text="In my Region"
+          type="blue"
+          trend={`${pincodeList.length} Pins`}
+        />
+        <Stat
+          icon={<CheckCircle2 size={20} />}
+          title="Active Doctors"
+          value={activeCount}
+          text="Available for visits"
+          type="green"
+          trend={myDoctors.length ? `${Math.round((activeCount / myDoctors.length) * 100)}% Active` : "100%"}
+        />
+        <Stat
+          icon={<Users size={20} />}
+          title="Inactive Doctors"
+          value={myDoctors.length - activeCount}
+          text="Not currently active"
+          type="red"
+          trend="Pending Review"
+        />
       </div>
 
       {/* ── FILTERS ── */}
@@ -2259,8 +3043,22 @@ function DoctorsView({ data, execId }) {
               placeholder="Name, qualification, specialization, experience, phone, city, pin code…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  setSearch(search);
+                }
+              }}
             />
-            <span className="rpt-search-icon"><VscSearch /></span>
+            <button
+              type="button"
+              className="rpt-search-icon"
+              title="Search"
+              aria-label="Search"
+              onClick={() => setSearch(search)}
+            >
+              <StylishSearchIcon size={26} />
+            </button>
           </div>
         </div>
         <div className="rpt-field">
@@ -2302,18 +3100,27 @@ function DoctorsView({ data, execId }) {
                 <th>Phone</th>
                 <th>City</th>
                 <th>Pin Code</th>
+                <th>Signature</th>
                 <th>Status</th>
+                <th style={{ textAlign: "center" }}>View</th>
+                <th>Option</th>
               </tr>
             </thead>
             <tbody>
               {filtered.map((doc, i) => {
                 const isActive = doc.is_active === "Yes" || doc.is_active === true;
+                const vObj = doctorVisits[doc.id];
+                const isReported = vObj?.status === "Reported";
                 return (
                   <tr key={doc.id}>
                     <td className="doc-row-num">{i + 1}</td>
                     <td>
-                      <div>
-                        <span className="doc-name-text">{doc.name || "—"}</span>
+                      <div className="doc-name-cell">
+                        <DoctorAvatar name={doc.name} size={38} />
+                        <div className="doc-name-col">
+                          <span className="doc-name-text">{doc.name || "—"}</span>
+                          <span className="doc-name-sub">{doc.qualification || "General Practitioner"}</span>
+                        </div>
                       </div>
                     </td>
                     <td className="doc-muted">{doc.qualification || "—"}</td>
@@ -2331,18 +3138,135 @@ function DoctorsView({ data, execId }) {
                       {doc.experience_years != null ? `${doc.experience_years} yrs` : "—"}
                     </td>
                     <td className="doc-muted">{doc.phone || "—"}</td>
-                    <td className="doc-muted">{doc.city || "—"}</td>
+                    <td>
+                      {doc.city ? (
+                        <span className="doc-city-tag">
+                          <MapPin size={11} style={{ marginRight: 4, verticalAlign: -1, color: "var(--primary)" }} />
+                          {doc.city}
+                        </span>
+                      ) : <span className="doc-muted">—</span>}
+                    </td>
                     <td><span className="doc-pincode-badge">{doc.pincode || "—"}</span></td>
+                    <td>
+                      {doc.digital_signature ? (
+                        <div
+                          className="doc-sig-thumb-wrap"
+                          onClick={() => setSelectedSigDoc(doc)}
+                          title="Click to view digital signature"
+                        >
+                          <img
+                            src={doc.digital_signature.startsWith("data:") || doc.digital_signature.startsWith("http") ? doc.digital_signature : `${API_BASE}${doc.digital_signature}`}
+                            alt="Signature"
+                            className="doc-sig-thumb"
+                          />
+                        </div>
+                      ) : (
+                        <span className="doc-muted">—</span>
+                      )}
+                    </td>
                     <td>
                       <span className={"doc-status-badge" + (isActive ? " active" : " inactive")}>
                         {isActive ? "Active" : "Inactive"}
                       </span>
+                    </td>
+                    <td style={{ textAlign: "center" }}>
+                      <button
+                        type="button"
+                        className="doc-view-eye-btn"
+                        title="Check Doctor Details"
+                        onClick={() => setViewingDoctor(doc)}
+                      >
+                        <StylizedEyeIcon width={22} height={14} live={true} />
+                      </button>
+                    </td>
+                    <td>
+                      <div className="rpt-options">
+                        <button
+                          className="rpt-btn-sm rpt-btn-outline"
+                          onClick={() => setPreVisitDoctor(makeVisitObj(doc))}
+                          title="Fill pre-visit details"
+                        >
+                          Pre Visit
+                        </button>
+                        <button
+                          className="rpt-btn-sm rpt-btn-post"
+                          onClick={() => setPostVisitDoctor(makeVisitObj(doc))}
+                          title="Report post-visit details"
+                        >
+                          {isReported ? "Reported ✓" : "Post Visit"}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {viewingDoctor && (
+        <ViewDoctorModal
+          doctor={viewingDoctor}
+          onClose={() => setViewingDoctor(null)}
+        />
+      )}
+
+      {preVisitDoctor && (
+        <PreCallModal
+          visit={preVisitDoctor}
+          onClose={() => setPreVisitDoctor(null)}
+          onSave={(updated) => {
+            setDoctorVisits(prev => ({ ...prev, [updated.id]: updated }));
+            setPreVisitDoctor(null);
+          }}
+        />
+      )}
+
+      {postVisitDoctor && (
+        <PostCallModal
+          visit={postVisitDoctor}
+          onClose={() => setPostVisitDoctor(null)}
+          onSave={(updated) => {
+            setDoctorVisits(prev => ({ ...prev, [updated.id]: updated }));
+            setPostVisitDoctor(null);
+          }}
+        />
+      )}
+
+      {isAddOpen && (
+        <AddDoctorModal
+          exec={exec}
+          onClose={() => setIsAddOpen(false)}
+          onSave={() => {
+            setIsAddOpen(false);
+            if (data.reload) data.reload();
+          }}
+        />
+      )}
+
+      {selectedSigDoc && (
+        <div className="zzc-modal-overlay" onClick={() => setSelectedSigDoc(null)}>
+          <div className="zzc-modal" style={{ maxWidth: 460, textAlign: "center", padding: "1.5rem" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+              <h3 style={{ margin: 0 }}>Doctor Digital Signature</h3>
+              <button className="rpt-call-close" onClick={() => setSelectedSigDoc(null)} type="button">✕</button>
+            </div>
+            <p style={{ color: "#64748b", margin: "0 0 1rem", fontSize: "0.9rem" }}>
+              <strong>{selectedSigDoc.name}</strong> • {selectedSigDoc.qualification || "Registered Doctor"}
+            </p>
+            <div style={{ background: "#f8fafc", border: "1.5px dashed #94a3b8", borderRadius: 8, padding: "1.5rem", marginBottom: "1.2rem" }}>
+              <img
+                src={selectedSigDoc.digital_signature.startsWith("data:") || selectedSigDoc.digital_signature.startsWith("http") ? selectedSigDoc.digital_signature : `${API_BASE}${selectedSigDoc.digital_signature}`}
+                alt="Doctor Signature"
+                style={{ maxHeight: 120, maxWidth: "100%", objectFit: "contain" }}
+              />
+              <div style={{ borderTop: "1px solid #94a3b8", width: "65%", margin: "1rem auto 0", paddingTop: 4, fontSize: "0.8rem", color: "#64748b" }}>
+                Authorized Digital Signature
+              </div>
+            </div>
+            <button className="rpt-btn-primary" onClick={() => setSelectedSigDoc(null)}>Close</button>
+          </div>
         </div>
       )}
     </div>
@@ -2415,9 +3339,14 @@ function PlanTargetPanel({ planStats, monthLabel, onGoToPlan }) {
       {/* ── header row ── */}
       <div className="pln-target-header">
         <div>
-          <h2 className="pln-target-title">
-            Monthly Visit Target — {label}
-          </h2>
+          <div className="pln-title-row">
+            <div className="panel-title-icon-badge green">
+              <Target size={17} />
+            </div>
+            <h2 className="pln-target-title">
+              Monthly Visit Target — {label}
+            </h2>
+          </div>
           <p className="pln-hint">
             {daily_target} doctors/day · {working_days} working days
           </p>
@@ -2426,7 +3355,8 @@ function PlanTargetPanel({ planStats, monthLabel, onGoToPlan }) {
           <span className={"pln-planstatus " + statusCls}>{plan_status}</span>
           {onGoToPlan && (
             <button className="rpt-btn-outline pln-target-btn" onClick={onGoToPlan}>
-              View Plan
+              <span>View Plan</span>
+              <ArrowRight size={14} />
             </button>
           )}
         </div>
@@ -2434,19 +3364,19 @@ function PlanTargetPanel({ planStats, monthLabel, onGoToPlan }) {
 
       {/* ── stat pills ── */}
       <div className="pln-target-pills">
-        <div className="pln-target-pill">
-          <strong>{total_doctors}</strong>
+        <div className="pln-target-pill target">
+          <strong>{Math.max(total_doctors, planned_visits)}</strong>
           <span>Target</span>
         </div>
-        <div className="pln-target-pill pln-target-pill-green">
+        <div className="pln-target-pill completed">
           <strong>{completed}</strong>
           <span>Completed</span>
         </div>
-        <div className="pln-target-pill pln-target-pill-orange">
+        <div className="pln-target-pill pending">
           <strong>{pending}</strong>
           <span>Pending</span>
         </div>
-        <div className="pln-target-pill">
+        <div className="pln-target-pill scheduled">
           <strong>{planned_visits}</strong>
           <span>Scheduled</span>
         </div>
@@ -2462,8 +3392,8 @@ function PlanTargetPanel({ planStats, monthLabel, onGoToPlan }) {
         </div>
         <span className="pln-target-pct">{completion_pct}%</span>
       </div>
-      <p className="pln-hint" style={{ marginTop: 5 }}>
-        <strong>{completed}</strong> of <strong>{total_doctors}</strong> doctors
+      <p className="pln-hint" style={{ marginTop: 6 }}>
+        <strong>{completed}</strong> of <strong>{Math.max(total_doctors, planned_visits)}</strong> doctors
         visited this month
       </p>
     </div>
@@ -2480,18 +3410,26 @@ function TeamPlanTargetPanel({ execsInScope, monthKey, monthLabel, onGoToPlan, o
   const activeMonth = monthKey || PLAN_MONTH_KEY;
   const activeMonthLabel = monthLabel || formatMonthLabel(activeMonth);
 
+  const execIds = useMemo(() => {
+    return (execsInScope || []).map((e) => e.id).sort((a, b) => a - b).join(",");
+  }, [execsInScope]);
+
+  const onTeamStatsLoadedRef = useRef(onTeamStatsLoaded);
+  useEffect(() => {
+    onTeamStatsLoadedRef.current = onTeamStatsLoaded;
+  });
+
   useEffect(() => {
     let cancelled = false;
     if (!execsInScope || execsInScope.length === 0) {
-      setTimeout(() => {
-        if (!cancelled) {
-          setTeamPlans([]);
-          setLoading(false);
-        }
-      }, 0);
+      setTeamPlans([]);
+      setLoading(false);
+      if (onTeamStatsLoadedRef.current) {
+        onTeamStatsLoadedRef.current({ totalTarget: 0, totalDone: 0, hasAnyPlan: false, pct: 0, execPlanMap: {} });
+      }
       return;
     }
-    setTimeout(() => { if (!cancelled) setLoading(true); }, 0);
+    setLoading(true);
     Promise.all(
       execsInScope.map(async (exec) => {
         try {
@@ -2517,22 +3455,46 @@ function TeamPlanTargetPanel({ execsInScope, monthKey, monthLabel, onGoToPlan, o
       if (!cancelled) {
         setTeamPlans(results);
         setLoading(false);
-        if (onTeamStatsLoaded) {
-          const tTarget = results.reduce((s, r) => s + (r.stats?.total_doctors || 0), 0);
+        if (onTeamStatsLoadedRef.current) {
+          const tTarget = results.reduce(
+            (sum, r) => sum + Math.max(r.stats?.total_doctors || 0, r.stats?.planned_visits || 0),
+            0
+          );
           const tDone = results.reduce((s, r) => s + (r.stats?.completed || 0), 0);
           const hasAny = results.some((r) => r.stats?.has_plan);
           const pct = tTarget > 0 ? Math.round((tDone / tTarget) * 100) : 0;
-          onTeamStatsLoaded({ totalTarget: tTarget, totalDone: tDone, hasAnyPlan: hasAny, pct });
+          const execPlanMap = {};
+          results.forEach((r) => {
+            execPlanMap[r.exec.id] = r.stats;
+          });
+          onTeamStatsLoadedRef.current({
+            totalTarget: tTarget,
+            totalDone: tDone,
+            hasAnyPlan: hasAny,
+            pct,
+            execPlanMap,
+          });
         }
       }
+    }).catch(() => {
+      if (!cancelled) setLoading(false);
     });
     return () => { cancelled = true; };
-  }, [execsInScope, activeMonth]); // eslint-disable-line
+  }, [execIds, activeMonth]); // eslint-disable-line
 
-  const totalTarget = teamPlans.reduce((sum, r) => sum + (r.stats?.total_doctors || 0), 0);
+  const totalTarget = teamPlans.reduce(
+    (sum, r) => sum + Math.max(r.stats?.total_doctors || 0, r.stats?.planned_visits || 0),
+    0
+  );
   const totalCompleted = teamPlans.reduce((sum, r) => sum + (r.stats?.completed || 0), 0);
-  const totalPending = teamPlans.reduce((sum, r) => sum + (r.stats?.pending || 0), 0);
-  const totalScheduled = teamPlans.reduce((sum, r) => sum + (r.stats?.planned_visits || 0), 0);
+  const totalPending = teamPlans.reduce(
+    (sum, r) => sum + (r.stats?.pending != null ? r.stats.pending : Math.max(0, Math.max(r.stats?.total_doctors || 0, r.stats?.planned_visits || 0) - (r.stats?.completed || 0))),
+    0
+  );
+  const totalScheduled = teamPlans.reduce(
+    (sum, r) => sum + Math.max(r.stats?.planned_visits || 0, r.stats?.total_doctors || 0),
+    0
+  );
   const overallPct = totalTarget > 0 ? Math.round((totalCompleted / totalTarget) * 100) : 0;
 
   const barColor = overallPct >= 80
@@ -2546,9 +3508,14 @@ function TeamPlanTargetPanel({ execsInScope, monthKey, monthLabel, onGoToPlan, o
       {/* ── header row ── */}
       <div className="pln-target-header">
         <div>
-          <h2 className="pln-target-title">
-            Team Visit Target — {activeMonthLabel}
-          </h2>
+          <div className="pln-title-row">
+            <div className="panel-title-icon-badge blue">
+              <Target size={17} />
+            </div>
+            <h2 className="pln-target-title">
+              Team Visit Target — {activeMonthLabel}
+            </h2>
+          </div>
           <p className="pln-hint">
             Overall team target across {execsInScope.length} executive{execsInScope.length !== 1 ? "s" : ""}
           </p>
@@ -2556,7 +3523,8 @@ function TeamPlanTargetPanel({ execsInScope, monthKey, monthLabel, onGoToPlan, o
         <div className="pln-target-header-right">
           {onGoToPlan && (
             <button className="rpt-btn-outline pln-target-btn" onClick={onGoToPlan}>
-              View Plans
+              <span>View Plans</span>
+              <ArrowRight size={14} />
             </button>
           )}
         </div>
@@ -2564,19 +3532,19 @@ function TeamPlanTargetPanel({ execsInScope, monthKey, monthLabel, onGoToPlan, o
 
       {/* ── stat pills ── */}
       <div className="pln-target-pills">
-        <div className="pln-target-pill">
+        <div className="pln-target-pill target">
           <strong>{totalTarget}</strong>
           <span>Target</span>
         </div>
-        <div className="pln-target-pill pln-target-pill-green">
+        <div className="pln-target-pill completed">
           <strong>{totalCompleted}</strong>
           <span>Completed</span>
         </div>
-        <div className="pln-target-pill pln-target-pill-orange">
+        <div className="pln-target-pill pending">
           <strong>{totalPending}</strong>
           <span>Pending</span>
         </div>
-        <div className="pln-target-pill">
+        <div className="pln-target-pill scheduled">
           <strong>{totalScheduled}</strong>
           <span>Scheduled</span>
         </div>
@@ -2592,7 +3560,7 @@ function TeamPlanTargetPanel({ execsInScope, monthKey, monthLabel, onGoToPlan, o
         </div>
         <span className="pln-target-pct">{overallPct}%</span>
       </div>
-      <p className="pln-hint" style={{ marginTop: 5 }}>
+      <p className="pln-hint" style={{ marginTop: 6 }}>
         <strong>{totalCompleted}</strong> of <strong>{totalTarget}</strong> team visits completed
       </p>
 
@@ -2618,6 +3586,9 @@ function TeamPlanTargetPanel({ execsInScope, monthKey, monthLabel, onGoToPlan, o
               Completed: "pln-planstatus-completed",
             }[stats.plan_status] ?? "pln-planstatus-draft";
 
+            const execTarget = Math.max(stats.total_doctors || 0, stats.planned_visits || 0);
+            const execPct = stats.completion_pct ?? (execTarget > 0 ? Math.round(((stats.completed || 0) / execTarget) * 100) : 0);
+
             return (
               <div key={exec.id} className="pln-team-exec-row">
                 <div className="pln-team-exec-info">
@@ -2629,14 +3600,14 @@ function TeamPlanTargetPanel({ execsInScope, monthKey, monthLabel, onGoToPlan, o
                 </div>
                 <div className="pln-team-exec-stats">
                   <span>
-                    <strong>{stats.completed}</strong> / {stats.total_doctors || 0} ({stats.completion_pct}%)
+                    <strong>{stats.completed}</strong> / {execTarget} ({execPct}%)
                   </span>
                   <div className="pln-team-exec-bar">
                     <div
                       className="pln-team-exec-fill"
                       style={{
-                        width: `${Math.min(100, stats.completion_pct)}%`,
-                        background: stats.completion_pct >= 80 ? "var(--chart-1)" : stats.completion_pct >= 50 ? "oklch(70% .16 75)" : "var(--primary)"
+                        width: `${Math.min(100, execPct)}%`,
+                        background: execPct >= 80 ? "var(--chart-1)" : execPct >= 50 ? "oklch(70% .16 75)" : "var(--primary)"
                       }}
                     />
                   </div>
@@ -2698,20 +3669,49 @@ function ExecutiveDashboard({ data, execId, planStats, monthLabel, onGoToPlan })
     <>
       {/* ── Stat cards ── */}
       <div className="stats">
-        <Stat icon="◎" title="My Tasks" value={myTasks.length} text={`${open} open`} type="blue" />
-        <Stat icon="✓" title="Tasks Done" value={done} text={`${donePct}% complete`} type="green" />
+        <Stat
+          icon={<ListTodo size={20} />}
+          title="My Tasks"
+          value={myTasks.length}
+          text={`${open} open tasks`}
+          type="blue"
+          trend={open > 0 ? `${open} Pending` : "All Clear"}
+        />
+        <Stat
+          icon={<CheckCircle2 size={20} />}
+          title="Tasks Done"
+          value={done}
+          text={`${donePct}% complete`}
+          type="green"
+          trend={donePct >= 70 ? "On Track" : "In Progress"}
+        />
         {planStats?.has_plan ? (
           <Stat
-            icon="🗓"
+            icon={<Target size={20} />}
             title="Plan Target"
             value={`${planStats.completion_pct ?? 0}%`}
-            text={`${planStats.completed ?? 0} / ${planStats.total_doctors ?? 0} visits`}
+            text={`${planStats.completed ?? 0} / ${Math.max(planStats.total_doctors || 0, planStats.planned_visits || 0)} visits`}
             type="orange"
+            trend={planStats.plan_status || "Active Plan"}
           />
         ) : (
-          <Stat icon="♙" title="Pin Codes Covered" value={myPincodes.size} text="Assigned coverage" type="orange" />
+          <Stat
+            icon={<MapPin size={20} />}
+            title="Pin Codes Covered"
+            value={myPincodes.size}
+            text="Assigned coverage"
+            type="orange"
+            trend="Territory"
+          />
         )}
-        <Stat icon="⚕" title="Doctors In Area" value={pincodeRows.reduce((s, r) => s + r.doctorCount, 0)} text="Across my pin codes" type="red" />
+        <Stat
+          icon={<Stethoscope size={20} />}
+          title="Doctors In Area"
+          value={pincodeRows.reduce((s, r) => s + r.doctorCount, 0)}
+          text="Across my pin codes"
+          type="red"
+          trend={`${myPincodes.size} Pincodes`}
+        />
       </div>
 
       {/* ── Top Grid: Tasks by Priority side-by-side with Plan Target Panel ── */}
@@ -2740,21 +3740,73 @@ function ExecutiveDashboard({ data, execId, planStats, monthLabel, onGoToPlan })
 ───────────────────────────────────────────────────────── */
 function TeamDashboard({ data, region, scopeLabel, monthKey, monthLabel, onGoToPlan }) {
   const { executives, coverage, tasks, doctors } = data;
-  const execsInScope = region ? executives.filter((e) => e.region === region) : executives;
+  const execsInScope = useMemo(() => {
+    if (!executives) return [];
+    return region ? executives.filter((e) => e.region === region) : executives;
+  }, [region, executives]);
+
   const [teamStatsSummary, setTeamStatsSummary] = useState(null);
+
+  const handleTeamStatsLoaded = useCallback((newStats) => {
+    setTeamStatsSummary((prev) => {
+      if (!prev) return newStats;
+      if (
+        prev.totalTarget === newStats.totalTarget &&
+        prev.totalDone === newStats.totalDone &&
+        prev.hasAnyPlan === newStats.hasAnyPlan &&
+        prev.pct === newStats.pct &&
+        JSON.stringify(prev.execPlanMap) === JSON.stringify(newStats.execPlanMap)
+      ) {
+        return prev;
+      }
+      return newStats;
+    });
+  }, []);
+
+  const execPlanMap = teamStatsSummary?.execPlanMap || {};
 
   const execStats = execsInScope.map((exec) => {
     const pincodes = new Set(coverage.filter((c) => c.executive_id === exec.id).map((c) => c.pincode));
     const myTasks = tasks.filter((t) => t.pincode && pincodes.has(t.pincode));
-    const done = myTasks.filter((t) => t.status === "done").length;
-    const pct = myTasks.length > 0 ? Math.round((done / myTasks.length) * 100) : 0;
-    return { exec, pincodes, taskCount: myTasks.length, done, pct };
+    const taskDone = myTasks.filter((t) => t.status === "done").length;
+    
+    // Check if executive has monthly plan visits
+    const planStat = execPlanMap[exec.id];
+    const planTarget = Math.max(planStat?.total_doctors || 0, planStat?.planned_visits || 0);
+    const planDone = planStat?.completed || 0;
+
+    // If general tasks are 0, use monthly plan visits as target & done
+    const effectiveTarget = myTasks.length > 0 ? myTasks.length : planTarget;
+    const effectiveDone = myTasks.length > 0 ? taskDone : planDone;
+    const effectivePct = effectiveTarget > 0 ? Math.round((effectiveDone / effectiveTarget) * 100) : 0;
+
+    return {
+      exec,
+      pincodes,
+      taskCount: effectiveTarget,
+      done: effectiveDone,
+      pct: effectivePct,
+      hasPlan: !!planStat?.has_plan,
+      planTarget,
+    };
   });
+
   const scopePincodes = [...new Set(coverage.filter((c) => execsInScope.some((e) => e.id === c.executive_id)).map((c) => c.pincode))];
   const scopeTasks = tasks.filter((t) => !t.pincode || scopePincodes.includes(t.pincode));
-  const totalDone = scopeTasks.filter((t) => t.status === "done").length;
-  const totalOpen = scopeTasks.length - totalDone;
-  const overallPct = scopeTasks.length > 0 ? Math.round((totalDone / scopeTasks.length) * 100) : 0;
+  const rawTotalDone = scopeTasks.filter((t) => t.status === "done").length;
+
+  // Use team plan stats if scopeTasks is empty
+  const totalTasksDisplay = scopeTasks.length > 0
+    ? scopeTasks.length
+    : (teamStatsSummary?.totalTarget || 0);
+  const totalDoneDisplay = scopeTasks.length > 0
+    ? rawTotalDone
+    : (teamStatsSummary?.totalDone || 0);
+  const totalOpenDisplay = Math.max(0, totalTasksDisplay - totalDoneDisplay);
+  const overallPct = totalTasksDisplay > 0
+    ? Math.round((totalDoneDisplay / totalTasksDisplay) * 100)
+    : 0;
+
   const scopeDoctors = doctors.filter((d) => scopePincodes.includes(d.pincode)).length;
   const tableRows = execStats.slice(0, 6).map((r) => [r.exec.name, r.taskCount, r.done, `${r.pct}%`]);
   const categories = execStats.slice(0, 6).map((r) => r.exec.name);
@@ -2764,30 +3816,59 @@ function TeamDashboard({ data, region, scopeLabel, monthKey, monthLabel, onGoToP
   return (
     <>
       <div className="stats">
-        <Stat icon="♙" title="My Executives" value={execsInScope.length} text={scopeLabel} type="blue" />
-        <Stat icon="◎" title="Total Tasks" value={scopeTasks.length} text="This period" type="green" />
+        <Stat
+          icon={<Users size={20} />}
+          title="My Executives"
+          value={execsInScope.length}
+          text={scopeLabel}
+          type="blue"
+          trend="Team Active"
+        />
+        <Stat
+          icon={<ListTodo size={20} />}
+          title="Total Tasks"
+          value={totalTasksDisplay}
+          text="This period"
+          type="green"
+          trend={`${totalDoneDisplay} Done`}
+        />
         {teamStatsSummary?.hasAnyPlan ? (
           <Stat
-            icon="🗓"
+            icon={<Target size={20} />}
             title="Team Plan Completion"
             value={`${teamStatsSummary.pct}%`}
             text={`${teamStatsSummary.totalDone} / ${teamStatsSummary.totalTarget} visits`}
             type="orange"
+            trend="Monthly Plan"
           />
         ) : (
-          <Stat icon="▣" title="Pin Codes" value={scopePincodes.length} text="Covered" type="orange" />
+          <Stat
+            icon={<MapPin size={20} />}
+            title="Pin Codes"
+            value={scopePincodes.length}
+            text="Covered territory"
+            type="orange"
+            trend="Territory"
+          />
         )}
-        <Stat icon="₹" title="Task Completion" value={`${overallPct}%`} text={`${scopeDoctors} doctors in scope`} type="red" />
+        <Stat
+          icon={<TrendingUp size={20} />}
+          title="Task Completion"
+          value={`${overallPct}%`}
+          text={`${scopeDoctors} doctors in scope`}
+          type="red"
+          trend={`${scopeDoctors} Doctors`}
+        />
       </div>
 
       {/* ── Top Grid: Team Target vs Achievement side-by-side with Team Plan Target Panel ── */}
       <div className="two-columns">
         <Chart title="Team Target vs Achievement" categories={categories.length ? categories : ["—"]} targets={targets.length ? targets : [0]} achieved={achieved.length ? achieved : [0]} />
-        <TeamPlanTargetPanel execsInScope={execsInScope} monthKey={monthKey} monthLabel={monthLabel} onGoToPlan={onGoToPlan} onTeamStatsLoaded={setTeamStatsSummary} />
+        <TeamPlanTargetPanel execsInScope={execsInScope} monthKey={monthKey} monthLabel={monthLabel} onGoToPlan={onGoToPlan} onTeamStatsLoaded={handleTeamStatsLoaded} />
       </div>
 
       <div className="two-columns">
-        <Achievement percentage={`${overallPct}%`} achieved={totalDone} progress={0} pending={totalOpen} />
+        <Achievement percentage={`${overallPct}%`} achieved={totalDoneDisplay} progress={0} pending={totalOpenDisplay} />
         <DashTable title="Executive Performance" headers={["Executive", "Tasks", "Done", "%"]} rows={tableRows} />
       </div>
     </>
@@ -2797,19 +3878,8 @@ function TeamDashboard({ data, region, scopeLabel, monthKey, monthLabel, onGoToP
 /* ─────────────────────────────────────────────────────────
    SHELL
 ───────────────────────────────────────────────────────── */
-const ROLES = {
-  EXECUTIVE: "executive",
-  MANAGER: "manager",
-  REGIONAL: "regional",
-};
-
-const ROLE_TITLES = {
-  executive: "Sales Executive",
-  manager: "Sales Manager",
-  regional: "Regional Manager",
-};
-
 const SECTION_TITLES = {
+  attendance: "Attendance & Shift Punch",
   dashboard: "Dashboard",
   doctors: "Doctors",
   plan: "Plan",
@@ -2817,14 +3887,76 @@ const SECTION_TITLES = {
   reports: "Reports",
 };
 
-export default function SalesCrm({ role, onSwitchRole, onExit }) {
+export default function SalesCrm({
+  role,
+  onSwitchRole,
+  onExit,
+  theme: propTheme,
+  onThemeChange: propOnThemeChange,
+  initialUserId,
+}) {
+  const [internalTheme, setInternalTheme] = useTheme();
+  const theme = propTheme !== undefined ? propTheme : internalTheme;
+  const setTheme = propOnThemeChange || setInternalTheme;
+  const toggleTheme = () => setTheme(theme === "dark" ? "light" : "dark");
+
   const data = useSalesData();
-  const [execId, setExecId] = useState(null);
-  const [managerId, setManagerId] = useState(null);
-  const [regionalId, setRegionalId] = useState(null);
+  const [execId, setExecId] = useState(initialUserId || null);
+  const [managerId, setManagerId] = useState(initialUserId || null);
+  const [regionalId, setRegionalId] = useState(initialUserId || null);
+
+  useEffect(() => {
+    if (initialUserId) {
+      if (role === ROLES.EXECUTIVE) setExecId(initialUserId);
+      else if (role === ROLES.MANAGER) setManagerId(initialUserId);
+      else if (role === ROLES.REGIONAL) setRegionalId(initialUserId);
+    }
+  }, [initialUserId, role]);
   const [region, setRegion] = useState("");
   const [profileOpen, setProfileOpen] = useState(false);
   const [activeSection, setActiveSection] = useState("dashboard");
+  const [search, setSearch] = useState("");
+
+  // Track online/offline status per user/role (persistent in localStorage)
+  const [onlineUsers, setOnlineUsers] = useState(() => {
+    try {
+      const saved = localStorage.getItem("zippy_crm_online_users");
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return {};
+  });
+
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userMenuRef = useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target)) {
+        setUserMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const isUserOnline = (userRole, id) => {
+    if (!id) return true;
+    const key = `${userRole}_${id}`;
+    return onlineUsers[key] !== false;
+  };
+
+  const handleToggleUserLogin = (userRole = role, id = currentRecord?.id) => {
+    if (!id) return;
+    const key = `${userRole}_${id}`;
+    setOnlineUsers((prev) => {
+      const currentlyOnline = prev[key] !== false;
+      const nextState = { ...prev, [key]: !currentlyOnline };
+      try {
+        localStorage.setItem("zippy_crm_online_users", JSON.stringify(nextState));
+      } catch (e) {}
+      return nextState;
+    });
+  };
 
   useEffect(() => {
     if (!execId && data.executives.length) {
@@ -2878,6 +4010,8 @@ export default function SalesCrm({ role, onSwitchRole, onExit }) {
         ? data.salesManagers.find((m) => m.id === managerId)
         : data.regionalManagers.find((r) => r.id === regionalId);
 
+  const isCurrentOnline = isUserOnline(role, currentRecord?.id);
+
   function initialsOf(name) {
     if (!name) return "?";
     return name.trim().charAt(0).toUpperCase();
@@ -2897,67 +4031,113 @@ export default function SalesCrm({ role, onSwitchRole, onExit }) {
           <div className="brand-logo"><img src={logo} alt="Zenve Zippy" /></div>
           <div>
             <div className="brand-name">Zenve Zippy CRM</div>
-            <div className="brand-sub">Sales CRM</div>
+            <div className="brand-sub">SALES CRM</div>
           </div>
         </div>
 
         <nav>
+          <div className="nav-heading">MAIN</div>
           <button
             className={"nav-item" + (activeSection === "dashboard" ? " active" : "")}
             onClick={() => setActiveSection("dashboard")}
           >
-            Dashboard
+            <Home size={17} className="nav-icon" />
+            <span>Dashboard</span>
           </button>
+          <button
+            className={"nav-item" + (activeSection === "attendance" ? " active" : "")}
+            onClick={() => setActiveSection("attendance")}
+            title="Sales Executive Attendance & Shift Punch"
+          >
+            <Clock size={17} className="nav-icon" />
+            <span>Attendance</span>
+          </button>
+
+          <div className="nav-heading">MANAGEMENT</div>
           <button
             className={"nav-item" + (activeSection === "doctors" ? " active" : "")}
             onClick={() => setActiveSection("doctors")}
           >
-            Doctors
+            <Stethoscope size={17} className="nav-icon" />
+            <span>Doctors</span>
           </button>
-          {role === ROLES.EXECUTIVE && (
-            <button
-              className={"nav-item" + (activeSection === "plan" ? " active" : "")}
-              onClick={() => setActiveSection("plan")}
-            >
-              Plan
-            </button>
-          )}
-          {(role === ROLES.MANAGER || role === ROLES.REGIONAL) && (
-            <button
-              className={"nav-item" + (activeSection === "approvals" ? " active" : "")}
-              onClick={() => setActiveSection("approvals")}
-            >
-              Approvals
-            </button>
-          )}
+          <button
+            className={"nav-item" + (activeSection === "approvals" || activeSection === "plan" ? " active" : "")}
+            onClick={() => {
+              if (role === ROLES.EXECUTIVE) setActiveSection("plan");
+              else setActiveSection("approvals");
+            }}
+          >
+            <ClipboardCheck size={17} className="nav-icon" />
+            <span>Approvals</span>
+            <span className="sidebar-badge-count">3</span>
+          </button>
           <button
             className={"nav-item" + (activeSection === "reports" ? " active" : "")}
             onClick={() => setActiveSection("reports")}
           >
-            Reports
+            <FileText size={17} className="nav-icon" />
+            <span>Reports</span>
           </button>
 
           <div className="nav-heading">SALES CRM</div>
           <button className={"nav-item" + (role === ROLES.REGIONAL ? " active" : "")} onClick={() => handleSwitchRole(ROLES.REGIONAL)}>
-            Regional Managers
+            <Globe size={17} className="nav-icon" />
+            <span>Regional Managers</span>
           </button>
           <button className={"nav-item" + (role === ROLES.MANAGER ? " active" : "")} onClick={() => handleSwitchRole(ROLES.MANAGER)}>
-            Sales Managers
+            <Users size={17} className="nav-icon" />
+            <span>Sales Managers</span>
           </button>
           <button className={"nav-item" + (role === ROLES.EXECUTIVE ? " active" : "")} onClick={() => handleSwitchRole(ROLES.EXECUTIVE)}>
-            Sales Executives
+            <User size={17} className="nav-icon" />
+            <span>Sales Executives</span>
           </button>
-          <button className="nav-item" onClick={onExit}>Admin CRM</button>
+
+          <div className="nav-heading">ADMINISTRATION</div>
+          <button className="nav-item" onClick={onExit}>
+            <Settings size={17} className="nav-icon" />
+            <span>Admin CRM</span>
+          </button>
         </nav>
+
+        {/* Sidebar Footer User & Logout */}
+        <div className="sidebar-footer-user">
+          <div className="sidebar-user-card" onClick={() => setProfileOpen(true)}>
+            <DoctorAvatar name={currentRecord?.name || "dhanushkodi"} size={36} isOnline={isCurrentOnline} />
+            <div className="sidebar-user-info">
+              <span className="sidebar-user-name">{currentRecord?.name || "dhanushkodi"}</span>
+              <span className="sidebar-user-role">{ROLE_TITLES[role] || "Sales Manager"}</span>
+              <span className="sidebar-user-online">
+                <span className="online-dot-pulse"></span> Online
+              </span>
+            </div>
+            <button type="button" className="sidebar-user-gear" title="Settings" onClick={(e) => { e.stopPropagation(); setProfileOpen(true); }}>
+              <Settings size={15} />
+            </button>
+          </div>
+          <button
+            type="button"
+            className="sidebar-logout-btn"
+            onClick={() => handleToggleUserLogin(role, currentRecord?.id)}
+          >
+            <LogOut size={16} />
+            <span>Logout</span>
+          </button>
+        </div>
       </aside>
 
       <main className="main">
-        <header className="header">
-          <div className="title-section">
-            <div>
-              <h1>{pageTitle}</h1>
-              <p>Track Performance • Manage Leads • Achieve Targets</p>
-            </div>
+        <header className="header med-navbar">
+          <div className="header-global-search">
+            <Search size={16} style={{ color: "#94a3b8", flexShrink: 0 }} />
+            <input
+              type="text"
+              placeholder="Search doctors, pet parents, pets, products, orders..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            <kbd className="header-search-kbd">Ctrl + K</kbd>
           </div>
 
           <div className="header-right">
@@ -2970,106 +4150,202 @@ export default function SalesCrm({ role, onSwitchRole, onExit }) {
               </select>
             </div>
 
-            {role === ROLES.EXECUTIVE && data.executives.length > 0 && (
-              <div className="role-switch">
-                <label>Executive</label>
-                <select value={execId ?? ""} onChange={(e) => setExecId(Number(e.target.value))}>
-                  {data.executives.map((e) => (
-                    <option key={e.id} value={e.id}>{e.name}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            {role === ROLES.MANAGER && data.salesManagers.length > 0 && (
-              <div className="role-switch">
-                <label>Manager</label>
-                <select value={managerId ?? ""} onChange={(e) => setManagerId(Number(e.target.value))}>
-                  {data.salesManagers.map((m) => (
-                    <option key={m.id} value={m.id}>{m.name}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            {role === ROLES.REGIONAL && data.regionalManagers.length > 0 && (
-              <div className="role-switch">
-                <label>Regional Manager</label>
-                <select value={regionalId ?? ""} onChange={(e) => setRegionalId(Number(e.target.value))}>
-                  {data.regionalManagers.map((r) => (
-                    <option key={r.id} value={r.id}>{r.name}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            {(role === ROLES.MANAGER || role === ROLES.REGIONAL) && (
-              <div className="role-switch">
-                <label>Region filter</label>
-                <select value={region} onChange={(e) => setRegion(e.target.value)}>
-                  <option value="">All</option>
-                  {regions.map((r) => (
-                    <option key={r} value={r}>{r}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            <div className="role-switch">
-              <label>Month</label>
-              <select value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)}>
-                {monthOptions.map((opt) => (
-                  <option key={opt.key} value={opt.key}>{opt.label}</option>
-                ))}
-              </select>
-            </div>
-
+            {/* Notification Bell with Badge 3 */}
             <button
-              className="profile-avatar-btn"
-              title={currentRecord ? `${currentRecord.name} — view profile` : "No profile selected"}
-              onClick={() => currentRecord && setProfileOpen(true)}
-              disabled={!currentRecord}
+              type="button"
+              className="header-bell-btn"
+              title="3 pending approvals & notifications"
+              onClick={() => {
+                if (role === ROLES.EXECUTIVE) setActiveSection("plan");
+                else setActiveSection("approvals");
+              }}
             >
-              {initialsOf(currentRecord?.name)}
+              <Bell size={18} />
+              <span className="header-bell-badge">3</span>
             </button>
+
+            {/* Light / Dark Mode Toggle */}
+            <button
+              type="button"
+              className="header-theme-icon-btn"
+              onClick={toggleTheme}
+              title={`Switch to ${theme === "dark" ? "Light" : "Dark"} mode`}
+            >
+              {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+            </button>
+
+            {/* User Profile Pill in Header */}
+            <div className="header-user-container" ref={userMenuRef}>
+              <div
+                className={`header-user-profile-wrap ${isCurrentOnline ? "online" : "offline"}`}
+                onClick={() => currentRecord && setUserMenuOpen((prev) => !prev)}
+              >
+                <DoctorAvatar name={currentRecord?.name || "dhanushkodi"} size={36} isOnline={isCurrentOnline} />
+                <div className="header-user-text">
+                  <span className="header-user-name">{currentRecord?.name || "dhanushkodi"}</span>
+                  <span className="header-user-role">{ROLE_TITLES[role] || "Sales Manager"}</span>
+                </div>
+                <ChevronDown size={14} style={{ color: "#94a3b8" }} />
+              </div>
+
+              {/* Direct Quick Log In / Log Out Header Button */}
+              {currentRecord && (
+                <button
+                  type="button"
+                  className={`header-auth-btn ${isCurrentOnline ? "logout" : "login"}`}
+                  onClick={() => handleToggleUserLogin(role, currentRecord.id)}
+                  title={isCurrentOnline ? `Log out ${currentRecord.name} (switch to Offline)` : `Log in ${currentRecord.name} (switch to Online)`}
+                >
+                  {isCurrentOnline ? (
+                    <>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                        <polyline points="16 17 21 12 16 7"></polyline>
+                        <line x1="21" y1="12" x2="9" y2="12"></line>
+                      </svg>
+                      <span>Log Out</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
+                        <polyline points="10 17 15 12 10 7"></polyline>
+                        <line x1="15" y1="12" x2="3" y2="12"></line>
+                      </svg>
+                      <span>Log In</span>
+                    </>
+                  )}
+                </button>
+              )}
+
+              {/* User Profile Dropdown Menu */}
+              {userMenuOpen && currentRecord && (
+                <div className="header-user-menu-dropdown">
+                  <div className="user-menu-header">
+                    <DoctorAvatar name={currentRecord.name} size={40} isOnline={isCurrentOnline} />
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div className="user-menu-name">{currentRecord.name}</div>
+                      <div className="user-menu-role">{ROLE_TITLES[role]}</div>
+                      {currentRecord.code && (
+                        <div style={{ fontSize: "0.72rem", color: "var(--muted-foreground)", marginTop: "1px" }}>
+                          {currentRecord.code} {currentRecord.region ? `• ${currentRecord.region}` : ""}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="user-menu-status-row">
+                    <span style={{ color: "var(--muted-foreground)" }}>Status</span>
+                    <span className={isCurrentOnline ? "user-online-pill" : "user-offline-pill"}>
+                      <span className={isCurrentOnline ? "online-pulse-dot" : "offline-pulse-dot"}></span>
+                      {isCurrentOnline ? "Online" : "Offline"}
+                    </span>
+                  </div>
+
+                  <div className="user-menu-actions">
+                    <button
+                      type="button"
+                      className="user-menu-action-btn"
+                      onClick={() => {
+                        setUserMenuOpen(false);
+                        setProfileOpen(true);
+                      }}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="12" cy="7" r="4"></circle>
+                      </svg>
+                      <span>View & Edit Profile</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      className={`user-menu-action-btn ${isCurrentOnline ? "logout" : "login"}`}
+                      onClick={() => {
+                        if (isCurrentOnline) {
+                          handleToggleUserLogin(role, currentRecord.id);
+                          setUserMenuOpen(false);
+                        } else {
+                          setUserMenuOpen(false);
+                          if (onSwitchRole) onSwitchRole(role);
+                        }
+                      }}
+                    >
+                      {isCurrentOnline ? (
+                        <>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                            <polyline points="16 17 21 12 16 7"></polyline>
+                            <line x1="21" y1="12" x2="9" y2="12"></line>
+                          </svg>
+                          <span>Log Out ({currentRecord.name})</span>
+                        </>
+                      ) : (
+                        <>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
+                            <polyline points="10 17 15 12 10 7"></polyline>
+                            <line x1="15" y1="12" x2="3" y2="12"></line>
+                          </svg>
+                          <span>Log In as {currentRecord.name}</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </header>
 
+        {!isCurrentOnline && currentRecord && (
+          <div className="offline-notice-bar">
+            <div className="offline-notice-content">
+              <span className="offline-pulse-badge">
+                <span className="offline-dot-pulse"></span>
+                OFFLINE
+              </span>
+              <span className="offline-notice-msg">
+                <strong>{currentRecord.name}</strong> ({ROLE_TITLES[role]}) is currently in Offline Mode. Log in to activate shift tracking and attendance.
+              </span>
+            </div>
+            <button
+              type="button"
+              className="offline-login-action-btn"
+              onClick={() => {
+                if (onSwitchRole) onSwitchRole(role);
+                else handleToggleUserLogin(role, currentRecord.id);
+              }}
+            >
+              <LogIn size={13} />
+              <span>Log In & Go Online</span>
+            </button>
+          </div>
+        )}
+
         <section className="content">
+          {activeSection === "attendance" && (
+            <AttendanceView
+              data={data}
+              execId={execId}
+              role={role}
+              currentRecord={currentRecord}
+              onSwitchExecutive={(newId) => setExecId(newId)}
+            />
+          )}
+
           {activeSection === "dashboard" && (
-            <>
-              {data.loading && <p style={{ color: "#7f8b98" }}>Loading dashboard…</p>}
-              {data.error && <div className="dash-error">{data.error}</div>}
-              {!data.loading && !data.error && role === ROLES.EXECUTIVE && (
-                <ExecutiveDashboard
-                  data={data}
-                  execId={execId}
-                  planStats={planStats}
-                  monthLabel={selectedMonthLabel}
-                  onGoToPlan={() => setActiveSection("plan")}
-                />
-              )}
-              {!data.loading && !data.error && role === ROLES.MANAGER && (
-                <TeamDashboard
-                  data={data}
-                  region={region || null}
-                  scopeLabel="Active team members"
-                  monthKey={selectedMonth}
-                  monthLabel={selectedMonthLabel}
-                  onGoToPlan={() => setActiveSection("approvals")}
-                />
-              )}
-              {!data.loading && !data.error && role === ROLES.REGIONAL && (
-                <TeamDashboard
-                  data={data}
-                  region={region || null}
-                  scopeLabel="Across all regions"
-                  monthKey={selectedMonth}
-                  monthLabel={selectedMonthLabel}
-                  onGoToPlan={() => setActiveSection("approvals")}
-                />
-              )}
-            </>
+            <MasterEnterpriseDashboard
+              data={data}
+              currentRecord={currentRecord}
+              role={role}
+              onGoToDoctors={() => setActiveSection("doctors")}
+              onGoToAttendance={() => setActiveSection("attendance")}
+              onGoToPlan={() => role === ROLES.EXECUTIVE ? setActiveSection("plan") : setActiveSection("approvals")}
+              onGoToReports={() => setActiveSection("reports")}
+              onAddDoctor={() => setActiveSection("doctors")}
+              onViewDoctor={() => setActiveSection("doctors")}
+            />
           )}
 
           {activeSection === "reports" && (
@@ -3084,7 +4360,7 @@ export default function SalesCrm({ role, onSwitchRole, onExit }) {
           )}
 
           {activeSection === "doctors" && (
-            <DoctorsView data={data} execId={execId} />
+            <DoctorsView data={data} execId={execId} role={role} />
           )}
 
           {(activeSection === "plan" || activeSection === "approvals") && (
@@ -3121,6 +4397,8 @@ export default function SalesCrm({ role, onSwitchRole, onExit }) {
         <ProfileModal
           tableKey={currentTableKey}
           record={currentRecord}
+          isOnline={isCurrentOnline}
+          onToggleLogin={() => handleToggleUserLogin(role, currentRecord.id)}
           onClose={() => setProfileOpen(false)}
         />
       )}

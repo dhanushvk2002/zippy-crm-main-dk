@@ -96,6 +96,7 @@ export const TABLE_CONFIG = {
       { key: "consultation_fee", type: "number" },
       { key: "verification_status", type: "text", default: "pending" },
       { key: "is_active", type: "yesno", default: "Yes" },
+      { key: "digital_signature", type: "text" },
     ],
   },
   clinics: {

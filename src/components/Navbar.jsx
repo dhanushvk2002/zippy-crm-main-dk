@@ -17,7 +17,7 @@ function Navbar({ activeItem }) {
         />
 
         <button className="primary-button">
-          New record
+          + New record
         </button>
 
         <button className="nav-button active">

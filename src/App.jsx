@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
+import React, { Component, useState, useMemo, useEffect, useCallback } from "react";
 import { findLabel, findGroupLabel, SALES_TEAM_STATS } from "./data.js";
 import { SEARCH_CONFIG } from "./searchConfig.js";
 import {
@@ -19,12 +19,145 @@ import RecordModal from "./components/RecordModal.jsx";
 import Dashboard from "./components/Dashboard.jsx";
 import BulkTools from "./components/BulkTools.jsx";
 import SalesCrmClone from "./components/SalesCrm.jsx";
+import SalesCrmLoginModal from "./components/SalesCrmLoginModal.jsx";
+import HealthcareDashboard from "./components/HealthcareDashboard.jsx";
+import HealthcareDoctorsView from "./components/HealthcareDoctorsView.jsx";
+import HealthcarePetParentsView from "./components/HealthcarePetParentsView.jsx";
+import HealthcarePetsView from "./components/HealthcarePetsView.jsx";
+import HealthcareAppointmentsView from "./components/HealthcareAppointmentsView.jsx";
+import HealthcareMedicalRecordsView from "./components/HealthcareMedicalRecordsView.jsx";
+import HealthcareVaccinationsView from "./components/HealthcareVaccinationsView.jsx";
+import HealthcareClinicsView from "./components/HealthcareClinicsView.jsx";
+import HealthcareProductsView from "./components/HealthcareProductsView.jsx";
+import HealthcareInventoryView from "./components/HealthcareInventoryView.jsx";
+import HealthcareOrdersView from "./components/HealthcareOrdersView.jsx";
+import HealthcareSalesExecutivesView from "./components/HealthcareSalesExecutivesView.jsx";
+import HealthcareReportsView from "./components/HealthcareReportsView.jsx";
+import HealthcareSalesCrmDashboard from "./components/HealthcareSalesCrmDashboard.jsx";
+import useTheme from "./useTheme.js";
 
 const PAGE_SIZE = 10;
 
-export default function App() {
-  const [salesCrmView, setSalesCrmView] = useState(null); // null | "executive" | "manager" | "regional"
-  const [currentKey, setCurrentKey] = useState("pet_parents");
+class ErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error, errorInfo) {
+    console.error("ErrorBoundary caught an error:", error, errorInfo);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{
+          minHeight: "100vh",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "2rem",
+          background: "#0f172a",
+          color: "#f8fafc",
+          fontFamily: "-apple-system, sans-serif"
+        }}>
+          <div style={{
+            maxWidth: "520px",
+            width: "100%",
+            background: "#1e293b",
+            borderRadius: "16px",
+            padding: "24px",
+            border: "1px solid #334155",
+            boxShadow: "0 20px 40px rgba(0,0,0,0.4)"
+          }}>
+            <h2 style={{ fontSize: "1.25rem", color: "#f87171", marginBottom: "8px" }}>
+              Zenve Zippy Recovery
+            </h2>
+            <p style={{ fontSize: "0.85rem", color: "#94a3b8", marginBottom: "16px" }}>
+              {this.state.error?.message || "An unexpected error occurred during rendering."}
+            </p>
+            <div style={{ display: "flex", gap: "10px" }}>
+              <button
+                onClick={() => {
+                  window.location.reload();
+                }}
+                style={{
+                  padding: "10px 18px",
+                  background: "#007c71",
+                  color: "#ffffff",
+                  border: "none",
+                  borderRadius: "10px",
+                  fontWeight: 600,
+                  cursor: "pointer"
+                }}
+              >
+                Reload
+              </button>
+              <button
+                onClick={() => {
+                  localStorage.removeItem("zippy_crm_last_view");
+                  localStorage.setItem("zippy_crm_last_view", "manager");
+                  window.location.reload();
+                }}
+                style={{
+                  padding: "10px 18px",
+                  background: "transparent",
+                  color: "#cbd5e1",
+                  border: "1px solid #475569",
+                  borderRadius: "10px",
+                  fontWeight: 600,
+                  cursor: "pointer"
+                }}
+              >
+                Reset to Dashboard
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+function MainApp() {
+  const [theme, setTheme] = useTheme();
+  const [salesCrmView, setSalesCrmView] = useState(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("portal") === "sales") return "manager";
+      const saved = localStorage.getItem("zippy_crm_last_view");
+      if (saved && saved !== "admin" && localStorage.getItem("zippy_crm_explicit_sales") === "true") {
+        return saved;
+      }
+    } catch (e) {}
+    return null;
+  });
+  const [salesLoginModal, setSalesLoginModal] = useState({ isOpen: false, role: "manager" });
+  const [activeAuthUser, setActiveAuthUser] = useState(() => {
+    try {
+      const saved = localStorage.getItem("zippy_crm_active_auth");
+      if (saved) return JSON.parse(saved)?.user || null;
+    } catch (e) {}
+    return { name: "dhanushkodi", role: "manager" };
+  });
+
+  function handleOpenSalesCRM(view) {
+    setSalesLoginModal({ isOpen: true, role: view || "manager" });
+  }
+
+  function handleSalesLoginSuccess({ role, user }) {
+    setActiveAuthUser(user);
+    setSalesCrmView(role);
+    try {
+      localStorage.setItem("zippy_crm_last_view", role);
+      localStorage.setItem("zippy_crm_explicit_sales", "true");
+    } catch (e) {}
+    setSalesLoginModal({ isOpen: false, role });
+  }
+  const [currentKey, setCurrentKey] = useState("doctors");
   const [records, setRecords] = useState([]); // raw objects from the API, in list order
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -162,83 +295,245 @@ export default function App() {
 
   if (salesCrmView) {
     return (
-      <SalesCrmClone
-        role={salesCrmView}
-        onSwitchRole={(view) => setSalesCrmView(view)}
-        onExit={() => setSalesCrmView(null)}
-      />
+      <>
+        <SalesCrmClone
+          role={salesCrmView}
+          initialUserId={activeAuthUser?.id}
+          onSwitchRole={(view) => {
+            setSalesCrmView(view);
+            try {
+              localStorage.setItem("zippy_crm_last_view", view);
+            } catch (e) {}
+          }}
+          onExit={() => {
+            setSalesCrmView(null);
+            try {
+              localStorage.setItem("zippy_crm_last_view", "admin");
+            } catch (e) {}
+          }}
+          theme={theme}
+          onThemeChange={setTheme}
+        />
+        <SalesCrmLoginModal
+          isOpen={salesLoginModal.isOpen}
+          initialRole={salesLoginModal.role}
+          onClose={() => setSalesLoginModal((prev) => ({ ...prev, isOpen: false }))}
+          onLoginSuccess={handleSalesLoginSuccess}
+        />
+      </>
     );
   }
 
   return (
     <div className="zzc-app">
-      <Sidebar currentKey={currentKey} onSelect={selectTable}/>
+      <Sidebar
+        currentKey={currentKey}
+        onSelect={selectTable}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        onOpenSalesCRM={handleOpenSalesCRM}
+      />
 
       <main className="zzc-main">
         <TopBar
-          title={findLabel(currentKey)}
-          subtitle={`${filtered.length} records · table ${currentKey}`}
-          showSearch={activeTab === "data" && Boolean(searchConfig)}
-          showNewRecord={activeTab === "data"}
-          searchPlaceholder={searchConfig ? "Search " + searchConfig.placeholder : ""}
+          title={
+            activeTab === "dashboard"
+              ? "Dashboard"
+              : activeTab === "bulk"
+              ? "Bulk Tools"
+              : findLabel(currentKey)
+          }
+          breadcrumb={
+            activeTab === "dashboard"
+              ? "Healthcare / Operations"
+              : activeTab === "bulk"
+              ? "Tools / Batch Updates"
+              : `Healthcare / ${findLabel(currentKey)}`
+          }
           searchTerm={searchTerm}
           onSearchChange={(value) => {
             setSearchTerm(value);
             setCurrentPage(1);
           }}
-          onNewRecord={openNewModal}
+          onQuickAdd={openNewModal}
           activeTab={activeTab}
           onTabChange={setActiveTab}
-          onOpenSalesCRM={(view) => setSalesCrmView(view)}
+          onOpenSalesCRM={handleOpenSalesCRM}
+          theme={theme}
+          onThemeChange={setTheme}
         />
 
         {error && (
-          <div className="zzc-content" style={{ paddingTop: 0 }}>
+          <div className="zzc-content" style={{ paddingTop: "12px", paddingBottom: 0 }}>
             <div
               style={{
                 background: "#fee2e2",
                 color: "#991b1b",
                 padding: "10px 14px",
-                borderRadius: 8,
-                marginBottom: 12,
+                borderRadius: 10,
                 fontSize: 14,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
               }}
             >
-              {error}
+              <span>{error}</span>
+              <button
+                type="button"
+                onClick={() => setError(null)}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  color: "#991b1b",
+                  cursor: "pointer",
+                  fontWeight: "bold",
+                }}
+              >
+                ✕
+              </button>
             </div>
           </div>
         )}
 
-        {activeTab === "dashboard" && <Dashboard />}
+        {/* ── Healthcare Dashboard (Section 4 & 5) ── */}
+        {activeTab === "dashboard" && (
+          <HealthcareDashboard
+            onNavigate={(key) => selectTable(key)}
+            onNewAppointment={() => {
+              selectTable("appointments");
+              openNewModal();
+            }}
+            onSelectDoctor={() => {
+              selectTable("doctors");
+            }}
+          />
+        )}
 
+        {/* ── Bulk Tools (Section 19) ── */}
         {activeTab === "bulk" && <BulkTools />}
-        
+
+        {/* ── Core Healthcare & Data Views ── */}
         {activeTab === "data" && (
           <>
-          {findGroupLabel(currentKey) === "Sales team" ? (
-  <SalesTeamStats refreshTrigger={refreshTrigger} />
-) : (
-  <StatsGrid refreshTrigger={refreshTrigger} />
-)}
-            {loading ? (
-              <div className="zzc-content">
-                <p className="zzc-muted">Loading {findLabel(currentKey)}…</p>
-              </div>
-            ) : (
-              <DataTable
-                columns={columnLabels}
-                pageItems={pageItems.map((record, index) => ({
-                  row: columns.map((field) => formatCell(field, record)),
-                  index,
-                  record,
-                }))}
-                onEdit={(index) => openEditModal(pageItems[index])}
-                onDelete={(index) => handleDelete(pageItems[index])}
-                currentPage={safePage}
-                totalPages={totalPages}
-                onPrevPage={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                onNextPage={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+            {currentKey === "doctors" ? (
+              <HealthcareDoctorsView
+                records={records}
+                onAddNew={openNewModal}
+                onEdit={openEditModal}
+                onDelete={handleDelete}
               />
+            ) : currentKey === "pet_parents" ? (
+              <HealthcarePetParentsView
+                records={records}
+                onAddNew={openNewModal}
+                onEdit={openEditModal}
+                onDelete={handleDelete}
+              />
+            ) : currentKey === "pets" ? (
+              <HealthcarePetsView
+                records={records}
+                onAddNew={openNewModal}
+                onEdit={openEditModal}
+                onDelete={handleDelete}
+              />
+            ) : currentKey === "appointments" ? (
+              <HealthcareAppointmentsView
+                records={records}
+                onAddNew={openNewModal}
+                onEdit={openEditModal}
+                onDelete={handleDelete}
+              />
+            ) : currentKey === "medical_records" ? (
+              <HealthcareMedicalRecordsView
+                records={records}
+                onAddNew={openNewModal}
+                onEdit={openEditModal}
+                onDelete={handleDelete}
+              />
+            ) : currentKey === "vaccinations" ? (
+              <HealthcareVaccinationsView
+                records={records}
+                onAddNew={openNewModal}
+                onEdit={openEditModal}
+                onDelete={handleDelete}
+              />
+            ) : currentKey === "clinics" ? (
+              <HealthcareClinicsView
+                records={records}
+                onAddNew={openNewModal}
+                onEdit={openEditModal}
+                onDelete={handleDelete}
+              />
+            ) : currentKey === "products" ? (
+              <HealthcareProductsView
+                records={records}
+                onAddNew={openNewModal}
+                onEdit={openEditModal}
+                onDelete={handleDelete}
+              />
+            ) : currentKey === "inventory" ? (
+              <HealthcareInventoryView
+                records={records}
+                onAddNew={openNewModal}
+                onEdit={openEditModal}
+                onDelete={handleDelete}
+                onBulkUpdate={() => setActiveTab("bulk")}
+              />
+            ) : currentKey === "orders" ? (
+              <HealthcareOrdersView
+                records={records}
+                onAddNew={openNewModal}
+                onEdit={openEditModal}
+                onDelete={handleDelete}
+              />
+            ) : currentKey === "sales_executives" ? (
+              <HealthcareSalesExecutivesView
+                records={records}
+                onAddNew={openNewModal}
+                onEdit={openEditModal}
+                onDelete={handleDelete}
+              />
+            ) : currentKey === "reports" ? (
+              <HealthcareReportsView
+                records={records}
+                onAddNew={openNewModal}
+                onEdit={openEditModal}
+                onDelete={handleDelete}
+              />
+            ) : currentKey === "sales_crm" ? (
+              <HealthcareSalesCrmDashboard
+                onOpenDetailedSalesCrm={(role) => handleOpenSalesCRM(role)}
+              />
+            ) : (
+              /* Generic Healthcare Data Table for secondary entities */
+              <>
+                {findGroupLabel(currentKey) === "Sales" ||
+                findGroupLabel(currentKey) === "Sales team" ? (
+                  <SalesTeamStats refreshTrigger={refreshTrigger} />
+                ) : (
+                  <StatsGrid refreshTrigger={refreshTrigger} />
+                )}
+                {loading ? (
+                  <div className="zzc-content">
+                    <p className="zzc-muted">Loading {findLabel(currentKey)}…</p>
+                  </div>
+                ) : (
+                  <DataTable
+                    columns={columnLabels}
+                    pageItems={pageItems.map((record, index) => ({
+                      row: columns.map((field) => formatCell(field, record)),
+                      index,
+                      record,
+                    }))}
+                    onEdit={(index) => openEditModal(pageItems[index])}
+                    onDelete={(index) => handleDelete(pageItems[index])}
+                    currentPage={safePage}
+                    totalPages={totalPages}
+                    onPrevPage={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    onNextPage={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  />
+                )}
+              </>
             )}
           </>
         )}
@@ -246,6 +541,7 @@ export default function App() {
 
       <RecordModal
         mode={modalMode}
+        entityName={findLabel(currentKey)}
         columns={columns.map((f) => ({ key: f.key, label: f.label || f.key, type: f.type, readOnly: f.readOnly, required: f.required, options: f.options, default: f.default }))}
         values={formValues}
         onChange={handleFieldChange}
@@ -253,7 +549,22 @@ export default function App() {
         onCancel={closeModal}
         saving={saving}
       />
+
+      <SalesCrmLoginModal
+        isOpen={salesLoginModal.isOpen}
+        initialRole={salesLoginModal.role}
+        onClose={() => setSalesLoginModal((prev) => ({ ...prev, isOpen: false }))}
+        onLoginSuccess={handleSalesLoginSuccess}
+      />
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <ErrorBoundary>
+      <MainApp />
+    </ErrorBoundary>
   );
 }
 

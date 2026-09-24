@@ -1,4 +1,5 @@
 import { formatDateLong, formatDateShort } from "./planData.js";
+import DoctorAvatar from "./DoctorAvatar.jsx";
 
 export function StatusBadge({ status }) {
   const cls = "pln-status pln-status-" + status.toLowerCase().replace(/\s+/g, "-");
@@ -54,7 +55,7 @@ export function DoctorMiniCard({ doctor }) {
   if (!doctor) return <span className="doc-muted">Unknown doctor</span>;
   return (
     <div className="doc-name-cell">
-      <div className="doc-avatar">{doctor.name?.charAt(4)?.toUpperCase() ?? "D"}</div>
+      <DoctorAvatar name={doctor.name} size={30} />
       <div>
         <span className="doc-name-text">{doctor.name}</span>
         <div className="doc-muted" style={{ fontSize: ".7rem" }}>{doctor.specialization}</div>

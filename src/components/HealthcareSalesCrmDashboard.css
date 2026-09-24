@@ -1,0 +1,279 @@
+/* ==========================================================================
+   HealthcareSalesCrmDashboard.css — Healthcare CRM & Deal Pipeline
+   Clean, Professional, Subtle Colors, Modern Kanban Board
+   ========================================================================== */
+
+.hc-salescrm-view {
+  padding: 1.5rem 1.75rem 3rem;
+  max-width: 1540px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.hc-salescrm-head-btns {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.hc-crm-sections-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #ffffff;
+  padding: 8px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+  margin-bottom: 1.5rem;
+  overflow-x: auto;
+}
+
+.hc-crm-sec-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.hc-crm-sec-btn:hover {
+  color: #0f172a;
+  background: #f1f5f9;
+}
+
+.hc-crm-sec-btn.active {
+  background: #e0f2fe;
+  color: #0284c7;
+}
+
+/* ── Kanban Board Grid ── */
+.hc-kanban-board {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(250px, 1fr));
+  gap: 14px;
+  overflow-x: auto;
+  padding-bottom: 1rem;
+}
+
+.hc-kanban-col {
+  background: #f8fafc;
+  border-radius: 16px;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+}
+
+.hc-kanban-col-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  padding: 4px 6px;
+}
+
+.hc-stage-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hc-stage-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  background: #0284c7;
+}
+
+.hc-stage-title {
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+}
+
+.hc-stage-count {
+  font-size: 0.72rem;
+  font-weight: 600;
+  background: #e2e8f0;
+  color: #475569;
+  padding: 1px 7px;
+  border-radius: 9999px;
+}
+
+.hc-kanban-cards-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.hc-kanban-card {
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  padding: 12px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+  transition: all 0.16s ease;
+}
+
+.hc-kanban-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.1);
+  border-color: rgba(2, 132, 199, 0.35);
+}
+
+.hc-kcard-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.hc-kcard-clinic {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #0f172a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 150px;
+}
+
+.hc-kcard-doctor {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.hc-kcard-doctor strong {
+  display: block;
+  font-size: 0.78rem;
+  color: #334155;
+}
+
+.hc-kcard-phone {
+  display: block;
+  font-size: 0.7rem;
+  color: #94a3b8;
+}
+
+.hc-kcard-product-box {
+  background: #f8fafc;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(226, 232, 240, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.hc-kcard-product {
+  font-size: 0.72rem;
+  color: #64748b;
+  max-width: 130px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hc-kcard-value {
+  font-size: 0.78rem;
+  color: #0284c7;
+}
+
+.hc-kcard-activity {
+  font-size: 0.7rem;
+  color: #64748b;
+  margin: 0;
+  line-height: 1.3;
+}
+
+.hc-kanban-empty {
+  padding: 2rem 1rem;
+  text-align: center;
+  font-size: 0.76rem;
+  color: #94a3b8;
+}
+
+/* ── Alternate CRM Panel ── */
+.hc-crm-alt-panel {
+  background: #ffffff;
+  border-radius: 16px;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  padding: 1.5rem;
+}
+
+.hc-panel-header {
+  margin-bottom: 1.25rem;
+}
+
+.hc-panel-header h4 {
+  font-size: 1.1rem;
+  color: #0f172a;
+  margin: 0 0 4px 0;
+}
+
+.hc-panel-header p {
+  font-size: 0.82rem;
+  color: #64748b;
+  margin: 0;
+}
+
+.hc-crm-alt-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 14px;
+}
+
+.hc-alt-contact-card {
+  padding: 14px;
+  background: #f8fafc;
+  border-radius: 14px;
+  border: 1px solid rgba(226, 232, 240, 0.85);
+  display: flex;
+  flex-direction: column;
+}
+
+.hc-alt-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.hc-alt-head strong {
+  display: block;
+  font-size: 0.9rem;
+  color: #0f172a;
+}
+
+.hc-alt-head p {
+  font-size: 0.76rem;
+  color: #64748b;
+  margin: 0;
+}
+
+.hc-alt-details {
+  font-size: 0.78rem;
+  color: #475569;
+  margin-bottom: 12px;
+}
+
+.hc-alt-details p {
+  margin: 3px 0;
+}
+
+.hc-alt-actions {
+  margin-top: auto;
+}

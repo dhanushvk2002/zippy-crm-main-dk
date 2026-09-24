@@ -1,0 +1,217 @@
+/* ==========================================================================
+   BulkTools.css — Large-Scale Healthcare Updates & CSV Utilities
+   ========================================================================== */
+
+.hc-bulk-view {
+  padding: 1.5rem 1.75rem 3rem;
+  max-width: 1540px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.hc-bulk-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.25rem;
+  margin-bottom: 2rem;
+}
+
+@media (max-width: 900px) {
+  .hc-bulk-cards-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.hc-bulk-card {
+  background: #ffffff;
+  border-radius: 18px;
+  border: 1.5px solid rgba(226, 232, 240, 0.9);
+  padding: 1.5rem;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+}
+
+.hc-bulk-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px -4px rgba(2, 132, 199, 0.12), 0 2px 6px rgba(15, 23, 42, 0.04);
+  border-color: rgba(2, 132, 199, 0.35);
+}
+
+.hc-bulk-card.selected {
+  border-color: #0284c7;
+  background: linear-gradient(180deg, #f0fdfa 0%, #ffffff 100%);
+  box-shadow: 0 8px 20px -3px rgba(2, 132, 199, 0.15);
+}
+
+.hc-bulk-card-icon {
+  width: 58px;
+  height: 58px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1rem;
+}
+
+.hc-bulk-card-icon.blue { background: #e0f2fe; color: #0284c7; }
+.hc-bulk-card-icon.teal { background: #ccfbf1; color: #0f766e; }
+.hc-bulk-card-icon.purple { background: #f3e8ff; color: #7e22ce; }
+
+.hc-bulk-card-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 6px 0;
+}
+
+.hc-bulk-card-desc {
+  font-size: 0.84rem;
+  color: #64748b;
+  line-height: 1.5;
+  margin: 0 0 1.25rem 0;
+  flex: 1;
+}
+
+.hc-bulk-card-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  background: #f8fafc;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: #334155;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.hc-bulk-card-btn:hover,
+.hc-bulk-card-btn.active {
+  background: #0284c7;
+  color: #ffffff;
+  border-color: #0284c7;
+}
+
+/* ── Workspace ── */
+.hc-bulk-workspace {
+  background: #ffffff;
+  border-radius: 18px;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  padding: 1.5rem;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04);
+}
+
+.hc-workspace-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.25rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.85);
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.hc-ws-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.hc-ws-title-wrap h4 {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+}
+
+.hc-ws-title-wrap p {
+  font-size: 0.78rem;
+  color: #64748b;
+  margin: 2px 0 0 0;
+}
+
+.hc-workspace-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+}
+
+@media (max-width: 800px) {
+  .hc-workspace-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.hc-bulk-panel {
+  background: #f8fafc;
+  padding: 1.25rem;
+  border-radius: 14px;
+  border: 1px solid rgba(226, 232, 240, 0.85);
+}
+
+.hc-panel-title {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 4px 0;
+}
+
+.hc-panel-sub {
+  font-size: 0.76rem;
+  color: #64748b;
+  margin: 0 0 8px 0;
+}
+
+.hc-csv-sample {
+  background: #ffffff;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-family: monospace;
+  font-size: 0.72rem;
+  color: #0284c7;
+  overflow-x: auto;
+  margin-bottom: 10px;
+}
+
+.hc-bulk-textarea {
+  width: 100%;
+  padding: 10px;
+  background: #ffffff;
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  border-radius: 10px;
+  font-family: monospace;
+  font-size: 0.78rem;
+  color: #0f172a;
+  outline: none;
+}
+
+.hc-bulk-textarea:focus {
+  border-color: #0284c7;
+}
+
+.hc-activity-log {
+  background: #0f172a;
+  border-radius: 10px;
+  padding: 12px;
+  height: 220px;
+  overflow-y: auto;
+  font-family: monospace;
+  font-size: 0.72rem;
+  color: #cbd5e1;
+}
+
+.hc-log-line {
+  margin-bottom: 4px;
+  line-height: 1.4;
+}
+
+.hc-log-empty {
+  color: #64748b;
+  font-style: italic;
+}

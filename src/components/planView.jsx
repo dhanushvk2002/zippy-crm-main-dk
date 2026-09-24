@@ -33,7 +33,10 @@ import {
   DayDetailModal,
 } from "./PlanModals.jsx";
 import "./Plan.css";
-import { VscSearch } from "react-icons/vsc";
+import StylishSearchIcon from "./StylishSearchIcon.jsx";
+import DoctorAvatar from "./DoctorAvatar.jsx";
+import StylizedEyeIcon from "./StylizedEyeIcon.jsx";
+import { ViewDoctorModal } from "./SalesCrm.jsx";
 
 /* ─────────────────────────────────────────────────────────
    Convert a real API doctor (from useSalesData) into the
@@ -86,7 +89,7 @@ function TaskActions({ task, onStart, onComplete, onReschedule, onCancel }) {
         Reschedule
       </button>
       {task.cancelRequested ? (
-        <button type="button" className="rpt-btn-sm rpt-btn-outline" disabled style={{opacity: 0.7}}>
+        <button type="button" className="rpt-btn-sm rpt-btn-outline" disabled style={{ opacity: 0.7 }}>
           Cancel Pending
         </button>
       ) : (
@@ -288,6 +291,7 @@ function AssignedDoctorsTab({ store, planDoctorMap, monthKey }) {
   const [priorityFilter, setPriorityFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [scheduling, setScheduling] = useState(null);
+  const [viewingDoctor, setViewingDoctor] = useState(null);
 
   const { assignedDoctors } = store;
 
@@ -323,8 +327,22 @@ function AssignedDoctorsTab({ store, planDoctorMap, monthKey }) {
               placeholder="Doctor name, specialization, pin code…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  setSearch(search);
+                }
+              }}
             />
-            <span className="rpt-search-icon"><VscSearch /></span>
+            <button
+              type="button"
+              className="rpt-search-icon"
+              title="Search doctor"
+              aria-label="Search doctor"
+              onClick={() => setSearch(search)}
+            >
+              <StylishSearchIcon size={26} />
+            </button>
           </div>
         </div>
         <div className="rpt-field">
@@ -373,13 +391,14 @@ function AssignedDoctorsTab({ store, planDoctorMap, monthKey }) {
               <th>Priority</th>
               <th>Scheduled Date</th>
               <th>Visit Status</th>
+              <th style={{ textAlign: "center" }}>View</th>
               <th>Action</th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={11} className="rpt-empty-td">
+                <td colSpan={12} className="rpt-empty-td">
                   No doctors match your filter.
                 </td>
               </tr>
@@ -391,9 +410,7 @@ function AssignedDoctorsTab({ store, planDoctorMap, monthKey }) {
                     <td className="doc-row-num">{i + 1}</td>
                     <td>
                       <div className="doc-name-cell">
-                        <div className="doc-avatar">
-                          {d.name?.charAt(4)?.toUpperCase() ?? "D"}
-                        </div>
+                        <DoctorAvatar name={d.name} size={32} />
                         <div>
                           <span className="doc-name-text">{d.name}</span>
                         </div>
@@ -420,6 +437,28 @@ function AssignedDoctorsTab({ store, planDoctorMap, monthKey }) {
                           Unplanned
                         </span>
                       )}
+                    </td>
+                    <td style={{ textAlign: "center" }}>
+                      <button
+                        type="button"
+                        className="rpt-btn-outline"
+                        style={{
+                          width: 30,
+                          height: 30,
+                          borderRadius: "50%",
+                          padding: 0,
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          borderWidth: 1,
+                          borderColor: "var(--primary)",
+                          color: "var(--primary)",
+                        }}
+                        title="Check Doctor Details"
+                        onClick={() => setViewingDoctor(d)}
+                      >
+                        <StylizedEyeIcon width={20} height={13} live={true} />
+                      </button>
                     </td>
                     <td>
                       {!task && store.monthlyPlan && (
@@ -453,6 +492,13 @@ function AssignedDoctorsTab({ store, planDoctorMap, monthKey }) {
             store.scheduleDoctor(scheduling.id, date, time);
             setScheduling(null);
           }}
+        />
+      )}
+
+      {viewingDoctor && (
+        <ViewDoctorModal
+          doctor={viewingDoctor}
+          onClose={() => setViewingDoctor(null)}
         />
       )}
     </div>
@@ -713,6 +759,7 @@ function PlanTableTab({
   const [statusFilter, setStatusFilter] = useState("all");
   const [validationErrors, setValidationErrors] = useState([]);
   const [showSubmitted, setShowSubmitted] = useState(false);
+  const [viewingDoctor, setViewingDoctor] = useState(null);
 
   const rows = useMemo(
     () =>
@@ -802,13 +849,14 @@ function PlanTableTab({
               <th>Visit Time</th>
               <th>Task Status</th>
               <th>Visit Report</th>
+              <th style={{ textAlign: "center" }}>View</th>
               <th>Action</th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={10} className="rpt-empty-td">
+                <td colSpan={11} className="rpt-empty-td">
                   No visits match this filter.
                 </td>
               </tr>
@@ -821,9 +869,7 @@ function PlanTableTab({
                   <td className="doc-muted">{dayName(t.scheduledDate)}</td>
                   <td>
                     <div className="doc-name-cell">
-                      <div className="doc-avatar">
-                        {t.doctor?.name?.charAt(4)?.toUpperCase() ?? "D"}
-                      </div>
+                      <DoctorAvatar name={t.doctor?.name} size={32} />
                       <span className="doc-name-text">
                         {t.doctor?.name ?? "—"}
                       </span>
@@ -859,6 +905,30 @@ function PlanTableTab({
                       </span>
                     )}
                   </td>
+                  <td style={{ textAlign: "center" }}>
+                    {t.doctor ? (
+                      <button
+                        type="button"
+                        className="rpt-btn-outline"
+                        style={{
+                          width: 28,
+                          height: 28,
+                          borderRadius: "50%",
+                          padding: 0,
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          borderWidth: 1,
+                          borderColor: "var(--primary)",
+                          color: "var(--primary)",
+                        }}
+                        title="Check Doctor Details"
+                        onClick={() => setViewingDoctor(t.doctor)}
+                      >
+                        <StylizedEyeIcon width={18} height={11} live={true} />
+                      </button>
+                    ) : "—"}
+                  </td>
                   <td>
                     <TaskActions
                       task={t}
@@ -880,6 +950,13 @@ function PlanTableTab({
           <strong>{store.planDoctors.length}</strong> scheduled visits
         </div>
       </div>
+
+      {viewingDoctor && (
+        <ViewDoctorModal
+          doctor={viewingDoctor}
+          onClose={() => setViewingDoctor(null)}
+        />
+      )}
     </div>
   );
 }
@@ -1163,8 +1240,22 @@ function ApprovalsTab({
                 placeholder="Search by name, code, territory…"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    setSearchTerm(searchTerm);
+                  }
+                }}
               />
-              <span className="rpt-search-icon"><VscSearch /></span>
+              <button
+                type="button"
+                className="rpt-search-icon"
+                title="Search plan"
+                aria-label="Search plan"
+                onClick={() => setSearchTerm(searchTerm)}
+              >
+                <StylishSearchIcon size={26} />
+              </button>
             </div>
           </div>
         </div>
@@ -1343,7 +1434,15 @@ export default function PlanView({
 
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: "10px" }}>
           <div className="role-switch" style={{ margin: 0, display: "flex", alignItems: "center", gap: "6px" }}>
-            <label style={{ fontSize: ".72rem", textTransform: "uppercase", fontWeight: 600, color: "#64748b" }}>Month</label>
+            <label style={{ fontSize: ".72rem", textTransform: "uppercase", fontWeight: 600, color: "#64748b", display: "inline-flex", alignItems: "center", gap: "4px" }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--primary, #007c71)" }}>
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                <line x1="16" y1="2" x2="16" y2="6"></line>
+                <line x1="8" y1="2" x2="8" y2="6"></line>
+                <line x1="3" y1="10" x2="21" y2="10"></line>
+              </svg>
+              Month
+            </label>
             <select
               value={monthKey}
               onChange={(e) => handleMonthSelect(e.target.value)}

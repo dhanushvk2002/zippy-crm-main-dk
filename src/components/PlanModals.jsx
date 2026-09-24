@@ -1,4 +1,5 @@
 import { useState } from "react";
+import ModernDatePicker from "./ModernDatePicker.jsx";
 import {
   PLAN_MONTH_LABEL,
   RESCHEDULE_REASONS,
@@ -110,7 +111,7 @@ export function VisitReportModal({ doctor, task, existingReport, onClose, onSubm
           <div className="rpt-call-row">
             <div className="rpt-call-field">
               <label>Visit Date *</label>
-              <input type="date" value={form.visitDate} onChange={(e) => set("visitDate", e.target.value)} required />
+              <ModernDatePicker value={form.visitDate} onChange={(e) => set("visitDate", e.target.value)} required />
             </div>
             <div className="rpt-call-field">
               <label>Visit Time</label>
@@ -154,7 +155,7 @@ export function VisitReportModal({ doctor, task, existingReport, onClose, onSubm
           <div className="rpt-call-row">
             <div className="rpt-call-field">
               <label>Next Follow-up Date</label>
-              <input type="date" value={form.nextFollowupDate} onChange={(e) => set("nextFollowupDate", e.target.value)} />
+              <ModernDatePicker value={form.nextFollowupDate} onChange={(e) => set("nextFollowupDate", e.target.value)} />
             </div>
             <div className="rpt-call-field">
               <label>Next Action</label>
@@ -199,7 +200,7 @@ export function RescheduleModal({ doctor, task, monthKey, onClose, onReschedule 
         <form id="rescheduleForm" className="zzc-modal-form" onSubmit={handleSave}>
           <div className="zzc-field">
             <label>New Date *</label>
-            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} min={bounds.min} max={bounds.max} required />
+            <ModernDatePicker value={date} onChange={(e) => setDate(e.target.value)} min={bounds.min} max={bounds.max} required />
           </div>
           <div className="zzc-field">
             <label>Reason *</label>
@@ -237,7 +238,7 @@ export function ScheduleDoctorModal({ doctor, monthKey, onClose, onSchedule }) {
         <form id="scheduleDoctorForm" className="zzc-modal-form" onSubmit={handleSave}>
           <div className="zzc-field">
             <label>Visit Date *</label>
-            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} min={bounds.min} max={bounds.max} required />
+            <ModernDatePicker value={date} onChange={(e) => setDate(e.target.value)} min={bounds.min} max={bounds.max} required />
           </div>
           <div className="zzc-field">
             <label>Visit Time</label>

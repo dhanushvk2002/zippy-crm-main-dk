@@ -61,9 +61,10 @@ export function getAvailableMonthOptions(centerMonthKey) {
     const dt = new Date(base.year, base.monthIndex + offset, 1);
     const key = toMonthKey(dt.getFullYear(), dt.getMonth());
     const label = dt.toLocaleDateString("en-IN", { month: "long", year: "numeric" });
+    const fullLabel = key === curKey ? `${label} (Current)` : label;
     options.push({
       key,
-      label: key === curKey ? `${label} (Current)` : label,
+      label: `📅  ${fullLabel}`,
       rawLabel: label,
       isCurrent: key === curKey,
     });
@@ -852,7 +853,7 @@ export function usePlanStats(execId, monthKey) {
           setStats({
             has_plan: !!cached.monthlyPlan,
             plan_status: cached.monthlyPlan?.status ?? null,
-            total_doctors: cached.monthlyPlan?.totalDoctors ?? 0,
+            total_doctors: (cached.monthlyPlan?.totalDoctors && cached.monthlyPlan.totalDoctors > 0) ? cached.monthlyPlan.totalDoctors : total,
             working_days: cached.monthlyPlan?.workingDays ?? 0,
             daily_target: cached.monthlyPlan?.dailyTarget ?? 0,
             planned_visits: total,
