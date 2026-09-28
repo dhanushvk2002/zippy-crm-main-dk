@@ -1016,33 +1016,7 @@ export default function AttendanceView({
             <div className="attend-bar-divider"></div>
             <div className="attend-bar-item">
               <span className="bar-label">Punch Out</span>
-              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                <span className="bar-val">{todayRecord?.punchOut || "—"}</span>
-                {todayRecord?.punchOutFaceImage && (
-                  <button
-                    type="button"
-                    className="attend-photo-thumb-btn out"
-                    title="View Punch Out Face Verification"
-                    onClick={() =>
-                      setPreviewPhotoModal({
-                        image: todayRecord.punchOutFaceImage,
-                        execName: activeExecutive.name,
-                        time: todayRecord.punchOut,
-                        date: todayRecord.date || todayIso,
-                        location: todayRecord.punchOutLocation,
-                        punchType: "Punch Out",
-                      })
-                    }
-                  >
-                    <img
-                      src={todayRecord.punchOutFaceImage}
-                      alt="Punch Out Verified Face"
-                      className="attend-photo-thumb-img"
-                    />
-                    <span className="attend-photo-verified-icon">✓</span>
-                  </button>
-                )}
-              </div>
+              <span className="bar-val">{todayRecord?.punchOut || "—"}</span>
               {todayRecord?.punchOutLocation && (
                 <span className="attend-loc-sub">
                   <MapPin size={11} /> {todayRecord.punchOutLocation.locality || "Field Territory"}
@@ -1400,35 +1374,9 @@ export default function AttendanceView({
                                 <span className="attend-off-text">—</span>
                               ) : (
                                 <div className="attend-punch-cell">
-                                  <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                                    <span className="attend-time-pill out">
-                                      {row.punchOut || "—"}
-                                    </span>
-                                    {row.punchOutFaceImage && (
-                                      <button
-                                        type="button"
-                                        className="attend-photo-thumb-btn out"
-                                        title="View Punch Out Face Verification"
-                                        onClick={() =>
-                                          setPreviewPhotoModal({
-                                            image: row.punchOutFaceImage,
-                                            execName: row.execName || activeExecutive.name,
-                                            time: row.punchOut,
-                                            date: row.date,
-                                            location: row.punchOutLocation,
-                                            punchType: "Punch Out",
-                                          })
-                                        }
-                                      >
-                                        <img
-                                          src={row.punchOutFaceImage}
-                                          alt="Punch Out Face"
-                                          className="attend-photo-thumb-img"
-                                        />
-                                        <span className="attend-photo-verified-icon">✓</span>
-                                      </button>
-                                    )}
-                                  </div>
+                                  <span className="attend-time-pill out">
+                                    {row.punchOut || "—"}
+                                  </span>
                                   {row.punchOut && (
                                     <span className="attend-loc-sub">
                                       <MapPin size={10} />
@@ -1622,35 +1570,9 @@ export default function AttendanceView({
                           <span className="attend-off-text">—</span>
                         ) : (
                           <div className="attend-punch-cell">
-                            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                              <span className="attend-time-pill out">
-                                {row.punchOut || "—"}
-                              </span>
-                              {row.punchOutFaceImage && (
-                                <button
-                                  type="button"
-                                  className="attend-photo-thumb-btn out"
-                                  title="View Punch Out Face Verification"
-                                  onClick={() =>
-                                    setPreviewPhotoModal({
-                                      image: row.punchOutFaceImage,
-                                      execName: row.execName || activeExecutive.name,
-                                      time: row.punchOut,
-                                      date: row.date,
-                                      location: row.punchOutLocation,
-                                      punchType: "Punch Out",
-                                    })
-                                  }
-                                >
-                                  <img
-                                    src={row.punchOutFaceImage}
-                                    alt="Punch Out Face"
-                                    className="attend-photo-thumb-img"
-                                  />
-                                  <span className="attend-photo-verified-icon">✓</span>
-                                </button>
-                              )}
-                            </div>
+                            <span className="attend-time-pill out">
+                              {row.punchOut || "—"}
+                            </span>
                             {row.punchOut && (
                               <span className="attend-loc-sub">
                                 <MapPin size={10} />
