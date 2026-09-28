@@ -9,7 +9,6 @@ import {
   User,
   Timer,
   Check,
-  RotateCcw,
   Sparkles,
   TrendingUp,
   Award,
@@ -27,8 +26,8 @@ import {
   punchOutAttendance,
   fetchAttendanceList,
   fetchTodayAttendance,
-  deleteAttendanceRecord,
 } from "../api.js";
+import { formatAttendanceDateAndDay } from "../dateUtils.js";
 import "./AttendanceView.css";
 import "./FacePunchModal.css";
 
@@ -332,15 +331,15 @@ export default function AttendanceView({
             date: String(todayDb.attendance_date),
             punchIn: formatIsoToTimeStr(todayDb.login_time),
             punchInLocation: {
-              locality: todayDb.login_area || activeExecutive.region,
-              coords: { latitude: todayDb.login_latitude, longitude: todayDb.login_longitude },
+              locality: todayDb.area || todayDb.login_area || activeExecutive.region,
+              coords: { latitude: todayDb.latitude ?? todayDb.login_latitude, longitude: todayDb.longitude ?? todayDb.login_longitude },
             },
             faceImage: todayDb.login_selfie_url,
             punchOut: formatIsoToTimeStr(todayDb.logout_time),
-            punchOutLocation: todayDb.logout_area
+            punchOutLocation: (todayDb.area || todayDb.logout_area)
               ? {
-                  locality: todayDb.logout_area,
-                  coords: { latitude: todayDb.logout_latitude, longitude: todayDb.logout_longitude },
+                  locality: todayDb.area || todayDb.logout_area,
+                  coords: { latitude: todayDb.latitude ?? todayDb.logout_latitude, longitude: todayDb.longitude ?? todayDb.logout_longitude },
                 }
               : null,
             punchOutFaceImage: todayDb.logout_selfie_url,
@@ -479,6 +478,9 @@ export default function AttendanceView({
           executive_id: Number(activeExecutive.id),
           attendance_date: punchDate || todayIso,
           login_time: getLocalIsoString(),
+          latitude: locationData?.coords?.latitude || locationData?.lat || null,
+          longitude: locationData?.coords?.longitude || locationData?.lng || null,
+          area: locationData?.locality || profileRegion,
           login_latitude: locationData?.coords?.latitude || locationData?.lat || null,
           login_longitude: locationData?.coords?.longitude || locationData?.lng || null,
           login_area: locationData?.locality || profileRegion,
@@ -535,6 +537,9 @@ export default function AttendanceView({
           executive_id: Number(activeExecutive.id),
           attendance_date: punchDate || todayIso,
           logout_time: getLocalIsoString(),
+          latitude: locationData?.coords?.latitude || locationData?.lat || null,
+          longitude: locationData?.coords?.longitude || locationData?.lng || null,
+          area: locationData?.locality || profileRegion,
           logout_latitude: locationData?.coords?.latitude || locationData?.lat || null,
           logout_longitude: locationData?.coords?.longitude || locationData?.lng || null,
           logout_area: locationData?.locality || profileRegion,
@@ -561,30 +566,6 @@ export default function AttendanceView({
     }
   };
 
-  // Action: Reset Today's Punch (with confirmation)
-  const handleResetToday = async () => {
-    if (!window.confirm("Are you sure you want to reset today's punch in / punch out record?")) {
-      return;
-    }
-    const bId = todayRecord?.backendId;
-    const updated = { ...records, [todayKey]: null };
-    setRecords(updated);
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-    } catch (e) {
-      console.error(e);
-    }
-    setToastMessage("Attendance record for today was reset.");
-
-    if (bId) {
-      try {
-        await deleteAttendanceRecord(bId);
-      } catch (err) {
-        console.warn("Could not delete from backend:", err);
-      }
-    }
-  };
-
   // Combined attendance history for the executive — merges localStorage & MySQL database records
   const historyList = useMemo(() => {
     const execIdVal = activeExecutive?.id;
@@ -603,15 +584,15 @@ export default function AttendanceView({
         date: dDate,
         punchIn: formatIsoToTimeStr(d.login_time),
         punchInLocation: {
-          locality: d.login_area || profileRegion,
-          coords: { latitude: d.login_latitude, longitude: d.login_longitude },
+          locality: d.area || d.login_area || profileRegion,
+          coords: { latitude: d.latitude ?? d.login_latitude, longitude: d.longitude ?? d.login_longitude },
         },
         faceImage: d.login_selfie_url,
         punchOut: formatIsoToTimeStr(d.logout_time),
-        punchOutLocation: d.logout_area
+        punchOutLocation: (d.area || d.logout_area)
           ? {
-              locality: d.logout_area,
-              coords: { latitude: d.logout_latitude, longitude: d.logout_longitude },
+              locality: d.area || d.logout_area,
+              coords: { latitude: d.latitude ?? d.logout_latitude, longitude: d.longitude ?? d.logout_longitude },
             }
           : null,
         punchOutFaceImage: d.logout_selfie_url,
@@ -655,9 +636,9 @@ export default function AttendanceView({
       });
     }
 
-    return Array.from(map.values()).sort(
-      (a, b) => new Date(b.date) - new Date(a.date)
-    );
+    return Array.from(map.values())
+      .filter((r) => r.punchIn || r.punchOut)
+      .sort((a, b) => new Date(b.date) - new Date(a.date));
   }, [records, dbRecords, activeExecutive?.id, activeExecutive?.name, profileName, profileRegion, todayRecord, todayIso]);
 
   // Statistics
@@ -674,158 +655,21 @@ export default function AttendanceView({
     };
   }, [historyList]);
 
-  // ── Weekly Order Wise State & Categorization ──────────────────────────────
-  const [selectedWeek, setSelectedWeek] = useState("all"); // "all" | "week_4" | "week_3" | "week_2" | "week_1"
-  const [viewMode, setViewMode] = useState("weekly"); // "weekly" (Weekly Order Wise) | "flat"
-  const [weeklySortOrder, setWeeklySortOrder] = useState("asc"); // "asc" (Mon -> Sun weekly order) | "desc" (Sun -> Mon)
+  // Today Date & Day Formatted (Monday if Monday, Tuesday if Tuesday)
+  const todayInfo = useMemo(() => formatAttendanceDateAndDay(todayIso), [todayIso]);
 
-  function getWeekCategory(dateStr) {
-    const d = new Date(`${dateStr}T00:00:00`);
-    const day = d.getDay(); // 0 is Sunday, 1 is Monday...
-    const diffToMon = day === 0 ? -6 : 1 - day;
-    const monday = new Date(d);
-    monday.setDate(d.getDate() + diffToMon);
-    const sunday = new Date(monday);
-    sunday.setDate(monday.getDate() + 6);
+  // Sort order: newest first (desc) or oldest first (asc)
+  const [sortOrder, setSortOrder] = useState("desc");
 
-    const pad = (n) => String(n).padStart(2, "0");
-    const monIso = `${monday.getFullYear()}-${pad(monday.getMonth() + 1)}-${pad(monday.getDate())}`;
-    const sunIso = `${sunday.getFullYear()}-${pad(sunday.getMonth() + 1)}-${pad(sunday.getDate())}`;
-
-    let weekKey = "week_4";
-    let title = "Week 4";
-    let isCurrent = false;
-
-    if (monIso >= "2026-09-28") {
-      weekKey = "week_5";
-      title = "Week 5";
-    } else if (monIso >= "2026-09-21") {
-      weekKey = "week_4";
-      title = "Week 4";
-      isCurrent = true;
-    } else if (monIso >= "2026-09-14") {
-      weekKey = "week_3";
-      title = "Week 3";
-    } else if (monIso >= "2026-09-07") {
-      weekKey = "week_2";
-      title = "Week 2";
-    } else {
-      weekKey = "week_1";
-      title = "Week 1";
-    }
-
-    const monLabel = monday.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-    const sunLabel = sunday.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-
-    return {
-      weekKey,
-      title,
-      isCurrent,
-      dateRange: `${monLabel} – ${sunLabel}, ${monday.getFullYear()}`,
-      monIso,
-      sunIso,
-    };
-  }
-
-  // Pre-grouped weeks for Weekly Order Wise — only includes weeks with actual punch records
-  const weeklyGroups = useMemo(() => {
-    const groupsMap = new Map();
-
-    historyList.forEach((row) => {
-      const cat = getWeekCategory(row.date);
-      if (!groupsMap.has(cat.weekKey)) {
-        groupsMap.set(cat.weekKey, {
-          key: cat.weekKey,
-          title: cat.title,
-          dateRange: cat.dateRange,
-          isCurrent: cat.isCurrent,
-          sortWeight:
-            cat.weekKey === "week_5"
-              ? 5
-              : cat.weekKey === "week_4"
-              ? 4
-              : cat.weekKey === "week_3"
-              ? 3
-              : cat.weekKey === "week_2"
-              ? 2
-              : 1,
-          records: [],
-        });
-      }
-      groupsMap.get(cat.weekKey).records.push(row);
-    });
-
-    const result = [];
-    groupsMap.forEach((grp) => {
-      grp.records.sort((a, b) => {
-        if (weeklySortOrder === "asc") {
-          return new Date(a.date) - new Date(b.date);
-        } else {
-          return new Date(b.date) - new Date(a.date);
-        }
-      });
-
-      let totalMinutes = 0;
-      let presentCount = 0;
-      let offCount = 0;
-      let onTimeCount = 0;
-
-      grp.records.forEach((r) => {
-        if (r.status === "Weekly Off") {
-          offCount++;
-          return;
-        }
-        if (
-          r.status === "Present" ||
-          r.status === "Completed" ||
-          r.status === "Working" ||
-          r.status === "Late Arrival"
-        ) {
-          presentCount++;
-          if (r.status !== "Late Arrival") onTimeCount++;
-        }
-        if (r.duration) {
-          const m = r.duration.match(/(\d+)\s*h(?:rs?)?\s*(\d+)\s*m/i);
-          if (m) {
-            totalMinutes += parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
-          }
-        }
-      });
-
-      const hrs = Math.floor(totalMinutes / 60);
-      const mins = totalMinutes % 60;
-      grp.totalDuration = `${hrs}h ${mins}m`;
-      grp.presentCount = presentCount;
-      grp.offCount = offCount;
-      grp.workingDaysCount = grp.records.filter((r) => r.status !== "Weekly Off").length;
-      grp.punctualRate = presentCount > 0 ? Math.round((onTimeCount / presentCount) * 100) : 100;
-
-      result.push(grp);
-    });
-
-    result.sort((a, b) => (b.sortWeight || 0) - (a.sortWeight || 0));
-    return result;
-  }, [historyList, weeklySortOrder]);
-
-  const displayedWeeks = useMemo(() => {
-    if (selectedWeek === "all") return weeklyGroups;
-    return weeklyGroups.filter((g) => g.key === selectedWeek);
-  }, [weeklyGroups, selectedWeek]);
-
-  const flatDisplayList = useMemo(() => {
-    let list = [];
-    if (selectedWeek === "all") {
-      list = [...historyList];
-    } else {
-      const match = weeklyGroups.find((g) => g.key === selectedWeek);
-      list = match ? [...match.records] : [...historyList];
-    }
+  const displayList = useMemo(() => {
+    const list = [...historyList];
     list.sort((a, b) => {
-      if (weeklySortOrder === "asc") return new Date(a.date) - new Date(b.date);
-      return new Date(b.date) - new Date(a.date);
+      const timeA = new Date(a.date).getTime();
+      const timeB = new Date(b.date).getTime();
+      return sortOrder === "asc" ? timeA - timeB : timeB - timeA;
     });
     return list;
-  }, [historyList, selectedWeek, weeklyGroups, weeklySortOrder]);
+  }, [historyList, sortOrder]);
 
   return (
     <div className="attend-wrapper">
@@ -881,37 +725,6 @@ export default function AttendanceView({
             <span className="attend-geo-dot"></span>
             <span>{liveLocality ? `📍 ${liveLocality}` : "GPS Live Synced"}</span>
           </div>
-
-          {/* Executive Switcher — accessible to switch between all 15 sales executives */}
-          {executivesList && executivesList.length > 0 && (
-            <div className="attend-exec-switcher" style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
-              <label style={{ fontSize: "10px", fontWeight: 800, color: "#0f766e", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                Select Sales Executive
-              </label>
-              <select
-                value={activeExecutive.id}
-                onChange={(e) => handleSwitchExec(Number(e.target.value))}
-                style={{
-                  padding: "6px 12px",
-                  borderRadius: "8px",
-                  border: "1.5px solid #0d9488",
-                  background: "#ffffff",
-                  color: "#0f766e",
-                  fontWeight: 700,
-                  fontSize: "13px",
-                  cursor: "pointer",
-                  outline: "none",
-                  boxShadow: "0 1px 3px rgba(0,0,0,0.06)"
-                }}
-              >
-                {executivesList.map((exec) => (
-                  <option key={exec.id} value={exec.id}>
-                    {exec.name} ({exec.code || `SE-00${exec.id}`}) — {exec.city || exec.region || "Field"}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
         </div>
       </div>
 
@@ -973,26 +786,26 @@ export default function AttendanceView({
               <Clock size={18} />
             </div>
             <div>
-              <h3>Daily Shift Punch</h3>
-              <p>Record biometric start and end times for field visits</p>
+              <h3>Daily Shift Punch — {todayInfo.formattedDate}, {todayInfo.dayName}</h3>
+              <p>Record biometric morning login and evening logout for field duty</p>
             </div>
           </div>
 
           <div className="attend-punch-buttons-row">
-            {/* PUNCH IN BUTTON */}
+            {/* MORNING PUNCH IN BUTTON */}
             <button
               type="button"
               className={`attend-punch-btn punch-in-btn ${isPunchedIn ? "punched" : ""}`}
               onClick={handlePunchIn}
               disabled={isPunchedIn}
-              title={isPunchedIn ? `Already punched in at ${todayRecord?.punchIn}` : "Click to punch in for today"}
+              title={isPunchedIn ? `Morning Punched In at ${todayRecord?.punchIn}` : "Click to record Morning Punch In"}
             >
               <div className="attend-btn-icon-wrap in-icon">
                 {isPunchedIn ? <Check size={24} /> : <LogIn size={24} />}
               </div>
               <div className="attend-btn-content">
                 <span className="attend-btn-action">
-                  {isPunchedIn ? "Punched In" : "Punch In Time"}
+                  {isPunchedIn ? "Morning Punched In" : "Morning Punch In"}
                 </span>
                 <span className="attend-btn-time">
                   {isPunchedIn ? todayRecord?.punchIn : "Click to Start Shift"}
@@ -1000,7 +813,7 @@ export default function AttendanceView({
               </div>
             </button>
 
-            {/* PUNCH OUT BUTTON */}
+            {/* EVENING LOGOUT BUTTON */}
             <button
               type="button"
               className={`attend-punch-btn punch-out-btn ${isPunchedOut ? "punched" : !isPunchedIn ? "disabled" : ""}`}
@@ -1008,10 +821,10 @@ export default function AttendanceView({
               disabled={!isPunchedIn || isPunchedOut}
               title={
                 !isPunchedIn
-                  ? "Please punch in first"
+                  ? "Please complete Morning Punch In first"
                   : isPunchedOut
-                  ? `Already punched out at ${todayRecord?.punchOut}`
-                  : "Click to punch out and complete shift"
+                  ? `Evening Logged Out at ${todayRecord?.punchOut}`
+                  : "Click to record Evening Logout and complete shift"
               }
             >
               <div className="attend-btn-icon-wrap out-icon">
@@ -1019,7 +832,7 @@ export default function AttendanceView({
               </div>
               <div className="attend-btn-content">
                 <span className="attend-btn-action">
-                  {isPunchedOut ? "Punched Out" : "Punch Out Time"}
+                  {isPunchedOut ? "Evening Logged Out" : "Evening Logout"}
                 </span>
                 <span className="attend-btn-time">
                   {isPunchedOut
@@ -1035,14 +848,14 @@ export default function AttendanceView({
           {/* Today's Punch Summary Bar */}
           <div className="attend-summary-bar">
             <div className="attend-bar-item">
-              <span className="bar-label">Punch In</span>
+              <span className="bar-label">Morning Punch In</span>
               <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                 <span className="bar-val">{todayRecord?.punchIn || "—"}</span>
                 {todayRecord?.faceImage && (
                   <button
                     type="button"
                     className="attend-photo-thumb-btn"
-                    title="View Punch In Face Verification"
+                    title="View Morning Punch In Face Verification"
                     onClick={() =>
                       setPreviewPhotoModal({
                         image: todayRecord.faceImage,
@@ -1050,7 +863,7 @@ export default function AttendanceView({
                         time: todayRecord.punchIn,
                         date: todayRecord.date || todayIso,
                         location: todayRecord.punchInLocation,
-                        punchType: "Punch In",
+                        punchType: "Morning Punch In",
                       })
                     }
                   >
@@ -1071,8 +884,34 @@ export default function AttendanceView({
             </div>
             <div className="attend-bar-divider"></div>
             <div className="attend-bar-item">
-              <span className="bar-label">Punch Out</span>
-              <span className="bar-val">{todayRecord?.punchOut || "—"}</span>
+              <span className="bar-label">Evening Logout</span>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <span className="bar-val">{todayRecord?.punchOut || "—"}</span>
+                {todayRecord?.punchOutFaceImage && (
+                  <button
+                    type="button"
+                    className="attend-photo-thumb-btn out"
+                    title="View Evening Logout Face Verification"
+                    onClick={() =>
+                      setPreviewPhotoModal({
+                        image: todayRecord.punchOutFaceImage,
+                        execName: activeExecutive.name,
+                        time: todayRecord.punchOut,
+                        date: todayRecord.date || todayIso,
+                        location: todayRecord.punchOutLocation,
+                        punchType: "Evening Logout",
+                      })
+                    }
+                  >
+                    <img
+                      src={todayRecord.punchOutFaceImage}
+                      alt="Verified Face"
+                      className="attend-photo-thumb-img"
+                    />
+                    <span className="attend-photo-verified-icon">✓</span>
+                  </button>
+                )}
+              </div>
               {todayRecord?.punchOutLocation && (
                 <span className="attend-loc-sub">
                   <MapPin size={11} /> {todayRecord.punchOutLocation.locality || "Field Territory"}
@@ -1084,18 +923,6 @@ export default function AttendanceView({
               <span className="bar-label">Total Duration</span>
               <span className="bar-val">{isPunchedIn ? liveDuration : "0h 0m"}</span>
             </div>
-
-            {isPunchedIn && (
-              <button
-                type="button"
-                className="attend-reset-btn"
-                onClick={handleResetToday}
-                title="Reset today's punch record"
-              >
-                <RotateCcw size={12} />
-                <span>Reset</span>
-              </button>
-            )}
           </div>
         </div>
       </div>
@@ -1159,374 +986,93 @@ export default function AttendanceView({
         </div>
       </div>
 
-      {/* Attendance Log Table & Weekly Order Wise Controls */}
+      {/* Attendance Log Table — Only Punched Records */}
       <div className="attend-table-card">
         <div className="attend-table-header">
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
-              <h3>Attendance Log & Weekly Operations</h3>
-              <span className="attend-weekly-badge">
-                <Calendar size={13} style={{ marginRight: "4px" }} />
-                Weekly Order Wise
+              <h3>Attendance — {todayInfo.formattedDate}, {todayInfo.dayName}</h3>
+              <span className="attend-live-badge">
+                <span className="attend-pulse-dot" />
+                Live Punch Records
               </span>
             </div>
             <p>
-              Week-by-week attendance schedule, duty punches, and verified hours for {profileName}
+              Daily duty punches, face verification, and verified hours for {profileName}
             </p>
           </div>
 
           <div className="attend-header-actions-right">
-            {/* View Mode Toggle: Weekly Grouped vs Flat */}
-            <div className="attend-view-mode-toggle" role="group" aria-label="View Mode">
-              <button
-                type="button"
-                className={`attend-mode-btn ${viewMode === "weekly" ? "active" : ""}`}
-                onClick={() => setViewMode("weekly")}
-                title="View Attendance Grouped Week-by-Week (Weekly Order Wise)"
-              >
-                📅 Weekly Order Wise
-              </button>
-              <button
-                type="button"
-                className={`attend-mode-btn ${viewMode === "flat" ? "active" : ""}`}
-                onClick={() => setViewMode("flat")}
-                title="View All Attendance Records in Flat List"
-              >
-                📋 Flat Log
-              </button>
-            </div>
-
             {/* Sort Order Selector */}
             <div className="attend-order-selector-wrap">
-              <label htmlFor="weekly_sort_sel">ORDER:</label>
+              <label htmlFor="punch_sort_sel">SORT:</label>
               <select
-                id="weekly_sort_sel"
+                id="punch_sort_sel"
                 className="attend-order-select"
-                value={weeklySortOrder}
-                onChange={(e) => setWeeklySortOrder(e.target.value)}
+                value={sortOrder}
+                onChange={(e) => setSortOrder(e.target.value)}
               >
-                <option value="asc">Mon ➔ Sun (Weekly Order)</option>
-                <option value="desc">Latest First (Sun ➔ Mon)</option>
+                <option value="desc">Latest First (Newest ➔ Oldest)</option>
+                <option value="asc">Oldest First (Oldest ➔ Newest)</option>
               </select>
             </div>
           </div>
         </div>
 
-        {/* Week Filter Pills Bar */}
-        <div className="attend-weeks-filter-bar">
-          <span className="attend-weeks-filter-label">SELECT WEEK:</span>
-          <div className="attend-weeks-pills-list">
-            <button
-              type="button"
-              className={`attend-week-pill-btn ${selectedWeek === "all" ? "active" : ""}`}
-              onClick={() => setSelectedWeek("all")}
+        <div className="attend-table-responsive">
+          {displayList.length === 0 ? (
+            <div
+              className="attend-week-card"
+              style={{
+                padding: "48px 24px",
+                textAlign: "center",
+                border: "1px dashed var(--border, #cbd5e1)",
+                background: "var(--card, #ffffff)",
+                borderRadius: "12px",
+                margin: "16px",
+              }}
             >
-              All Weeks ({weeklyGroups.length})
-            </button>
-            {weeklyGroups.map((g) => (
-              <button
-                key={g.key}
-                type="button"
-                className={`attend-week-pill-btn ${selectedWeek === g.key ? "active" : ""}`}
-                onClick={() => setSelectedWeek(g.key)}
-              >
-                {g.title} {g.isCurrent ? "· Current" : ""} ({g.records.length}d)
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Content: Weekly Grouped View or Flat Log */}
-        {viewMode === "weekly" ? (
-          <div className="attend-weekly-groups-container">
-            {displayedWeeks.length === 0 ? (
-              <div
-                className="attend-week-card"
+              <Clock size={40} style={{ color: "#94a3b8", marginBottom: "14px" }} />
+              <h4
                 style={{
-                  padding: "48px 24px",
-                  textAlign: "center",
-                  border: "1px dashed var(--border, #cbd5e1)",
-                  background: "var(--card, #ffffff)",
+                  margin: "0 0 8px",
+                  fontSize: "16px",
+                  fontWeight: "600",
+                  color: "var(--foreground, #0f172a)",
                 }}
               >
-                <Clock size={40} style={{ color: "#94a3b8", marginBottom: "14px" }} />
-                <h4
-                  style={{
-                    margin: "0 0 8px",
-                    fontSize: "16px",
-                    fontWeight: "600",
-                    color: "var(--foreground, #0f172a)",
-                  }}
-                >
-                  No Attendance Records Yet
-                </h4>
-                <p style={{ margin: 0, color: "#64748b", fontSize: "13px" }}>
-                  No attendance punches recorded yet. Punch in above to start your shift!
-                </p>
-              </div>
-            ) : (
-              displayedWeeks.map((week) => (
-              <div className="attend-week-card" key={week.key}>
-                {/* Week Header Banner */}
-                <div className={`attend-week-card-banner ${week.isCurrent ? "current-week" : ""}`}>
-                  <div className="attend-week-banner-left">
-                    <span className={`attend-week-num-badge ${week.isCurrent ? "current" : ""}`}>
-                      {week.title}
-                      {week.isCurrent && <span className="attend-current-pulse">● LIVE</span>}
-                    </span>
-                    <div>
-                      <h4 className="attend-week-banner-title">{week.dateRange}</h4>
-                      <span className="attend-week-banner-sub">
-                        Monday to Sunday Weekly Cycle · {profileRegion} Territory
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Week Summary Stats */}
-                  <div className="attend-week-banner-stats">
-                    <span className="attend-week-stat-chip total-hours" title="Total hours logged this week">
-                      ⏱️ <strong>{week.totalDuration}</strong>
-                    </span>
-                    <span className="attend-week-stat-chip present" title="Days present this week">
-                      🟢 <strong>{week.presentCount}</strong>/{week.workingDaysCount} Present
-                    </span>
-                    {week.offCount > 0 && (
-                      <span className="attend-week-stat-chip weekly-off" title="Weekly off days">
-                        🟣 <strong>{week.offCount}</strong> Weekly Off
-                      </span>
-                    )}
-                    <span className="attend-week-stat-chip punctuality" title="Punctuality percentage this week">
-                      🎯 <strong>{week.punctualRate}%</strong> Punctual
-                    </span>
-                  </div>
-                </div>
-
-                {/* Table for this Week */}
-                <div className="attend-table-responsive">
-                  <table className="attend-table">
-                    <thead>
-                      <tr>
-                        <th>Date</th>
-                        <th>Day</th>
-                        <th>Executive</th>
-                        <th>Face Verification</th>
-                        <th>Punch In & Location</th>
-                        <th>Punch Out</th>
-                        <th>Working Hours</th>
-                        <th>Status</th>
-                        <th>Remarks</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {week.records.map((row) => {
-                        const rowDate = new Date(`${row.date}T00:00:00`);
-                        const dayName = rowDate.toLocaleDateString("en-US", { weekday: "short" });
-                        const isWeeklyOff = row.status === "Weekly Off";
-
-                        return (
-                          <tr key={row.id} className={isWeeklyOff ? "attend-row-weekly-off" : ""}>
-                            <td>
-                              <span className="attend-date-text">{row.date}</span>
-                            </td>
-                            <td>
-                              <span className={`attend-day-text ${dayName.toLowerCase() === "sun" ? "sunday" : ""}`}>
-                                {dayName}
-                              </span>
-                            </td>
-                            <td>
-                              <div className="attend-exec-cell">
-                                <DoctorAvatar name={row.execName || activeExecutive.name} size={24} />
-                                <span>{row.execName || activeExecutive.name}</span>
-                              </div>
-                            </td>
-                            <td>
-                              {isWeeklyOff ? (
-                                <span className="attend-no-photo-badge weekly-off">
-                                  🏖️ Sunday Off
-                                </span>
-                              ) : (row.faceImage || row.punchOutFaceImage) ? (
-                                <div className="attend-face-cell" style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
-                                  {row.faceImage && (
-                                    <button
-                                      type="button"
-                                      className="attend-photo-thumb-btn"
-                                      title="Click to view Punch In Face Verification"
-                                      onClick={() =>
-                                        setPreviewPhotoModal({
-                                          image: row.faceImage,
-                                          execName: row.execName || activeExecutive.name,
-                                          time: row.punchIn,
-                                          date: row.date,
-                                          location: row.punchInLocation,
-                                          punchType: "Punch In",
-                                        })
-                                      }
-                                    >
-                                      <img
-                                        src={row.faceImage}
-                                        alt="Punch In Face"
-                                        className="attend-photo-thumb-img"
-                                      />
-                                      <span className="attend-photo-verified-icon">✓</span>
-                                    </button>
-                                  )}
-                                  {row.punchOutFaceImage && (
-                                    <button
-                                      type="button"
-                                      className="attend-photo-thumb-btn out"
-                                      title="Click to view Punch Out Face Verification"
-                                      onClick={() =>
-                                        setPreviewPhotoModal({
-                                          image: row.punchOutFaceImage,
-                                          execName: row.execName || activeExecutive.name,
-                                          time: row.punchOut,
-                                          date: row.date,
-                                          location: row.punchOutLocation,
-                                          punchType: "Punch Out",
-                                        })
-                                      }
-                                    >
-                                      <img
-                                        src={row.punchOutFaceImage}
-                                        alt="Punch Out Face"
-                                        className="attend-photo-thumb-img"
-                                      />
-                                      <span className="attend-photo-verified-icon">✓</span>
-                                    </button>
-                                  )}
-                                  <span className="attend-face-tag">
-                                    {row.faceImage && row.punchOutFaceImage
-                                      ? "In & Out Verified"
-                                      : row.faceImage
-                                      ? "In Verified"
-                                      : "Out Verified"}
-                                  </span>
-                                </div>
-                              ) : (
-                                <span className="attend-no-photo-badge" title="SE Biometric registered">
-                                  <Check size={11} style={{ color: "#10b981" }} /> SE Biometric
-                                </span>
-                              )}
-                            </td>
-                            <td>
-                              {isWeeklyOff ? (
-                                <span className="attend-off-text">—</span>
-                              ) : (
-                                <div className="attend-punch-cell">
-                                  <span className="attend-time-pill in">
-                                    {row.punchIn || "—"}
-                                  </span>
-                                  {row.punchIn && (
-                                    <span className="attend-loc-sub">
-                                      <MapPin size={10} />
-                                      {row.punchInLocation?.locality || profileRegion}
-                                    </span>
-                                  )}
-                                </div>
-                              )}
-                            </td>
-                            <td>
-                              {isWeeklyOff ? (
-                                <span className="attend-off-text">—</span>
-                              ) : (
-                                <div className="attend-punch-cell">
-                                  <span className="attend-time-pill out">
-                                    {row.punchOut || "—"}
-                                  </span>
-                                  {row.punchOut && (
-                                    <span className="attend-loc-sub">
-                                      <MapPin size={10} />
-                                      {row.punchOutLocation?.locality || profileRegion}
-                                    </span>
-                                  )}
-                                </div>
-                              )}
-                            </td>
-                            <td>
-                              <span className={`attend-duration-text ${isWeeklyOff ? "off" : ""}`}>
-                                {row.duration || "—"}
-                              </span>
-                            </td>
-                            <td>
-                              <span
-                                className={`attend-status-tag ${(row.status || "Present")
-                                  .toLowerCase()
-                                  .replace(/\s+/g, "-")}`}
-                              >
-                                {row.status || "Present"}
-                              </span>
-                            </td>
-                            <td>
-                              <span className="attend-remarks-text">
-                                {row.remarks || "Field territory route completed"}
-                              </span>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-        ) : (
-          <div className="attend-table-responsive">
-            {flatDisplayList.length === 0 ? (
-              <div
-                className="attend-week-card"
-                style={{
-                  padding: "48px 24px",
-                  textAlign: "center",
-                  border: "1px dashed var(--border, #cbd5e1)",
-                  background: "var(--card, #ffffff)",
-                }}
-              >
-                <Clock size={40} style={{ color: "#94a3b8", marginBottom: "14px" }} />
-                <h4
-                  style={{
-                    margin: "0 0 8px",
-                    fontSize: "16px",
-                    fontWeight: "600",
-                    color: "var(--foreground, #0f172a)",
-                  }}
-                >
-                  No Attendance Records Yet
-                </h4>
-                <p style={{ margin: 0, color: "#64748b", fontSize: "13px" }}>
-                  No attendance punches recorded yet. Punch in above to start your shift!
-                </p>
-              </div>
-            ) : (
-              <table className="attend-table">
+                No Punched Attendance Records Yet
+              </h4>
+              <p style={{ margin: 0, color: "#64748b", fontSize: "13px" }}>
+                Punch in above using "Morning Punch In" to start today's shift. Only days with punch activity are displayed!
+              </p>
+            </div>
+          ) : (
+            <table className="attend-table">
               <thead>
                 <tr>
                   <th>Date</th>
                   <th>Day</th>
                   <th>Executive</th>
                   <th>Face Verification</th>
-                  <th>Punch In & Location</th>
-                  <th>Punch Out</th>
+                  <th>Morning Punch In</th>
+                  <th>Evening Logout</th>
                   <th>Working Hours</th>
                   <th>Status</th>
                   <th>Remarks</th>
                 </tr>
               </thead>
               <tbody>
-                {flatDisplayList.map((row) => {
-                  const rowDate = new Date(`${row.date}T00:00:00`);
-                  const dayName = rowDate.toLocaleDateString("en-US", { weekday: "short" });
-                  const isWeeklyOff = row.status === "Weekly Off";
-
+                {displayList.map((row) => {
+                  const dateInfo = formatAttendanceDateAndDay(row.date);
                   return (
-                    <tr key={row.id} className={isWeeklyOff ? "attend-row-weekly-off" : ""}>
+                    <tr key={row.id}>
                       <td>
                         <span className="attend-date-text">{row.date}</span>
                       </td>
                       <td>
-                        <span className={`attend-day-text ${dayName.toLowerCase() === "sun" ? "sunday" : ""}`}>
-                          {dayName}
+                        <span className={`attend-day-text ${dateInfo.dayName.toLowerCase() === "sunday" ? "sunday" : ""}`}>
+                          {dateInfo.dayName}
                         </span>
                       </td>
                       <td>
@@ -1536,17 +1082,13 @@ export default function AttendanceView({
                         </div>
                       </td>
                       <td>
-                        {isWeeklyOff ? (
-                          <span className="attend-no-photo-badge weekly-off">
-                            🏖️ Sunday Off
-                          </span>
-                        ) : (row.faceImage || row.punchOutFaceImage) ? (
+                        {(row.faceImage || row.punchOutFaceImage) ? (
                           <div className="attend-face-cell" style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
                             {row.faceImage && (
                               <button
                                 type="button"
                                 className="attend-photo-thumb-btn"
-                                title="Click to view Punch In Face Verification"
+                                title="Click to view Morning Punch In Face Verification"
                                 onClick={() =>
                                   setPreviewPhotoModal({
                                     image: row.faceImage,
@@ -1554,13 +1096,13 @@ export default function AttendanceView({
                                     time: row.punchIn,
                                     date: row.date,
                                     location: row.punchInLocation,
-                                    punchType: "Punch In",
+                                    punchType: "Morning Punch In",
                                   })
                                 }
                               >
                                 <img
                                   src={row.faceImage}
-                                  alt="Punch In Face"
+                                  alt="Morning Punch In Face"
                                   className="attend-photo-thumb-img"
                                 />
                                 <span className="attend-photo-verified-icon">✓</span>
@@ -1570,7 +1112,7 @@ export default function AttendanceView({
                               <button
                                 type="button"
                                 className="attend-photo-thumb-btn out"
-                                title="Click to view Punch Out Face Verification"
+                                title="Click to view Evening Logout Face Verification"
                                 onClick={() =>
                                   setPreviewPhotoModal({
                                     image: row.punchOutFaceImage,
@@ -1578,13 +1120,13 @@ export default function AttendanceView({
                                     time: row.punchOut,
                                     date: row.date,
                                     location: row.punchOutLocation,
-                                    punchType: "Punch Out",
+                                    punchType: "Evening Logout",
                                   })
                                 }
                               >
                                 <img
                                   src={row.punchOutFaceImage}
-                                  alt="Punch Out Face"
+                                  alt="Evening Logout Face"
                                   className="attend-photo-thumb-img"
                                 />
                                 <span className="attend-photo-verified-icon">✓</span>
@@ -1594,8 +1136,8 @@ export default function AttendanceView({
                               {row.faceImage && row.punchOutFaceImage
                                 ? "In & Out Verified"
                                 : row.faceImage
-                                ? "In Verified"
-                                : "Out Verified"}
+                                ? "Morning In Verified"
+                                : "Evening Out Verified"}
                             </span>
                           </div>
                         ) : (
@@ -1605,41 +1147,33 @@ export default function AttendanceView({
                         )}
                       </td>
                       <td>
-                        {isWeeklyOff ? (
-                          <span className="attend-off-text">—</span>
-                        ) : (
-                          <div className="attend-punch-cell">
-                            <span className="attend-time-pill in">
-                              {row.punchIn || "—"}
+                        <div className="attend-punch-cell">
+                          <span className="attend-time-pill in">
+                            {row.punchIn || "—"}
+                          </span>
+                          {row.punchIn && (
+                            <span className="attend-loc-sub">
+                              <MapPin size={10} />
+                              {row.punchInLocation?.locality || profileRegion}
                             </span>
-                            {row.punchIn && (
-                              <span className="attend-loc-sub">
-                                <MapPin size={10} />
-                                {row.punchInLocation?.locality || profileRegion}
-                              </span>
-                            )}
-                          </div>
-                        )}
+                          )}
+                        </div>
                       </td>
                       <td>
-                        {isWeeklyOff ? (
-                          <span className="attend-off-text">—</span>
-                        ) : (
-                          <div className="attend-punch-cell">
-                            <span className="attend-time-pill out">
-                              {row.punchOut || "—"}
+                        <div className="attend-punch-cell">
+                          <span className="attend-time-pill out">
+                            {row.punchOut || "—"}
+                          </span>
+                          {row.punchOut && (
+                            <span className="attend-loc-sub">
+                              <MapPin size={10} />
+                              {row.punchOutLocation?.locality || profileRegion}
                             </span>
-                            {row.punchOut && (
-                              <span className="attend-loc-sub">
-                                <MapPin size={10} />
-                                {row.punchOutLocation?.locality || profileRegion}
-                              </span>
-                            )}
-                          </div>
-                        )}
+                          )}
+                        </div>
                       </td>
                       <td>
-                        <span className={`attend-duration-text ${isWeeklyOff ? "off" : ""}`}>
+                        <span className="attend-duration-text">
                           {row.duration || "—"}
                         </span>
                       </td>
@@ -1664,7 +1198,6 @@ export default function AttendanceView({
             </table>
           )}
         </div>
-        )}
       </div>
 
       {/* Biometric Face Capture & Location Punch Modal */}

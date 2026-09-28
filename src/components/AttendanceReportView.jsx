@@ -19,9 +19,18 @@ import {
 import DoctorAvatar from "./DoctorAvatar.jsx";
 import defaultFacePhoto from "../assets/doctor-male.jpg";
 import { fetchAttendanceList } from "../api.js";
+import { formatAttendanceDateAndDay } from "../dateUtils.js";
 import "./AttendanceReportView.css";
 
 const STORAGE_KEY = "zenve_crm_attendance_records";
+
+function getTodayIso() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
 
 function formatIsoToTimeStr(val) {
   if (!val) return "";
@@ -75,7 +84,7 @@ export default function AttendanceReportView({
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [periodFilter, setPeriodFilter] = useState("current_month");
+  const [periodFilter, setPeriodFilter] = useState("all");
   const [previewPhotoModal, setPreviewPhotoModal] = useState(null);
 
   // Backend attendance records from MySQL database
@@ -188,23 +197,23 @@ export default function AttendanceReportView({
         date: String(row.attendance_date),
         punchIn: inTime,
         punchInLocation: {
-          locality: row.login_area || exec.region || "Tamil Nadu",
-          coords: { latitude: row.login_latitude, longitude: row.login_longitude },
+          locality: row.area || row.login_area || exec.region || "Tamil Nadu",
+          coords: { latitude: row.latitude ?? row.login_latitude, longitude: row.longitude ?? row.login_longitude },
         },
         faceImage: row.login_selfie_url,
         punchOut: outTime,
-        punchOutLocation: row.logout_area
+        punchOutLocation: (row.area || row.logout_area)
           ? {
-              locality: row.logout_area,
-              coords: { latitude: row.logout_latitude, longitude: row.logout_longitude },
+              locality: row.area || row.logout_area,
+              coords: { latitude: row.latitude ?? row.logout_latitude, longitude: row.longitude ?? row.logout_longitude },
             }
           : null,
         punchOutFaceImage: row.logout_selfie_url,
         duration: durStr,
         status: row.status || (row.logout_time ? "Completed" : "Working"),
         remarks: row.logout_time
-          ? `Shift completed · 📍 ${row.logout_area || exec.region || "Field Territory"}`
-          : `Face verified · 📍 ${row.login_area || exec.region || "Field Territory"}`,
+          ? `Shift completed · 📍 ${row.area || row.logout_area || exec.region || "Field Territory"}`
+          : `Face verified · 📍 ${row.area || row.login_area || exec.region || "Field Territory"}`,
         executiveObj: exec,
       });
     });
@@ -252,17 +261,11 @@ export default function AttendanceReportView({
         if (statusFilter === "completed" && s !== "completed") return false;
       }
 
-      // Period filter (Month or Weekly order)
-      if (periodFilter === "current_month") {
+      // Period filter
+      if (periodFilter === "today") {
+        if (row.date !== getTodayIso()) return false;
+      } else if (periodFilter === "current_month") {
         if (!row.date.startsWith("2026-09") && !row.date.startsWith(curMonthPrefix)) return false;
-      } else if (periodFilter === "week_4") {
-        if (row.date < "2026-09-21" || row.date > "2026-09-27") return false;
-      } else if (periodFilter === "week_3") {
-        if (row.date < "2026-09-14" || row.date > "2026-09-20") return false;
-      } else if (periodFilter === "week_2") {
-        if (row.date < "2026-09-07" || row.date > "2026-09-13") return false;
-      } else if (periodFilter === "week_1") {
-        if (row.date < "2026-09-01" || row.date > "2026-09-06") return false;
       }
 
       // Search term
@@ -487,12 +490,9 @@ export default function AttendanceReportView({
             value={periodFilter}
             onChange={(e) => setPeriodFilter(e.target.value)}
           >
-            <option value="current_month">September 2026 (All)</option>
-            <option value="week_4">Week 4: Sep 21 – Sep 27 (Current)</option>
-            <option value="week_3">Week 3: Sep 14 – Sep 20</option>
-            <option value="week_2">Week 2: Sep 07 – Sep 13</option>
-            <option value="week_1">Week 1: Sep 01 – Sep 06</option>
-            <option value="all">All Records</option>
+            <option value="all">All Punched Records</option>
+            <option value="today">Today Only ({getTodayIso()})</option>
+            <option value="current_month">Current Month</option>
           </select>
         </div>
       </div>
@@ -522,21 +522,18 @@ export default function AttendanceReportView({
                   <th>Date & Day</th>
                   <th>Sales Executive</th>
                   <th>Territory / Region</th>
-                  <th>Punch In & Locality</th>
+                  <th>Morning Punch In</th>
                   <th>Punch In Face</th>
-                  <th>Punch Out & Locality</th>
+                  <th>Evening Logout</th>
                   <th>Punch Out Face</th>
-                  <th>Duration</th>
+                  <th>Working Hours</th>
                   <th>Status</th>
                   <th>Remarks</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredList.map((row, index) => {
-                  const rowDate = new Date(`${row.date}T00:00:00`);
-                  const dayName = !isNaN(rowDate)
-                    ? rowDate.toLocaleDateString("en-US", { weekday: "short" })
-                    : "";
+                  const dateInfo = formatAttendanceDateAndDay(row.date);
                   const s = (row.status || "Present").toLowerCase();
 
                   return (
@@ -545,7 +542,9 @@ export default function AttendanceReportView({
                       <td>
                         <div className="att-rep-date-cell">
                           <span className="att-rep-date-val">{row.date}</span>
-                          <span className="att-rep-day-val">{dayName}</span>
+                          <span className={`att-rep-day-val ${dateInfo.dayName.toLowerCase() === "sunday" ? "sunday" : ""}`}>
+                            {dateInfo.dayName}
+                          </span>
                         </div>
                       </td>
                       <td>

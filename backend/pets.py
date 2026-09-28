@@ -102,6 +102,23 @@ def model_response(obj):
     for k, v in data.items():
         if isinstance(v, (datetime, date, time)):
             data[k] = v.isoformat()
+    if hasattr(obj, "__tablename__") and obj.__tablename__ == "attendance":
+        login_lat = data.get("login_latitude") if data.get("login_latitude") is not None else data.get("latitude")
+        login_lng = data.get("login_longitude") if data.get("login_longitude") is not None else data.get("longitude")
+        login_ar = data.get("login_area") or data.get("area")
+        logout_lat = data.get("logout_latitude") if data.get("logout_latitude") is not None else (data.get("latitude") or login_lat)
+        logout_lng = data.get("logout_longitude") if data.get("logout_longitude") is not None else (data.get("longitude") or login_lng)
+        logout_ar = data.get("logout_area") or data.get("area") or login_ar
+
+        data["login_latitude"] = login_lat
+        data["login_longitude"] = login_lng
+        data["login_area"] = login_ar
+        data["logout_latitude"] = logout_lat
+        data["logout_longitude"] = logout_lng
+        data["logout_area"] = logout_ar
+        data["latitude"] = login_lat
+        data["longitude"] = login_lng
+        data["area"] = login_ar
     return data
 def get_db():
     db = SessionLocal()
@@ -335,7 +352,7 @@ class Order(Base):
     total_amount = Column(Float, default=0)
     status = Column(String(50), default="pending")
     payment_status = Column(String(50), default="pending")
-    placed_at = Column(DateTime, default=datetime.utcnow)
+    placed_at = Column(DateTime, default=lambda: datetime.now(ZoneInfo("Asia/Kolkata")).replace(tzinfo=None))
 class OrderItem(Base):
     __tablename__ = "order_items"
     id = Column(Integer, primary_key=True, index=True)
@@ -1014,9 +1031,9 @@ async def upload_doctor_document(
     db.commit()
     db.refresh(doc)
     
-    doc.file_path = f"/documents/{doc.id}/file"
+    setattr(doc, "file_path", f"/documents/{doc.id}/file")
     if document_type in ["signature", "digital_signature"]:
-        doctor.digital_signature = f"/documents/{doc.id}/file"
+        setattr(doctor, "digital_signature", f"/documents/{doc.id}/file")
     db.commit()
     db.refresh(doc)
     
@@ -1047,7 +1064,7 @@ def create_pet_parent(
     db.refresh(parent)
     return model_response(parent)
 @app.get("/pet-parents")
-def get_pet_parent(db:Session=Depends(get_db)):
+def get_pet_parents(db:Session=Depends(get_db)):
     return [model_response(item) for item in db.query(PetParent).all()]
 @app.get("/pet-parents/{parent_id}")
 def get_pet_parent(
@@ -1442,7 +1459,7 @@ def create_doctor(data: DoctorCreate, db: Session = Depends(get_db)):
                 db.add(sig_doc)
                 db.commit()
                 db.refresh(sig_doc)
-                sig_doc.file_path = f"/documents/{sig_doc.id}/file"
+                setattr(sig_doc, "file_path", f"/documents/{sig_doc.id}/file")
                 
                 sig_dir = os.path.join("uploads", "signatures")
                 os.makedirs(sig_dir, exist_ok=True)
@@ -1450,7 +1467,7 @@ def create_doctor(data: DoctorCreate, db: Session = Depends(get_db)):
                 with open(sig_path, "wb") as f:
                     f.write(file_bytes)
                 
-                doctor.digital_signature = f"/documents/{sig_doc.id}/file"
+                setattr(doctor, "digital_signature", f"/documents/{sig_doc.id}/file")
                 db.commit()
                 db.refresh(doctor)
         except Exception as sig_err:
@@ -3431,12 +3448,11 @@ def update_regional_manager(manager_id: int,data: RegionalManagerCreate,db: Sess
     manager = db.query(RegionalManager).filter(RegionalManager.id == manager_id).first()
     if not manager:
         raise HTTPException(status_code=404,detail="Regional manager not found")
-    manager.name = data.name
-    manager.code = data.code
-    manager.phone = data.phone
-    manager.email = data.email
-    manager.region = data.region
-    manager.is_active = yes_no_to_bool(data.is_active)
+    update_data = data.model_dump(exclude_unset=True)
+    if "is_active" in update_data:
+        update_data["is_active"] = yes_no_to_bool(update_data["is_active"])
+    for field, value in update_data.items():
+        setattr(manager, field, value)
     db.commit()
     db.refresh(manager)
     return model_response(manager)
@@ -3486,12 +3502,11 @@ def update_sales_manager(manager_id: int,data: SalesManagerCreate,db: Session = 
     manager = db.query(SalesManager).filter(SalesManager.id == manager_id).first()
     if not manager:
         raise HTTPException(status_code=404,detail="Sales manager not found")
-    manager.name = data.name
-    manager.code = data.code
-    manager.phone = data.phone
-    manager.email = data.email
-    manager.region = data.region
-    manager.is_active = yes_no_to_bool(data.is_active)
+    update_data = data.model_dump(exclude_unset=True)
+    if "is_active" in update_data:
+        update_data["is_active"] = yes_no_to_bool(update_data["is_active"])
+    for field, value in update_data.items():
+        setattr(manager, field, value)
     db.commit()
     db.refresh(manager)
     return model_response(manager)
@@ -3575,6 +3590,7 @@ def delete_sales_executive(executive_id: int,db: Session = Depends(get_db)):
         db.query(MonthlyPlan).filter(MonthlyPlan.executive_id == executive_id).delete(synchronize_session=False)
         db.query(ExecutiveSubmissionReport).filter(ExecutiveSubmissionReport.executive_id == executive_id).delete(synchronize_session=False)
         db.query(PincodeCoverage).filter(PincodeCoverage.executive_id == executive_id).delete(synchronize_session=False)
+        db.query(Attendance).filter(Attendance.executive_id == executive_id).delete(synchronize_session=False)
 
         db.delete(executive)
         db.commit()
@@ -3620,10 +3636,9 @@ def update_pincode_coverage(coverage_id: int,data: PincodeCoverageCreate,db: Ses
     executive = db.query(SalesExecutive).filter(SalesExecutive.id == data.executive_id).first()
     if not executive:
         raise HTTPException(status_code=404,detail="Sales executive not found")
-    coverage.executive_id = data.executive_id
-    coverage.pincode = data.pincode
-    coverage.city = data.city
-    coverage.state = data.state
+    update_data = data.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(coverage, field, value)
     db.commit()
     db.refresh(coverage)
     return model_response(coverage)
@@ -3799,8 +3814,8 @@ def submit_monthly_plan(plan_id: int, db: Session = Depends(get_db)):
     plan = db.query(MonthlyPlan).filter(MonthlyPlan.id == plan_id).first()
     if not plan:
         raise HTTPException(status_code=404, detail="Monthly plan not found")
-    plan.status = "Submitted"
-    plan.submitted_at = datetime.now(ZoneInfo("Asia/Kolkata")).replace(tzinfo=None)
+    setattr(plan, "status", "Submitted")
+    setattr(plan, "submitted_at", datetime.now(ZoneInfo("Asia/Kolkata")).replace(tzinfo=None))
     db.commit()
     db.refresh(plan)
     return plan_response(plan)
@@ -3826,10 +3841,10 @@ def approve_monthly_plan(plan_id: int,approved_by: Optional[str] = "Manager",db:
     plan = db.query(MonthlyPlan).filter(MonthlyPlan.id == plan_id).first()
     if not plan:
         raise HTTPException(status_code=404, detail="Monthly plan not found")
-    plan.status = "Approved"
-    plan.approved_at = datetime.now(ZoneInfo("Asia/Kolkata")).replace(tzinfo=None)
-    plan.approved_by = _normalize_approvers(plan.approved_by, approved_by)
-    plan.rejection_reason = None
+    setattr(plan, "status", "Approved")
+    setattr(plan, "approved_at", datetime.now(ZoneInfo("Asia/Kolkata")).replace(tzinfo=None))
+    setattr(plan, "approved_by", _normalize_approvers(plan.approved_by, approved_by))
+    setattr(plan, "rejection_reason", None)
     db.commit()
     db.refresh(plan)
     return plan_response(plan)
@@ -3838,10 +3853,10 @@ def reject_monthly_plan(plan_id: int, body: RejectBody, db: Session = Depends(ge
     plan = db.query(MonthlyPlan).filter(MonthlyPlan.id == plan_id).first()
     if not plan:
         raise HTTPException(status_code=404, detail="Monthly plan not found")
-    plan.status = "Draft" if body.request_changes else "Rejected"
-    plan.rejection_reason = body.reason
-    plan.approved_by = None
-    plan.approved_at = None
+    setattr(plan, "status", "Draft" if body.request_changes else "Rejected")
+    setattr(plan, "rejection_reason", body.reason)
+    setattr(plan, "approved_by", None)
+    setattr(plan, "approved_at", None)
     db.commit()
     db.refresh(plan)
     return plan_response(plan)
@@ -3926,7 +3941,7 @@ def delete_plan_visit(visit_id: int, db: Session = Depends(get_db)):
 def create_visit_report(data: VisitReportCreate, db: Session = Depends(get_db)):
     report = VisitReport(**data.model_dump())
     if data.status == "Submitted" and not report.submitted_at:
-        report.submitted_at = datetime.now(ZoneInfo("Asia/Kolkata")).replace(tzinfo=None)
+        setattr(report, "submitted_at", datetime.now(ZoneInfo("Asia/Kolkata")).replace(tzinfo=None))
     db.add(report)
     try:
         db.commit()
@@ -3937,7 +3952,7 @@ def create_visit_report(data: VisitReportCreate, db: Session = Depends(get_db)):
     if data.status == "Submitted":
         visit = db.query(PlanVisit).filter(PlanVisit.id == data.plan_visit_id).first()
         if visit:
-            visit.status = "Completed"
+            setattr(visit, "status", "Completed")
             db.commit()
     return plan_response(report)
 @app.get("/visit-reports")
@@ -3980,7 +3995,7 @@ def update_visit_report(report_id: int, data: VisitReportUpdate, db: Session = D
     if updates.get("status") == "Submitted":
         visit = db.query(PlanVisit).filter(PlanVisit.id == report.plan_visit_id).first()
         if visit:
-            visit.status = "Completed"
+            setattr(visit, "status", "Completed")
             db.commit()
     return plan_response(report)
 @app.delete("/visit-reports/{report_id}")
@@ -4068,7 +4083,7 @@ def update_submission_report(report_id: int, data: ExecutiveSubmissionReportUpda
     updates = data.model_dump(exclude_unset=True)
     for k, v in updates.items():
         setattr(r, k, v)
-    r.reviewed_at = datetime.now(ZoneInfo("Asia/Kolkata")).replace(tzinfo=None)
+    setattr(r, "reviewed_at", datetime.now(ZoneInfo("Asia/Kolkata")).replace(tzinfo=None))
     db.commit()
     db.refresh(r)
     return plan_response(r)
@@ -4092,7 +4107,7 @@ def delete_submission_report(report_id: int, db: Session = Depends(get_db)):
 class Attendance(Base):
     __tablename__ = "attendance"
 
-    id = Column(
+    id = Column( 
         Integer,
         primary_key=True,
         index=True,
@@ -4101,7 +4116,7 @@ class Attendance(Base):
 
     executive_id = Column(
         Integer,
-        ForeignKey("sales_executives.id"),
+        ForeignKey("sales_executives.id", ondelete="CASCADE"),
         nullable=False,
         index=True
     )
@@ -4199,6 +4214,10 @@ class Attendance(Base):
         ).replace(tzinfo=None)
     )
 
+    __table_args__ = (
+        UniqueConstraint("executive_id", "attendance_date", name="uq_attendance_exec_date"),
+    )
+
 
 # =========================================================
 # CREATE ALL DATABASE TABLES
@@ -4262,19 +4281,19 @@ def attendance_punch_in(payload: AttendancePunchIn, db: Session = Depends(get_db
     ).first()
     
     if record:
-        record.executive_name = exec_obj.name
-        record.executive_code = exec_obj.code
-        record.login_time = login_dt
+        setattr(record, "executive_name", exec_obj.name)
+        setattr(record, "executive_code", exec_obj.code)
+        setattr(record, "login_time", login_dt)
         if payload.login_latitude is not None:
-            record.login_latitude = payload.login_latitude
+            setattr(record, "login_latitude", payload.login_latitude)
         if payload.login_longitude is not None:
-            record.login_longitude = payload.login_longitude
+            setattr(record, "login_longitude", payload.login_longitude)
         if payload.login_area:
-            record.login_area = payload.login_area
+            setattr(record, "login_area", payload.login_area)
         if payload.login_selfie_url:
-            record.login_selfie_url = payload.login_selfie_url
-        record.status = payload.status or "Working"
-        record.updated_at = now_ts
+            setattr(record, "login_selfie_url", payload.login_selfie_url)
+        setattr(record, "status", payload.status or "Working")
+        setattr(record, "updated_at", now_ts)
     else:
         record = Attendance(
             executive_id=payload.executive_id,
@@ -4292,7 +4311,30 @@ def attendance_punch_in(payload: AttendancePunchIn, db: Session = Depends(get_db
         )
         db.add(record)
         
-    db.commit()
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        record = db.query(Attendance).filter(
+            Attendance.executive_id == payload.executive_id,
+            Attendance.attendance_date == today_val
+        ).first()
+        if record:
+            setattr(record, "executive_name", exec_obj.name)
+            setattr(record, "executive_code", exec_obj.code)
+            setattr(record, "login_time", login_dt)
+            if payload.login_latitude is not None:
+                setattr(record, "login_latitude", payload.login_latitude)
+            if payload.login_longitude is not None:
+                setattr(record, "login_longitude", payload.login_longitude)
+            if payload.login_area:
+                setattr(record, "login_area", payload.login_area)
+            if payload.login_selfie_url:
+                setattr(record, "login_selfie_url", payload.login_selfie_url)
+            setattr(record, "status", payload.status or "Working")
+            setattr(record, "updated_at", now_ts)
+            db.commit()
+
     db.refresh(record)
     resp = model_response(record)
     resp["executive_name"] = exec_obj.name
@@ -4333,26 +4375,54 @@ def attendance_punch_out(payload: AttendancePunchOut, db: Session = Depends(get_
         )
         db.add(record)
     else:
-        record.executive_name = exec_obj.name
-        record.executive_code = exec_obj.code
-        record.logout_time = logout_dt
+        setattr(record, "executive_name", exec_obj.name)
+        setattr(record, "executive_code", exec_obj.code)
+        setattr(record, "logout_time", logout_dt)
         if payload.logout_latitude is not None:
-            record.logout_latitude = payload.logout_latitude
+            setattr(record, "logout_latitude", payload.logout_latitude)
         if payload.logout_longitude is not None:
-            record.logout_longitude = payload.logout_longitude
+            setattr(record, "logout_longitude", payload.logout_longitude)
         if payload.logout_area:
-            record.logout_area = payload.logout_area
+            setattr(record, "logout_area", payload.logout_area)
         if payload.logout_selfie_url:
-            record.logout_selfie_url = payload.logout_selfie_url
+            setattr(record, "logout_selfie_url", payload.logout_selfie_url)
         if payload.total_working_minutes is not None:
-            record.total_working_minutes = payload.total_working_minutes
+            setattr(record, "total_working_minutes", payload.total_working_minutes)
         elif record.login_time:
             diff = (logout_dt - record.login_time).total_seconds()
-            record.total_working_minutes = max(0, int(diff / 60))
-        record.status = payload.status or "Completed"
-        record.updated_at = now_ts
+            setattr(record, "total_working_minutes", max(0, int(diff / 60)))
+        setattr(record, "status", payload.status or "Completed")
+        setattr(record, "updated_at", now_ts)
         
-    db.commit()
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        record = db.query(Attendance).filter(
+            Attendance.executive_id == payload.executive_id,
+            Attendance.attendance_date == today_val
+        ).first()
+        if record:
+            setattr(record, "executive_name", exec_obj.name)
+            setattr(record, "executive_code", exec_obj.code)
+            setattr(record, "logout_time", logout_dt)
+            if payload.logout_latitude is not None:
+                setattr(record, "logout_latitude", payload.logout_latitude)
+            if payload.logout_longitude is not None:
+                setattr(record, "logout_longitude", payload.logout_longitude)
+            if payload.logout_area:
+                setattr(record, "logout_area", payload.logout_area)
+            if payload.logout_selfie_url:
+                setattr(record, "logout_selfie_url", payload.logout_selfie_url)
+            if payload.total_working_minutes is not None:
+                setattr(record, "total_working_minutes", payload.total_working_minutes)
+            elif record.login_time:
+                diff = (logout_dt - record.login_time).total_seconds()
+                setattr(record, "total_working_minutes", max(0, int(diff / 60)))
+            setattr(record, "status", payload.status or "Completed")
+            setattr(record, "updated_at", now_ts)
+            db.commit()
+
     db.refresh(record)
     resp = model_response(record)
     resp["executive_name"] = exec_obj.name
@@ -4422,28 +4492,83 @@ def get_attendance_by_id(attendance_id: int, db: Session = Depends(get_db)):
 def create_attendance_record(payload: AttendanceCreate, db: Session = Depends(get_db)):
     exec_obj = db.query(SalesExecutive).filter(SalesExecutive.id == payload.executive_id).first()
     now_ts = datetime.now(ZoneInfo("Asia/Kolkata")).replace(tzinfo=None)
-    rec = Attendance(
-        executive_id=payload.executive_id,
-        executive_name=exec_obj.name if exec_obj else f"Executive {payload.executive_id}",
-        executive_code=exec_obj.code if exec_obj else f"SE-{payload.executive_id}",
-        attendance_date=payload.attendance_date,
-        login_time=parse_ist_datetime(payload.login_time) if payload.login_time else None,
-        logout_time=parse_ist_datetime(payload.logout_time) if payload.logout_time else None,
-        login_latitude=payload.login_latitude,
-        login_longitude=payload.login_longitude,
-        login_area=payload.login_area,
-        logout_latitude=payload.logout_latitude,
-        logout_longitude=payload.logout_longitude,
-        logout_area=payload.logout_area,
-        login_selfie_url=payload.login_selfie_url,
-        logout_selfie_url=payload.logout_selfie_url,
-        total_working_minutes=payload.total_working_minutes,
-        status=payload.status or "Working",
-        created_at=now_ts,
-        updated_at=now_ts
-    )
-    db.add(rec)
-    db.commit()
+    
+    rec = db.query(Attendance).filter(
+        Attendance.executive_id == payload.executive_id,
+        Attendance.attendance_date == payload.attendance_date
+    ).first()
+    
+    if rec:
+        if exec_obj:
+            setattr(rec, "executive_name", exec_obj.name)
+            setattr(rec, "executive_code", exec_obj.code)
+        if payload.login_time:
+            setattr(rec, "login_time", parse_ist_datetime(payload.login_time))
+        if payload.logout_time:
+            setattr(rec, "logout_time", parse_ist_datetime(payload.logout_time))
+        if payload.login_latitude is not None:
+            setattr(rec, "login_latitude", payload.login_latitude)
+        if payload.login_longitude is not None:
+            setattr(rec, "login_longitude", payload.login_longitude)
+        if payload.login_area:
+            setattr(rec, "login_area", payload.login_area)
+        if payload.logout_latitude is not None:
+            setattr(rec, "logout_latitude", payload.logout_latitude)
+        if payload.logout_longitude is not None:
+            setattr(rec, "logout_longitude", payload.logout_longitude)
+        if payload.logout_area:
+            setattr(rec, "logout_area", payload.logout_area)
+        if payload.login_selfie_url:
+            setattr(rec, "login_selfie_url", payload.login_selfie_url)
+        if payload.logout_selfie_url:
+            setattr(rec, "logout_selfie_url", payload.logout_selfie_url)
+        if payload.total_working_minutes is not None:
+            setattr(rec, "total_working_minutes", payload.total_working_minutes)
+        elif rec.login_time and rec.logout_time:
+            diff = (rec.logout_time - rec.login_time).total_seconds()
+            setattr(rec, "total_working_minutes", max(0, int(diff / 60)))
+        if payload.status:
+            setattr(rec, "status", payload.status)
+        setattr(rec, "updated_at", now_ts)
+    else:
+        rec = Attendance(
+            executive_id=payload.executive_id,
+            executive_name=exec_obj.name if exec_obj else f"Executive {payload.executive_id}",
+            executive_code=exec_obj.code if exec_obj else f"SE-{payload.executive_id}",
+            attendance_date=payload.attendance_date,
+            login_time=parse_ist_datetime(payload.login_time) if payload.login_time else None,
+            logout_time=parse_ist_datetime(payload.logout_time) if payload.logout_time else None,
+            login_latitude=payload.login_latitude,
+            login_longitude=payload.login_longitude,
+            login_area=payload.login_area,
+            logout_latitude=payload.logout_latitude,
+            logout_longitude=payload.logout_longitude,
+            logout_area=payload.logout_area,
+            login_selfie_url=payload.login_selfie_url,
+            logout_selfie_url=payload.logout_selfie_url,
+            total_working_minutes=payload.total_working_minutes,
+            status=payload.status or "Working",
+            created_at=now_ts,
+            updated_at=now_ts
+        )
+        db.add(rec)
+        
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        rec = db.query(Attendance).filter(
+            Attendance.executive_id == payload.executive_id,
+            Attendance.attendance_date == payload.attendance_date
+        ).first()
+        if rec:
+            if payload.login_time:
+                setattr(rec, "login_time", parse_ist_datetime(payload.login_time))
+            if payload.logout_time:
+                setattr(rec, "logout_time", parse_ist_datetime(payload.logout_time))
+            setattr(rec, "updated_at", now_ts)
+            db.commit()
+            
     db.refresh(rec)
     return model_response(rec)
 

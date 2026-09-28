@@ -119,6 +119,11 @@
   border-color: rgba(51, 65, 85, 0.8);
 }
 
+[data-theme="dark"] .zzc-search-icon,
+.dark .zzc-search-icon {
+  color: #94a3b8;
+}
+
 [data-theme="dark"] .zzc-sales-menu,
 .dark .zzc-sales-menu {
   background-color: #131d31;
@@ -577,25 +582,37 @@ a {
    SEARCH
 ========================= */
 
+.zzc-search-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.zzc-search-icon {
+  position: absolute;
+  left: 0.75rem;
+  color: var(--muted-foreground);
+  pointer-events: none;
+  transition: color 0.15s ease;
+}
+
+.zzc-search-wrap:focus-within .zzc-search-icon {
+  color: var(--primary);
+}
+
 .zzc-search-input {
   height: 2.25rem;
-
   border-radius: calc(var(--radius) - 4px);
-
   border: 1px solid var(--border);
-
   background-color: var(--background);
-
-  padding: 0 .75rem;
-
+  padding: 0 .75rem 0 2.25rem;
   font-size: .875rem;
-
-  min-width: 10rem;
+  min-width: 12rem;
+  color: var(--foreground);
 }
 
 .zzc-search-input:focus {
   outline: 2px solid var(--ring);
-
   outline-offset: 1px;
 }
 
@@ -606,23 +623,15 @@ a {
 
 .zzc-btn {
   height: 2.25rem;
-
   border-radius: calc(var(--radius) - 4px);
-
   padding: 0 .75rem;
-
   font-size: .875rem;
-
   font-weight: 500;
-
   display: inline-flex;
-
   align-items: center;
-
   justify-content: center;
-
+  gap: 0.375rem;
   border: 1px solid transparent;
-
   white-space: nowrap;
 }
 

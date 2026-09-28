@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import useTheme from "../useTheme.js";
-import { Sun, Moon } from "lucide-react";
+import { Sun, Moon, Search, Plus } from "lucide-react";
 
 export default function TopBar({
   title,
@@ -44,16 +44,20 @@ export default function TopBar({
       </div>
       <div className="zzc-topbar-actions">
         {showSearch && (
-          <input
-            className="zzc-search-input"
-            placeholder={searchPlaceholder}
-            value={searchTerm}
-            onChange={(e) => onSearchChange(e.target.value)}
-          />
+          <div className="zzc-search-wrap">
+            <Search className="zzc-search-icon" size={15} />
+            <input
+              className="zzc-search-input"
+              placeholder={searchPlaceholder}
+              value={searchTerm}
+              onChange={(e) => onSearchChange(e.target.value)}
+            />
+          </div>
         )}
         {showNewRecord && (
           <button className="zzc-btn zzc-btn-primary" onClick={onNewRecord}>
-            New record
+            <Plus size={16} strokeWidth={2.5} />
+            <span>New record</span>
           </button>
         )}
         

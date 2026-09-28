@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { fetchList } from "../api.js";
 import logo from "../assets/zenve-zippy-logo.png";
-import DoctorAvatar from "./DoctorAvatar.jsx";
 import {
   Briefcase,
   UserCheck,
@@ -10,12 +9,10 @@ import {
   Lock,
   Eye,
   EyeOff,
-  Zap,
   ArrowRight,
   X,
   ShieldCheck,
   Check,
-  Sparkles,
 } from "lucide-react";
 import "./SalesCrmLoginModal.css";
 
@@ -34,8 +31,6 @@ const ROLES_INFO = {
     accentRing: "rgba(2, 132, 199, 0.18)",
     accentGradient: "linear-gradient(135deg, #0284c7 0%, #0369a1 100%)",
     desc: "Manage doctor visits, pre/post call reports & monthly targets.",
-    demoUser: "Vishnu",
-    demoPass: "vk@2026",
   },
   manager: {
     key: "manager",
@@ -51,8 +46,6 @@ const ROLES_INFO = {
     accentRing: "rgba(37, 99, 235, 0.18)",
     accentGradient: "linear-gradient(135deg, #2563eb 0%, #3b82f6 100%)",
     desc: "Review executive performance, approve daily reports & monitor teams.",
-    demoUser: "dhanushkodi",
-    demoPass: "DK@2026",
   },
   regional: {
     key: "regional",
@@ -68,8 +61,6 @@ const ROLES_INFO = {
     accentRing: "rgba(124, 58, 237, 0.18)",
     accentGradient: "linear-gradient(135deg, #7c3aed 0%, #8b5cf6 100%)",
     desc: "High-level overview, target setting, regional analytics & plan approvals.",
-    demoUser: "V Dhanushkodi",
-    demoPass: "DK@2026",
   },
 };
 
@@ -100,72 +91,26 @@ export default function SalesCrmLoginModal({
     }
   }, [initialRole]);
 
-  // Load available users for this role from API whenever opened or role changes
+  // Load available users for authentication; keep inputs empty for manual user entry
   useEffect(() => {
     if (!isOpen) return;
+    setUsername("");
+    setPassword("");
+    setSelectedUser(null);
+    setError("");
+
     let cancelled = false;
     async function loadRoleUsers() {
       try {
         const list = await fetchList(roleConfig.tableKey);
         if (!cancelled && Array.isArray(list)) {
           setUsersList(list);
-
-          let preferredUser = null;
-          // Priority 1: Check localStorage preferred executive ID
-          try {
-            const prefId = localStorage.getItem("zippy_crm_preferred_exec_id");
-            if (prefId && currentRole === "executive") {
-              preferredUser = list.find((u) => String(u.id) === String(prefId));
-            }
-          } catch (e) {}
-
-          // Priority 2: Check latest added executive from table
-          if (!preferredUser && currentRole === "executive") {
-            try {
-              const latestStr = localStorage.getItem("zippy_crm_latest_added_executive");
-              if (latestStr) {
-                const latestObj = JSON.parse(latestStr);
-                preferredUser = list.find(
-                  (u) =>
-                    (latestObj.id && String(u.id) === String(latestObj.id)) ||
-                    (latestObj.code && u.code && u.code.toLowerCase() === latestObj.code.toLowerCase()) ||
-                    (latestObj.email && u.email && u.email.toLowerCase() === latestObj.email.toLowerCase()) ||
-                    (latestObj.name && u.name && u.name.toLowerCase() === latestObj.name.toLowerCase())
-                );
-              }
-            } catch (e) {}
-          }
-
-          // Priority 3: Check active auth
-          if (!preferredUser) {
-            try {
-              const authStr = localStorage.getItem("zippy_crm_active_auth");
-              if (authStr) {
-                const auth = JSON.parse(authStr);
-                if (auth?.role === currentRole && auth?.user?.id) {
-                  preferredUser = list.find((u) => String(u.id) === String(auth.user.id));
-                }
-              }
-            } catch (e) {}
-          }
-
-          // Priority 4: Default to the latest added user in the list (newest record in database)
-          if (!preferredUser && list.length > 0) {
-            preferredUser = list[list.length - 1];
-          }
-
-          if (preferredUser) {
-            setSelectedUser(preferredUser);
-            setUsername(preferredUser.name || preferredUser.email || preferredUser.code || "");
-            setPassword(preferredUser.code || "123456");
-          }
         }
       } catch (e) {
         if (!cancelled) setUsersList([]);
       }
     }
     loadRoleUsers();
-    setError("");
     return () => {
       cancelled = true;
     };
@@ -182,13 +127,6 @@ export default function SalesCrmLoginModal({
 
   if (!isOpen) return null;
 
-  function handleSelectQuickUser(u) {
-    setSelectedUser(u);
-    setUsername(u.name || u.email || u.code || "");
-    setPassword(u.code || "123456");
-    setError("");
-  }
-
   function handleUsernameChange(val) {
     setUsername(val);
     setError("");
@@ -198,7 +136,7 @@ export default function SalesCrmLoginModal({
       return;
     }
 
-    // Match against current usersList by email, name, code, or phone
+    // Match against current usersList by email, name, code, or phone (do not touch password)
     const match = usersList.find((u) => {
       const emailLower = (u.email || "").trim().toLowerCase();
       const nameLower = (u.name || "").trim().toLowerCase();
@@ -214,9 +152,6 @@ export default function SalesCrmLoginModal({
 
     if (match) {
       setSelectedUser(match);
-      if (!password || password === "123456" || usersList.some((u) => u.code === password)) {
-        setPassword(match.code || "123456");
-      }
     } else {
       // Partial match (prefix matching)
       const partial = usersList.find((u) => {
@@ -229,24 +164,10 @@ export default function SalesCrmLoginModal({
       });
       if (partial) {
         setSelectedUser(partial);
+      } else {
+        setSelectedUser(null);
       }
     }
-  }
-
-  function handleQuickFillDemo() {
-    const demo =
-      usersList.find((u) =>
-        u.name?.toLowerCase().includes(roleConfig.demoUser.toLowerCase())
-      ) || usersList[0];
-    if (demo) {
-      setSelectedUser(demo);
-      setUsername(demo.name || demo.email || demo.code || roleConfig.demoUser);
-      setPassword(demo.code || roleConfig.demoPass);
-    } else {
-      setUsername(roleConfig.demoUser);
-      setPassword(roleConfig.demoPass);
-    }
-    setError("");
   }
 
   async function handleSubmit(e) {
@@ -354,9 +275,7 @@ export default function SalesCrmLoginModal({
       }
 
       if (!isPasswordValid) {
-        setError(
-          `Incorrect password. (Hint: use code "${matched?.code || roleConfig.demoPass}" or 123456)`
-        );
+        setError("Incorrect password. Please enter a valid password.");
         setLoading(false);
         return;
       }
@@ -479,6 +398,9 @@ export default function SalesCrmLoginModal({
                   className={`crm-role-tab-btn ${isActive ? "active" : ""}`}
                   onClick={() => {
                     setCurrentRole(r.key);
+                    setUsername("");
+                    setPassword("");
+                    setSelectedUser(null);
                     setError("");
                   }}
                 >
@@ -522,51 +444,18 @@ export default function SalesCrmLoginModal({
                 ref={usernameInputRef}
                 type="text"
                 className="crm-login-input"
-                placeholder={`e.g. ${selectedUser?.email || roleConfig.demoUser} or employee code`}
+                placeholder="Enter email, username, or employee code"
                 value={username}
                 onChange={(e) => handleUsernameChange(e.target.value)}
                 autoComplete="username"
               />
             </div>
-
-            {/* Quick Profile Selection Chips */}
-            {usersList.length > 0 && (
-              <div className="crm-quick-users-wrap">
-                <span className="crm-quick-user-label">Select profile:</span>
-                <div className="crm-quick-users-scroll">
-                  {usersList.map((u) => {
-                    const isSelected =
-                      selectedUser?.id === u.id ||
-                      (username &&
-                        ((u.name && username.trim().toLowerCase() === u.name.trim().toLowerCase()) ||
-                          (u.email && username.trim().toLowerCase() === u.email.trim().toLowerCase()) ||
-                          (u.code && username.trim().toLowerCase() === u.code.trim().toLowerCase())));
-                    return (
-                      <button
-                        key={u.id}
-                        type="button"
-                        className={`crm-quick-user-pill ${isSelected ? "selected" : ""}`}
-                        onClick={() => handleSelectQuickUser(u)}
-                        title={`Click to auto-fill ${u.name} (${u.email || u.code || ""})`}
-                      >
-                        <DoctorAvatar name={u.name} size={18} showOnline={false} />
-                        <span className="crm-quick-user-name">{u.name}</span>
-                        {u.code && <span className="crm-quick-user-code">({u.code})</span>}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Password Field */}
           <div className="crm-login-form-group">
             <div className="crm-login-label-row">
               <label className="crm-login-label">Password</label>
-              <span className="crm-password-hint">
-                Use code or <code>123456</code>
-              </span>
             </div>
             <div className="crm-login-input-wrap">
               <span className="crm-login-field-icon">
@@ -593,29 +482,6 @@ export default function SalesCrmLoginModal({
                 {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
             </div>
-          </div>
-
-          {/* Quick Credentials Auto-Fill Card */}
-          <div className="crm-demo-hint-box">
-            <div className="crm-demo-hint-left">
-              <div className="crm-demo-spark-icon">
-                <Zap size={14} />
-              </div>
-              <div className="crm-demo-hint-text">
-                <span className="crm-demo-label">Quick credentials:</span>{" "}
-                <strong>{selectedUser?.name || roleConfig.demoUser}</strong> · Pass:{" "}
-                <code>{selectedUser?.code || roleConfig.demoPass}</code>
-              </div>
-            </div>
-            <button
-              type="button"
-              className="crm-demo-fill-btn"
-              onClick={handleQuickFillDemo}
-              title="Click to automatically fill credentials"
-            >
-              <Sparkles size={12} />
-              <span>Auto-Fill</span>
-            </button>
           </div>
 
           {/* Keep Signed In Checkbox */}
