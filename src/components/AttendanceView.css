@@ -1,0 +1,1688 @@
+/* ==========================================================================
+   AttendanceView.css — High-End Modern Enterprise Attendance & Shift Punch
+   ========================================================================== */
+
+.attend-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  width: 100%;
+  animation: fadeIn 0.2s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Toast Notification */
+.attend-toast {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1.25rem;
+  background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
+  color: #ffffff;
+  border-radius: 10px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  box-shadow: 0 8px 20px -4px rgba(13, 148, 136, 0.35);
+  animation: slideDown 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideDown {
+  from { transform: translateY(-10px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.attend-toast button {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: #fff;
+  border-radius: 50%;
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  margin-left: 1rem;
+  transition: background 0.15s ease;
+}
+
+.attend-toast button:hover {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+/* ==========================================================================
+   1. Header Card — Command Profile Bar
+   ========================================================================== */
+.attend-header-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 1.1rem 1.5rem;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+}
+
+.attend-profile-info {
+  display: flex;
+  align-items: center;
+  gap: 1.15rem;
+}
+
+.attend-user-title {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.attend-user-title h2 {
+  font-family: var(--font-display, inherit);
+  font-size: 1.3rem;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  margin: 0;
+  color: #0f172a;
+}
+
+.attend-code-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: #f1f5f9;
+  color: #334155;
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  letter-spacing: 0.03em;
+}
+
+.attend-region-pill {
+  font-size: 0.74rem;
+  font-weight: 600;
+  background: #ecfdf5;
+  color: #059669;
+  padding: 3px 10px;
+  border-radius: 6px;
+  border: 1px solid #a7f3d0;
+  display: inline-flex;
+  align-items: center;
+}
+
+.attend-user-sub {
+  margin: 3px 0 0 0;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #64748b;
+}
+
+/* Header Right Telemetry Hub */
+.attend-header-actions-hub {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.attend-header-status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+}
+
+.attend-header-status-chip.completed {
+  background: #ecfdf5;
+  color: #047857;
+  border-color: #a7f3d0;
+}
+
+.attend-header-status-chip.active {
+  background: #f0fdfa;
+  color: #0f766e;
+  border-color: #99f6e4;
+}
+
+.attend-header-status-chip.pending {
+  background: #fffbeb;
+  color: #b45309;
+  border-color: #fde68a;
+}
+
+.attend-header-pulse-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.25);
+  animation: pulseDot 1.4s infinite;
+}
+
+.attend-header-geo-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  background: #f8fafc;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+  padding: 5px 12px;
+  border-radius: 8px;
+}
+
+.attend-geo-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #0284c7;
+}
+
+.attend-exec-switcher {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.attend-exec-switcher label {
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #64748b;
+}
+
+.attend-exec-switcher select {
+  height: 32px;
+  min-width: 170px;
+  padding: 0 0.75rem;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 0.78rem;
+  font-weight: 600;
+  outline: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.attend-exec-switcher select:hover {
+  border-color: #0d9488;
+}
+
+.attend-exec-switcher select:focus {
+  border-color: #0d9488;
+  box-shadow: 0 0 0 2px rgba(13, 148, 136, 0.15);
+}
+
+/* ==========================================================================
+   2. Main Grid: Clock & Action Center
+   ========================================================================== */
+.attend-main-grid {
+  display: grid;
+  grid-template-columns: 350px 1fr;
+  gap: 1.25rem;
+  align-items: stretch;
+}
+
+@media (max-width: 980px) {
+  .attend-main-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Left Card: Live Clock Widget */
+.attend-clock-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 1.35rem 1.4rem;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+  position: relative;
+  overflow: hidden;
+}
+
+.attend-clock-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #0d9488 0%, #0284c7 100%);
+}
+
+.attend-clock-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.attend-live-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.67rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  color: #059669;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  padding: 3px 9px;
+  border-radius: 9999px;
+  text-transform: uppercase;
+}
+
+.attend-live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 6px #10b981;
+  animation: pulseDot 1.4s infinite;
+}
+
+@keyframes pulseDot {
+  0% { transform: scale(0.9); opacity: 0.8; }
+  50% { transform: scale(1.35); opacity: 1; box-shadow: 0 0 10px #10b981; }
+  100% { transform: scale(0.9); opacity: 0.8; }
+}
+
+.attend-date-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: #64748b;
+  background: #f8fafc;
+  padding: 3px 9px;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+}
+
+.attend-digital-clock-container {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.25rem 1rem;
+  text-align: center;
+  margin: 1.1rem 0;
+}
+
+.attend-digital-clock {
+  font-family: var(--font-display, inherit);
+  font-size: 2.35rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
+  color: #0f172a;
+  line-height: 1;
+  margin: 0;
+}
+
+.attend-clock-subtext {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #0d9488;
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+
+.attend-sync-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #10b981;
+}
+
+.attend-shift-status-box {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0.85rem 1rem;
+}
+
+.attend-shift-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #64748b;
+  letter-spacing: 0.05em;
+  margin-bottom: 6px;
+}
+
+.attend-status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  border-radius: 8px;
+  padding: 6px 10px;
+}
+
+.attend-status-indicator.pending {
+  color: #b45309;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+}
+
+.attend-status-indicator.active {
+  color: #0f766e;
+  background: #f0fdfa;
+  border: 1px solid #99f6e4;
+}
+
+.attend-working-pulse {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.25);
+  animation: pulseDot 1.2s infinite;
+}
+
+.attend-status-indicator.done {
+  color: #047857;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+}
+
+/* Right Card: Punch In / Punch Out Buttons */
+.attend-actions-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 1.35rem 1.5rem;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+}
+
+.attend-actions-title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.15rem;
+}
+
+.attend-actions-icon-badge {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: rgba(13, 148, 136, 0.1);
+  color: #0d9488;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.attend-actions-title h3 {
+  font-family: var(--font-display, inherit);
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 0;
+  color: #0f172a;
+}
+
+.attend-actions-title p {
+  margin: 2px 0 0 0;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: #64748b;
+}
+
+.attend-punch-buttons-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.15rem;
+  margin-bottom: 1.15rem;
+}
+
+@media (max-width: 600px) {
+  .attend-punch-buttons-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.attend-punch-btn {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.1rem 1.25rem;
+  border-radius: 12px;
+  border: 1.5px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  text-align: left;
+  user-select: none;
+}
+
+/* Punch In Button */
+.punch-in-btn {
+  background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(13, 148, 136, 0.25);
+}
+
+.punch-in-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(13, 148, 136, 0.35);
+}
+
+.punch-in-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.punch-in-btn.punched {
+  background: #f0fdf4;
+  border-color: #86efac;
+  color: #166534;
+  box-shadow: none;
+  cursor: default;
+}
+
+/* Punch Out Button */
+.punch-out-btn {
+  background: linear-gradient(135deg, #e11d48 0%, #be123c 100%);
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(225, 29, 72, 0.25);
+}
+
+.punch-out-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(225, 29, 72, 0.35);
+}
+
+.punch-out-btn.disabled {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+  color: #94a3b8;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+.punch-out-btn.punched {
+  background: #fff1f2;
+  border-color: #fecdd3;
+  color: #9f1239;
+  box-shadow: none;
+  cursor: default;
+}
+
+.attend-btn-icon-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.2);
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.attend-punch-btn:hover:not(:disabled) .attend-btn-icon-wrap {
+  transform: scale(1.05);
+}
+
+.punch-in-btn.punched .attend-btn-icon-wrap {
+  background: #bbf7d0;
+  color: #15803d;
+}
+
+.punch-out-btn.punched .attend-btn-icon-wrap {
+  background: #fecdd3;
+  color: #be123c;
+}
+
+.punch-out-btn.disabled .attend-btn-icon-wrap {
+  background: #e2e8f0;
+  color: #94a3b8;
+}
+
+.attend-btn-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.attend-btn-action {
+  font-family: var(--font-display, inherit);
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.attend-btn-time {
+  font-size: 0.78rem;
+  opacity: 0.9;
+  font-weight: 600;
+}
+
+/* Today's Summary Bar */
+.attend-summary-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0.85rem 1.25rem;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+}
+
+.attend-bar-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.attend-bar-item .bar-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #64748b;
+}
+
+.attend-bar-item .bar-val {
+  font-family: var(--font-display, inherit);
+  font-size: 0.98rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: #0f172a;
+}
+
+.attend-bar-divider {
+  width: 1px;
+  height: 26px;
+  background: #e2e8f0;
+}
+
+/* Verified Face Thumbnail Button */
+.attend-photo-thumb-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1.5px solid #10b981;
+  padding: 0;
+  background: #f0fdf4;
+  cursor: pointer;
+  overflow: visible;
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  box-shadow: 0 1px 3px rgba(16, 185, 129, 0.2);
+  flex-shrink: 0;
+}
+
+.attend-photo-thumb-btn:hover {
+  transform: scale(1.12);
+}
+
+.attend-photo-thumb-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.attend-photo-verified-icon {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: #10b981;
+  color: #ffffff;
+  font-size: 7px;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #ffffff;
+  line-height: 1;
+}
+
+/* Location Subtitle */
+.attend-loc-sub {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #0d9488;
+  margin-top: 1px;
+}
+
+.attend-reset-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: #64748b;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 5px 10px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.attend-reset-btn:hover {
+  background: #fee2e2;
+  border-color: #ef4444;
+  color: #b91c1c;
+}
+
+/* ==========================================================================
+   3. KPI Stats Row — Executive Metrics
+   ========================================================================== */
+.attend-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+}
+
+@media (max-width: 900px) {
+  .attend-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.attend-stat-card {
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 1.15rem 1.25rem;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.attend-stat-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(13, 148, 136, 0.35);
+  box-shadow: 0 8px 20px -4px rgba(15, 23, 42, 0.08);
+}
+
+.attend-stat-top-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.attend-stat-icon-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+  flex-shrink: 0;
+}
+
+.attend-stat-icon-wrap.teal {
+  background: rgba(13, 148, 136, 0.1);
+  color: #0d9488;
+}
+
+.attend-stat-icon-wrap.cyan {
+  background: rgba(2, 132, 199, 0.1);
+  color: #0284c7;
+}
+
+.attend-stat-icon-wrap.emerald {
+  background: rgba(16, 185, 129, 0.1);
+  color: #059669;
+}
+
+.attend-stat-icon-wrap.amber {
+  background: rgba(245, 158, 11, 0.1);
+  color: #d97706;
+}
+
+.attend-stat-badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.attend-stat-badge.teal {
+  background: #f0fdfa;
+  color: #0f766e;
+}
+
+.attend-stat-badge.cyan {
+  background: #f0f9ff;
+  color: #0369a1;
+}
+
+.attend-stat-badge.emerald {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.attend-stat-badge.amber {
+  background: #fffbeb;
+  color: #b45309;
+}
+
+.attend-stat-body {
+  display: flex;
+  flex-direction: column;
+}
+
+.attend-stat-value {
+  font-family: var(--font-display, inherit);
+  font-size: 1.45rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: #0f172a;
+  line-height: 1.15;
+}
+
+.attend-stat-value small {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #64748b;
+  margin-left: 2px;
+}
+
+.attend-stat-label {
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: #475569;
+  margin-top: 4px;
+}
+
+.attend-stat-sub {
+  font-size: 0.68rem;
+  font-weight: 500;
+  color: #94a3b8;
+  margin-top: 2px;
+}
+
+/* ==========================================================================
+   4. Monthly Attendance Log Table
+   ========================================================================== */
+.attend-table-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 1.25rem 1.5rem;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+}
+
+.attend-table-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.attend-table-header h3 {
+  font-family: var(--font-display, inherit);
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 0;
+  color: #0f172a;
+}
+
+.attend-table-header p {
+  margin: 2px 0 0 0;
+  font-size: 0.76rem;
+  color: #64748b;
+}
+
+.attend-table-badge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  background: #f1f5f9;
+  color: #475569;
+  padding: 3px 9px;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+}
+
+.attend-table-responsive {
+  overflow-x: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+}
+
+.attend-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+  text-align: left;
+}
+
+.attend-table thead th {
+  background: #f8fafc;
+  color: #475569;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 10px 14px;
+  border-bottom: 1.5px solid #e2e8f0;
+  white-space: nowrap;
+}
+
+.attend-table tbody td {
+  padding: 10px 14px;
+  border-bottom: 1px solid #f1f5f9;
+  color: #334155;
+  vertical-align: middle;
+}
+
+.attend-table tbody tr:hover td {
+  background: #f8fafc;
+}
+
+.attend-date-text {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.attend-day-text {
+  color: #64748b;
+  font-weight: 500;
+}
+
+.attend-exec-cell {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.attend-face-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.attend-face-tag {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #059669;
+}
+
+.attend-no-photo-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.attend-punch-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.attend-time-pill {
+  display: inline-block;
+  font-weight: 600;
+  font-size: 0.76rem;
+  padding: 2px 7px;
+  border-radius: 5px;
+  width: fit-content;
+}
+
+.attend-time-pill.in {
+  background: #f0fdf4;
+  color: #15803d;
+}
+
+.attend-time-pill.out {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.attend-duration-text {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.attend-status-tag {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.attend-status-tag.present {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.attend-status-tag.working {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.attend-status-tag.completed {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.attend-status-tag.late-arrival {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.attend-remarks-text {
+  font-size: 0.74rem;
+  color: #64748b;
+}
+
+/* ==========================================================================
+   5. Face Verification Modal / Lightbox
+   ========================================================================== */
+.attend-preview-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.attend-lightbox-card {
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.2);
+  max-width: 440px;
+  width: 100%;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  animation: scaleUp 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes scaleUp {
+  from { transform: scale(0.96); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.attend-lightbox-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.9rem 1.25rem;
+  border-bottom: 1px solid #f1f5f9;
+  background: #fafbfd;
+}
+
+.attend-lightbox-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: #0f172a;
+}
+
+.camera-icon-teal {
+  color: #0d9488;
+}
+
+.attend-lightbox-close {
+  background: #f1f5f9;
+  border: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  color: #64748b;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  transition: all 0.15s ease;
+}
+
+.attend-lightbox-close:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.attend-lightbox-body {
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.attend-lightbox-img {
+  width: 100%;
+  height: 240px;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: #0f172a;
+}
+
+.attend-lightbox-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0.85rem 1rem;
+}
+
+.attend-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.78rem;
+}
+
+.attend-meta-k {
+  font-weight: 600;
+  color: #64748b;
+}
+
+.attend-meta-v {
+  font-weight: 700;
+  color: #0f172a;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.attend-meta-status-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  margin-top: 0.25rem;
+  padding: 0.45rem;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  border-radius: 6px;
+  color: #047857;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+/* ==========================================================================
+   6. Comprehensive Dark Mode Overrides
+   ========================================================================== */
+[data-theme="dark"] .attend-header-card,
+.dark .attend-header-card,
+[data-theme="dark"] .attend-actions-card,
+.dark .attend-actions-card,
+[data-theme="dark"] .attend-table-card,
+.dark .attend-table-card,
+[data-theme="dark"] .attend-stat-card,
+.dark .attend-stat-card,
+[data-theme="dark"] .attend-clock-card,
+.dark .attend-clock-card {
+  background: #111827;
+  border-color: rgba(51, 65, 85, 0.7);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.25);
+}
+
+[data-theme="dark"] .attend-user-title h2,
+.dark .attend-user-title h2,
+[data-theme="dark"] .attend-actions-title h3,
+.dark .attend-actions-title h3,
+[data-theme="dark"] .attend-digital-clock,
+.dark .attend-digital-clock,
+[data-theme="dark"] .attend-stat-value,
+.dark .attend-stat-value,
+[data-theme="dark"] .attend-table-header h3,
+.dark .attend-table-header h3,
+[data-theme="dark"] .attend-date-text,
+.dark .attend-date-text,
+[data-theme="dark"] .attend-exec-cell,
+.dark .attend-exec-cell,
+[data-theme="dark"] .attend-duration-text,
+.dark .attend-duration-text,
+[data-theme="dark"] .attend-bar-item .bar-val,
+.dark .attend-bar-item .bar-val,
+[data-theme="dark"] .attend-meta-v,
+.dark .attend-meta-v {
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .attend-user-sub,
+.dark .attend-user-sub,
+[data-theme="dark"] .attend-actions-title p,
+.dark .attend-actions-title p,
+[data-theme="dark"] .attend-stat-label,
+.dark .attend-stat-label,
+[data-theme="dark"] .attend-stat-sub,
+.dark .attend-stat-sub,
+[data-theme="dark"] .attend-table-header p,
+.dark .attend-table-header p,
+[data-theme="dark"] .attend-remarks-text,
+.dark .attend-remarks-text,
+[data-theme="dark"] .attend-day-text,
+.dark .attend-day-text {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .attend-digital-clock-container,
+.dark .attend-digital-clock-container,
+[data-theme="dark"] .attend-shift-status-box,
+.dark .attend-shift-status-box,
+[data-theme="dark"] .attend-summary-bar,
+.dark .attend-summary-bar,
+[data-theme="dark"] .attend-header-geo-chip,
+.dark .attend-header-geo-chip,
+[data-theme="dark"] .attend-date-badge,
+.dark .attend-date-badge {
+  background: #1e293b;
+  border-color: rgba(51, 65, 85, 0.7);
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .attend-code-badge,
+.dark .attend-code-badge {
+  background: #1e293b;
+  border-color: rgba(51, 65, 85, 0.7);
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .attend-bar-divider,
+.dark .attend-bar-divider {
+  background: rgba(51, 65, 85, 0.7);
+}
+
+[data-theme="dark"] .attend-reset-btn,
+.dark .attend-reset-btn {
+  background: #1e293b;
+  border-color: rgba(51, 65, 85, 0.8);
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .punch-in-btn.punched,
+.dark .punch-in-btn.punched {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: #059669;
+  color: #34d399;
+}
+
+[data-theme="dark"] .punch-out-btn.disabled,
+.dark .punch-out-btn.disabled {
+  background: #1e293b;
+  border-color: rgba(51, 65, 85, 0.6);
+  color: #64748b;
+}
+
+[data-theme="dark"] .punch-out-btn.punched,
+.dark .punch-out-btn.punched {
+  background: rgba(244, 63, 94, 0.15);
+  border-color: #e11d48;
+  color: #fb7185;
+}
+
+[data-theme="dark"] .punch-in-btn.punched .attend-btn-icon-wrap,
+.dark .punch-in-btn.punched .attend-btn-icon-wrap {
+  background: rgba(16, 185, 129, 0.25);
+  color: #34d399;
+}
+
+[data-theme="dark"] .punch-out-btn.punched .attend-btn-icon-wrap,
+.dark .punch-out-btn.punched .attend-btn-icon-wrap {
+  background: rgba(244, 63, 94, 0.25);
+  color: #fb7185;
+}
+
+[data-theme="dark"] .punch-out-btn.disabled .attend-btn-icon-wrap,
+.dark .punch-out-btn.disabled .attend-btn-icon-wrap {
+  background: #1e293b;
+  color: #64748b;
+}
+
+[data-theme="dark"] .attend-table thead th,
+.dark .attend-table thead th {
+  background: #0f172a;
+  border-color: rgba(51, 65, 85, 0.7);
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .attend-table-responsive,
+.dark .attend-table-responsive {
+  border-color: rgba(51, 65, 85, 0.7);
+}
+
+[data-theme="dark"] .attend-table tbody td,
+.dark .attend-table tbody td {
+  border-color: rgba(51, 65, 85, 0.5);
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .attend-table tbody tr:hover td,
+.dark .attend-table tbody tr:hover td {
+  background: rgba(13, 148, 136, 0.1);
+}
+
+[data-theme="dark"] .attend-table-badge,
+.dark .attend-table-badge {
+  background: #1e293b;
+  border-color: rgba(51, 65, 85, 0.7);
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .attend-lightbox-card,
+.dark .attend-lightbox-card {
+  background: #111827;
+  border-color: rgba(51, 65, 85, 0.7);
+}
+
+[data-theme="dark"] .attend-lightbox-header,
+.dark .attend-lightbox-header {
+  background: #0f172a;
+  border-color: rgba(51, 65, 85, 0.7);
+}
+
+[data-theme="dark"] .attend-lightbox-title,
+.dark .attend-lightbox-title {
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .attend-lightbox-meta,
+.dark .attend-lightbox-meta {
+  background: #1e293b;
+  border-color: rgba(51, 65, 85, 0.7);
+}
+
+/* ==========================================================================
+   6. Weekly Order Wise Layout & Banners
+   ========================================================================== */
+.attend-weekly-badge {
+  display: inline-flex;
+  align-items: center;
+  background: #ecfdf5;
+  color: #047857;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 9999px;
+  border: 1px solid #a7f3d0;
+  letter-spacing: 0.02em;
+}
+
+.attend-header-actions-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.attend-view-mode-toggle {
+  display: inline-flex;
+  background: #f1f5f9;
+  padding: 3px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.attend-mode-btn {
+  padding: 6px 13px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #64748b;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.attend-mode-btn.active {
+  background: #ffffff;
+  color: #0f172a;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+}
+
+.attend-order-selector-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.attend-order-selector-wrap label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #64748b;
+  letter-spacing: 0.04em;
+}
+
+.attend-order-select {
+  padding: 5px 10px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #1e293b;
+  border: 1px solid #cbd5e1;
+  border-radius: 7px;
+  background: #ffffff;
+  cursor: pointer;
+  outline: none;
+}
+
+.attend-order-select:focus {
+  border-color: #0d9488;
+}
+
+.attend-weeks-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  margin-bottom: 1.15rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  flex-wrap: wrap;
+}
+
+.attend-weeks-filter-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #64748b;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+.attend-weeks-pills-list {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.attend-week-pill-btn {
+  padding: 5px 12px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #475569;
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.attend-week-pill-btn:hover {
+  border-color: #94a3b8;
+  background: #f1f5f9;
+}
+
+.attend-week-pill-btn.active {
+  background: #0d9488;
+  color: #ffffff;
+  border-color: #0d9488;
+  box-shadow: 0 2px 6px rgba(13, 148, 136, 0.25);
+}
+
+.attend-weekly-groups-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.attend-week-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03);
+  background: #ffffff;
+}
+
+.attend-week-card-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.attend-week-card-banner.current-week {
+  background: linear-gradient(90deg, #f0fdfa 0%, #f8fafc 100%);
+  border-left: 4px solid #0d9488;
+}
+
+.attend-week-banner-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.attend-week-num-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #e2e8f0;
+  color: #334155;
+  font-size: 0.76rem;
+  font-weight: 800;
+  padding: 4px 10px;
+  border-radius: 8px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.attend-week-num-badge.current {
+  background: #0d9488;
+  color: #ffffff;
+}
+
+.attend-current-pulse {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #fef08a;
+  letter-spacing: 0.05em;
+}
+
+.attend-week-banner-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.attend-week-banner-sub {
+  font-size: 0.72rem;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.attend-week-banner-stats {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.attend-week-stat-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.attend-week-stat-chip.total-hours {
+  background: #f0fdf4;
+  color: #166534;
+  border-color: #bbf7d0;
+}
+
+.attend-week-stat-chip.present {
+  background: #eff6ff;
+  color: #1e40af;
+  border-color: #bfdbfe;
+}
+
+.attend-week-stat-chip.weekly-off {
+  background: #faf5ff;
+  color: #6b21a8;
+  border-color: #e9d5ff;
+}
+
+.attend-week-stat-chip.punctuality {
+  background: #fffbeb;
+  color: #92400e;
+  border-color: #fde68a;
+}
+
+.attend-row-weekly-off td {
+  background: #fafafa;
+}
+
+.attend-day-text.sunday {
+  color: #7c3aed;
+  font-weight: 700;
+}
+
+.attend-status-tag.weekly-off {
+  background: #ede9fe;
+  color: #6d28d9;
+}
+
+.attend-no-photo-badge.weekly-off {
+  color: #7c3aed;
+  font-weight: 600;
+}
+
+.attend-off-text {
+  color: #94a3b8;
+  font-style: italic;
+  font-size: 0.74rem;
+}
+
+.attend-duration-text.off {
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+/* Dark mode adjustments for Weekly Order Wise */
+[data-theme="dark"] .attend-week-card,
+.dark .attend-week-card {
+  background: #0f172a;
+  border-color: rgba(51, 65, 85, 0.7);
+}
+
+[data-theme="dark"] .attend-week-card-banner,
+.dark .attend-week-card-banner {
+  background: #1e293b;
+  border-color: rgba(51, 65, 85, 0.7);
+}
+
+[data-theme="dark"] .attend-week-card-banner.current-week,
+.dark .attend-week-card-banner.current-week {
+  background: linear-gradient(90deg, rgba(13, 148, 136, 0.15) 0%, #1e293b 100%);
+  border-left-color: #14b8a6;
+}
+
+[data-theme="dark"] .attend-week-banner-title,
+.dark .attend-week-banner-title {
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .attend-weeks-filter-bar,
+.dark .attend-weeks-filter-bar {
+  background: #1e293b;
+  border-color: rgba(51, 65, 85, 0.7);
+}
+
+[data-theme="dark"] .attend-week-pill-btn,
+.dark .attend-week-pill-btn {
+  background: #0f172a;
+  border-color: rgba(51, 65, 85, 0.7);
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .attend-week-pill-btn.active,
+.dark .attend-week-pill-btn.active {
+  background: #0d9488;
+  color: #ffffff;
+  border-color: #0d9488;
+}
+
+[data-theme="dark"] .attend-view-mode-toggle,
+.dark .attend-view-mode-toggle {
+  background: #0f172a;
+  border-color: rgba(51, 65, 85, 0.7);
+}
+
+[data-theme="dark"] .attend-mode-btn.active,
+.dark .attend-mode-btn.active {
+  background: #1e293b;
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .attend-order-select,
+.dark .attend-order-select {
+  background: #1e293b;
+  border-color: rgba(51, 65, 85, 0.7);
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .attend-row-weekly-off td,
+.dark .attend-row-weekly-off td {
+  background: rgba(15, 23, 42, 0.4);
+}
+

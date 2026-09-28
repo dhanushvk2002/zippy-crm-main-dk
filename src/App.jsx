@@ -19,11 +19,68 @@ import RecordModal from "./components/RecordModal.jsx";
 import Dashboard from "./components/Dashboard.jsx";
 import BulkTools from "./components/BulkTools.jsx";
 import SalesCrmClone from "./components/SalesCrm.jsx";
+import SalesCrmLoginModal from "./components/SalesCrmLoginModal.jsx";
+import useTheme from "./useTheme.js";
 
 const PAGE_SIZE = 10;
 
 export default function App() {
-  const [salesCrmView, setSalesCrmView] = useState(null); // null | "executive" | "manager" | "regional"
+  const [theme] = useTheme();
+  const [salesLoginModal, setSalesLoginModal] = useState({ isOpen: false, role: "executive" });
+  const [salesCrmView, setSalesCrmView] = useState(() => {
+    try {
+      const hash = window.location.hash;
+      const path = window.location.pathname;
+      if (path.includes("/doctor")) return "manager";
+      const saved = localStorage.getItem("zippy_crm_last_view");
+      if (saved === "admin") return null;
+      if (saved && (saved === "manager" || saved === "executive" || saved === "regional")) {
+        return saved;
+      }
+      if (hash && (hash === "#attendance" || hash === "#attendance_report" || hash === "#doctors" || hash === "#reports" || hash === "#dashboard" || hash === "#plan" || hash === "#approvals")) {
+        return "manager";
+      }
+    } catch (e) {}
+    return null;
+  });
+
+  function handleSetSalesCrmView(view) {
+    setSalesCrmView(view);
+    try {
+      if (view) {
+        localStorage.setItem("zippy_crm_last_view", view);
+      } else {
+        localStorage.setItem("zippy_crm_last_view", "admin");
+        if (window.location.hash) {
+          history.replaceState(null, "", window.location.pathname);
+        }
+      }
+    } catch (e) {}
+  }
+
+  const [activeSalesUser, setActiveSalesUser] = useState(() => {
+    try {
+      const saved = localStorage.getItem("zippy_crm_active_auth");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return parsed?.user || null;
+      }
+    } catch (e) {}
+    return null;
+  });
+
+  function handleOpenSalesCrmLogin(role) {
+    setSalesLoginModal({
+      isOpen: true,
+      role: role || "executive",
+    });
+  }
+
+  function handleSalesLoginSuccess({ role, user }) {
+    setActiveSalesUser(user);
+    handleSetSalesCrmView(role);
+    setSalesLoginModal({ isOpen: false, role });
+  }
   const [currentKey, setCurrentKey] = useState("pet_parents");
   const [records, setRecords] = useState([]); // raw objects from the API, in list order
   const [loading, setLoading] = useState(true);
@@ -129,11 +186,49 @@ export default function App() {
         if (field.readOnly) return;
         payload[field.key] = coerceFieldValue(field, formValues[field.key]);
       });
+      let savedItem = null;
       if (editingRecord) {
-        await updateRecord(currentKey, editingRecord.id, payload);
+        savedItem = await updateRecord(currentKey, editingRecord.id, payload);
       } else {
-        await createRecord(currentKey, payload);
+        savedItem = await createRecord(currentKey, payload);
       }
+
+      if (currentKey === "sales_executives" && savedItem) {
+        const fullSaved = { ...payload, ...savedItem };
+        setActiveSalesUser(fullSaved);
+        try {
+          localStorage.setItem("zippy_crm_active_auth", JSON.stringify({
+            role: "executive",
+            user: fullSaved,
+            loggedInAt: Date.now(),
+          }));
+          localStorage.setItem("zippy_crm_preferred_exec_id", String(fullSaved.id));
+          localStorage.setItem("zippy_crm_latest_added_executive", JSON.stringify(fullSaved));
+
+          // Ensure any prior mock punch for this new executive is wiped clean so they start 100% unpunched
+          const attendKey = "zenve_crm_attendance_records";
+          const raw = localStorage.getItem(attendKey);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            let changed = false;
+            Object.keys(parsed).forEach((k) => {
+              if (
+                k.startsWith(`${fullSaved.id}_`) ||
+                parsed[k]?.execId === fullSaved.id ||
+                String(parsed[k]?.execId) === String(fullSaved.id) ||
+                (parsed[k]?.execName && fullSaved.name && parsed[k]?.execName.toLowerCase() === fullSaved.name.toLowerCase())
+              ) {
+                delete parsed[k];
+                changed = true;
+              }
+            });
+            if (changed) {
+              localStorage.setItem(attendKey, JSON.stringify(parsed));
+            }
+          }
+        } catch (e) {}
+      }
+
       closeModal();
       await loadRecords();
       setRefreshTrigger((n) => n + 1);
@@ -163,15 +258,20 @@ export default function App() {
   if (salesCrmView) {
     return (
       <SalesCrmClone
+        key={`${salesCrmView}_${activeSalesUser?.id || activeSalesUser?.name || 'default'}`}
         role={salesCrmView}
-        onSwitchRole={(view) => setSalesCrmView(view)}
-        onExit={() => setSalesCrmView(null)}
+        initialUser={activeSalesUser}
+        onSwitchRole={(view) => handleSetSalesCrmView(view)}
+        onExit={() => {
+          setActiveSalesUser(null);
+          handleSetSalesCrmView(null);
+        }}
       />
     );
   }
 
   return (
-    <div className="zzc-app">
+    <div className={`zzc-app ${theme}`}>
       <Sidebar currentKey={currentKey} onSelect={selectTable}/>
 
       <main className="zzc-main">
@@ -189,7 +289,7 @@ export default function App() {
           onNewRecord={openNewModal}
           activeTab={activeTab}
           onTabChange={setActiveTab}
-          onOpenSalesCRM={(view) => setSalesCrmView(view)}
+          onOpenSalesCRM={(view) => handleOpenSalesCrmLogin(view)}
         />
 
         {error && (
@@ -252,6 +352,13 @@ export default function App() {
         onSave={saveModal}
         onCancel={closeModal}
         saving={saving}
+      />
+
+      <SalesCrmLoginModal
+        isOpen={salesLoginModal.isOpen}
+        initialRole={salesLoginModal.role}
+        onClose={() => setSalesLoginModal((prev) => ({ ...prev, isOpen: false }))}
+        onLoginSuccess={handleSalesLoginSuccess}
       />
     </div>
   );

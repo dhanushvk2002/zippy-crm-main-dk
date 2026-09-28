@@ -47,7 +47,7 @@
 
 .admin-stat-card:hover {
   transform: translateY(-2px);
-  border-color: var(--stat-color, #007c71);
+  border-color: var(--stat-color, #0284c7);
   box-shadow: 0 6px 16px -2px rgba(15, 23, 42, 0.08);
 }
 
@@ -61,9 +61,9 @@
   width: 28px;
   height: 28px;
   border-radius: 8px;
-  background: var(--stat-bg, rgba(0, 124, 113, 0.08));
-  color: var(--stat-color, #007c71);
-  border: 1px solid var(--stat-border, rgba(0, 124, 113, 0.18));
+  background: var(--stat-bg, rgba(2, 132, 199, 0.08));
+  color: var(--stat-color, #0284c7);
+  border: 1px solid var(--stat-border, rgba(2, 132, 199, 0.18));
   display: flex;
   align-items: center;
   justify-content: center;

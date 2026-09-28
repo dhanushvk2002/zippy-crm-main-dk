@@ -1,4 +1,18 @@
+import { useEffect } from "react";
+import { createPortal } from "react-dom";
+
 export default function RecordModal({ mode, columns, values, onChange, onSave, onCancel, saving }) {
+  useEffect(() => {
+    if (!mode) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.body.classList.add("crm-modal-open");
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      document.body.classList.remove("crm-modal-open");
+    };
+  }, [mode]);
+
   if (!mode) return null;
 
   function renderInput(field) {
@@ -107,7 +121,7 @@ export default function RecordModal({ mode, columns, values, onChange, onSave, o
     );
   }
 
-  return (
+  return createPortal(
     <div
       className="zzc-modal-overlay"
       onClick={(e) => {
@@ -136,6 +150,7 @@ export default function RecordModal({ mode, columns, values, onChange, onSave, o
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

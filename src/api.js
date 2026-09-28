@@ -21,6 +21,27 @@ export const API_BASE =
  *   "bool"    - fields the backend stores and returns as real true/false
  */
 export const TABLE_CONFIG = {
+  attendance: {
+    path: "/attendance",
+    fields: [
+      { key: "executive_id", type: "number", required: true },
+      { key: "attendance_date", type: "date", required: true },
+      { key: "login_time", type: "datetime" },
+      { key: "logout_time", type: "datetime" },
+      { key: "login_latitude", type: "number" },
+      { key: "login_longitude", type: "number" },
+      { key: "login_area", type: "text" },
+      { key: "logout_latitude", type: "number" },
+      { key: "logout_longitude", type: "number" },
+      { key: "logout_area", type: "text" },
+      { key: "login_selfie_url", type: "text" },
+      { key: "logout_selfie_url", type: "text" },
+      { key: "total_working_minutes", type: "number" },
+      { key: "status", type: "text" },
+      { key: "created_at", type: "datetime", readOnly: true },
+      { key: "updated_at", type: "datetime", readOnly: true },
+    ],
+  },
   pet_parents: {
     path: "/pet-parents",
     fields: [
@@ -96,6 +117,8 @@ export const TABLE_CONFIG = {
       { key: "consultation_fee", type: "number" },
       { key: "verification_status", type: "text", default: "pending" },
       { key: "is_active", type: "yesno", default: "Yes" },
+      { key: "digital_signature", type: "text" },
+      { key: "clinic_images", type: "text" },
     ],
   },
   clinics: {
@@ -664,3 +687,48 @@ export function displayFieldValue(field, record) {
   if (field.type === "yesno") return raw === "Yes" || raw === true;
   return String(raw);
 }
+
+// -------------------------------------------------------------
+// ATTENDANCE BIOMETRIC PUNCH & HISTORY API (MySQL pets-ms)
+// -------------------------------------------------------------
+
+export async function punchInAttendance(payload) {
+  const res = await fetch(`${API_BASE}/attendance/punch-in`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  return handleResponse(res);
+}
+
+export async function punchOutAttendance(payload) {
+  const res = await fetch(`${API_BASE}/attendance/punch-out`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  return handleResponse(res);
+}
+
+export async function fetchAttendanceList(params = {}) {
+  const query = new URLSearchParams();
+  if (params.executive_id) query.append("executive_id", params.executive_id);
+  if (params.attendance_date) query.append("attendance_date", params.attendance_date);
+  const qStr = query.toString() ? `?${query.toString()}` : "";
+  const res = await fetch(`${API_BASE}/attendance${qStr}`);
+  return handleResponse(res);
+}
+
+export async function fetchTodayAttendance(executiveId, attendanceDate) {
+  const query = attendanceDate ? `?attendance_date=${attendanceDate}` : "";
+  const res = await fetch(`${API_BASE}/attendance/today/${executiveId}${query}`);
+  if (res.status === 404) return null;
+  return handleResponse(res);
+}
+
+export async function deleteAttendanceRecord(attendanceId) {
+  const res = await fetch(`${API_BASE}/attendance/${attendanceId}`, {
+    method: "DELETE",
+  });
+  return handleResponse(res);
+}

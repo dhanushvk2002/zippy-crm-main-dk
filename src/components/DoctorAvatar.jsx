@@ -90,15 +90,37 @@ export default function DoctorAvatar({
             }}
           />
         ) : (
-          <span
-            style={{
-              fontWeight: "bold",
-              fontSize: `${Math.round(size * 0.42)}px`,
-              color: detectedGender === "female" ? "#db2777" : "#0284c7",
-            }}
-          >
-            {initialChar}
-          </span>
+          detectedGender === "female" ? (
+            <svg
+              width={Math.round(size * 0.65)}
+              height={Math.round(size * 0.65)}
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="#db2777"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M12 2a5 5 0 0 0-5 5v1a5 5 0 0 0 10 0V7a5 5 0 0 0-5-5z" />
+              <path d="M6 21v-2a6 6 0 0 1 12 0v2" />
+              <circle cx="12" cy="7" r="4" fill="#fbcfe8" />
+            </svg>
+          ) : (
+            <svg
+              width={Math.round(size * 0.65)}
+              height={Math.round(size * 0.65)}
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="#0284c7"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M12 2a5 5 0 0 0-5 5v1a5 5 0 0 0 10 0V7a5 5 0 0 0-5-5z" />
+              <path d="M6 21v-2a6 6 0 0 1 12 0v2" />
+              <circle cx="12" cy="7" r="4" fill="#bae6fd" />
+            </svg>
+          )
         )}
       </div>
 

@@ -10,10 +10,10 @@
   --hc-primary-light: #e0f2fe;
   --hc-primary-ring: rgba(2, 132, 199, 0.2);
 
-  --hc-teal: #0d9488;             /* Clinical Medical Teal */
+  --hc-teal: #0369a1;             /* Clinical Medical Teal */
   --hc-teal-hover: #0f766e;
   --hc-teal-light: #ccfbf1;
-  --hc-teal-ring: rgba(13, 148, 136, 0.2);
+  --hc-teal-ring: rgba(3, 105, 161, 0.2);
 
   --hc-navy: #0f172a;             /* Dark Navy Text */
   --hc-charcoal: #1e293b;
@@ -74,7 +74,7 @@
   --hc-muted-light: #64748b;
 
   --hc-primary-light: rgba(2, 132, 199, 0.15);
-  --hc-teal-light: rgba(13, 148, 136, 0.15);
+  --hc-teal-light: rgba(3, 105, 161, 0.15);
   --hc-success-bg: rgba(16, 185, 129, 0.15);
   --hc-warning-bg: rgba(245, 158, 11, 0.15);
   --hc-danger-bg: rgba(239, 68, 68, 0.15);

@@ -138,7 +138,7 @@ export default function MasterEnterpriseDashboard({
 
         <div className="med-welcome-right">
           <div className="med-date-pill" title="Current reporting date">
-            <Calendar size={15} style={{ color: "var(--primary, #007c71)" }} />
+            <Calendar size={15} style={{ color: "var(--primary, #0284c7)" }} />
             <span>Thu, Sep 24, 2026</span>
             <ChevronDown size={14} style={{ color: "#94a3b8" }} />
           </div>
@@ -164,7 +164,7 @@ export default function MasterEnterpriseDashboard({
                     onAddDoctor();
                   }}
                 >
-                  <Stethoscope size={15} style={{ color: "#007c71" }} />
+                  <Stethoscope size={15} style={{ color: "#0284c7" }} />
                   <span>Add New Doctor</span>
                 </button>
                 <button
@@ -175,7 +175,7 @@ export default function MasterEnterpriseDashboard({
                     onGoToAttendance();
                   }}
                 >
-                  <Clock size={15} style={{ color: "#0d9488" }} />
+                  <Clock size={15} style={{ color: "#0369a1" }} />
                   <span>Punch Attendance Shift</span>
                 </button>
                 <button
@@ -388,8 +388,8 @@ export default function MasterEnterpriseDashboard({
                 <svg className="med-svg-chart" viewBox="0 0 400 180" preserveAspectRatio="none">
                   <defs>
                     <linearGradient id="salesGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#007c71" stopOpacity="0.28" />
-                      <stop offset="100%" stopColor="#007c71" stopOpacity="0.01" />
+                      <stop offset="0%" stopColor="#0284c7" stopOpacity="0.28" />
+                      <stop offset="100%" stopColor="#0284c7" stopOpacity="0.01" />
                     </linearGradient>
                   </defs>
 
@@ -414,7 +414,7 @@ export default function MasterEnterpriseDashboard({
                   {/* Sales Bezier Line */}
                   <polyline
                     fill="none"
-                    stroke="#007c71"
+                    stroke="#0284c7"
                     strokeWidth="2.5"
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -424,7 +424,7 @@ export default function MasterEnterpriseDashboard({
                   {/* Data Points */}
                   {chartPoints.map((p, i) => (
                     <g key={i}>
-                      <circle cx={p.x} cy={p.y} r="4" fill="#007c71" stroke="#ffffff" strokeWidth="2" />
+                      <circle cx={p.x} cy={p.y} r="4" fill="#0284c7" stroke="#ffffff" strokeWidth="2" />
                       <text x={p.x} y="172" fontSize="9.5" fill="#64748b" textAnchor="middle">{p.label}</text>
                     </g>
                   ))}
@@ -579,7 +579,7 @@ export default function MasterEnterpriseDashboard({
                     <path
                       d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                       fill="none"
-                      stroke="#007c71"
+                      stroke="#0284c7"
                       strokeWidth="3.2"
                       strokeDasharray="71, 100"
                       strokeLinecap="round"

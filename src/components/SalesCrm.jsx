@@ -1,5 +1,32 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
-import { VscSearch, VscEye } from "react-icons/vsc";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { createPortal } from "react-dom";
+import { VscSearch } from "react-icons/vsc";
+import {
+  Clock,
+  LayoutGrid,
+  Stethoscope,
+  ClipboardCheck,
+  FileText,
+  Globe,
+  Users,
+  User,
+  LogOut,
+  Sun,
+  Moon,
+  Calendar,
+  UserCheck,
+  Check,
+  MapPin,
+  Camera,
+  PenTool,
+  Trash2,
+  Eye,
+  Upload,
+  RotateCcw,
+  Sparkles,
+  Building,
+  Building2,
+} from "lucide-react";
 import {
   fetchList,
   TABLE_CONFIG,
@@ -7,11 +34,18 @@ import {
   displayFieldValue,
   buildRecordPayload,
   updateRecord,
+  createRecord,
   API_BASE,
 } from "../api.js";
 import logo from "../assets/zenve-zippy-logo.png";
 import "./SalesCRM.css";
+import SalesCrmLoginModal from "./SalesCrmLoginModal.jsx";
 import PlanView from "./planView.jsx";
+import AttendanceView from "./AttendanceView.jsx";
+import AttendanceReportView from "./AttendanceReportView.jsx";
+import DoctorAvatar from "./DoctorAvatar.jsx";
+import StylizedEyeIcon from "./StylizedEyeIcon.jsx";
+import useTheme from "../useTheme.js";
 import {
   usePlanStats,
   PLAN_MONTH_KEY,
@@ -306,7 +340,7 @@ function ProfileModal({ tableKey, record, onClose, onSaved }) {
 }
 
 /* ─────────────────────────────────────────────────────────
-   PRE-CALL MODAL
+   PRE-VISIT MODAL
 ───────────────────────────────────────────────────────── */
 function PreCallModal({ visit, onClose, onSave }) {
   const [brands, setBrands] = useState(visit.brands === "—" ? "" : visit.brands);
@@ -324,12 +358,15 @@ function PreCallModal({ visit, onClose, onSave }) {
     <div className="zzc-modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="zzc-modal rpt-call-modal">
         <div className="rpt-call-modal-header">
-          <div>
-            <h2>Pre Call — {visit.doctorName}</h2>
-            <p className="rpt-call-modal-sub">Sno: {visit.advaitNo} · <span className="rpt-doc-tag">{visit.tag}</span></p>
-            <p className="rpt-call-modal-sub">
-              Phone: {visit.phone || "—"} · City: {visit.city || "—"} · Pin: {visit.pincode || "—"} · Specialization: {visit.tag || "—"}
-            </p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <DoctorAvatar name={visit.doctorName} size={44} />
+            <div>
+              <h2>Pre Visit — {visit.doctorName}</h2>
+              <p className="rpt-call-modal-sub">Sno: {visit.advaitNo} · <span className="rpt-doc-tag">{visit.tag}</span></p>
+              <p className="rpt-call-modal-sub">
+                Phone: {visit.phone || "—"} · City: {visit.city || "—"} · Pin: {visit.pincode || "—"} · Specialization: {visit.tag || "—"}
+              </p>
+            </div>
           </div>
           <button className="rpt-call-close" onClick={onClose} type="button">✕</button>
         </div>
@@ -355,15 +392,15 @@ function PreCallModal({ visit, onClose, onSave }) {
             </div>
           </div>
           <div className="rpt-call-field rpt-call-field-full">
-            <label>Call Objective</label>
+            <label>Visit Objective</label>
             <input
               value={objective}
               onChange={(e) => setObjective(e.target.value)}
-              placeholder="What do you plan to discuss?"
+              placeholder="What do you plan to discuss during the doctor visit?"
             />
           </div>
           <div className="rpt-call-field rpt-call-field-full">
-            <label>Pre-Call Notes</label>
+            <label>Pre-Visit Notes</label>
             <textarea
               rows={3}
               value={notes}
@@ -375,7 +412,7 @@ function PreCallModal({ visit, onClose, onSave }) {
 
         <div className="rpt-call-modal-footer">
           <button type="button" className="rpt-btn-outline" onClick={onClose}>Cancel</button>
-          <button type="submit" form="preCallForm" className="rpt-btn-primary">Save Pre Call</button>
+          <button type="submit" form="preCallForm" className="rpt-btn-primary">Save Pre Visit</button>
         </div>
       </div>
     </div>
@@ -383,9 +420,9 @@ function PreCallModal({ visit, onClose, onSave }) {
 }
 
 /* ─────────────────────────────────────────────────────────
-   POST-CALL MODAL
+   POST-VISIT MODAL
 ───────────────────────────────────────────────────────── */
-function PostCallModal({ visit, onClose, onSave }) {
+function PostCallModal({ visit, onClose, onSave, isEdit = false }) {
   const [brands, setBrands] = useState(visit.brands === "—" ? "" : visit.brands);
   const [campaign, setCampaign] = useState(visit.campaign === "—" ? "" : visit.campaign);
   const [outcome, setOutcome] = useState(visit.callOutcome || "Interested");
@@ -414,12 +451,15 @@ function PostCallModal({ visit, onClose, onSave }) {
     <div className="zzc-modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="zzc-modal rpt-call-modal">
         <div className="rpt-call-modal-header">
-          <div>
-            <h2>Post Call — {visit.doctorName}</h2>
-            <p className="rpt-call-modal-sub">Sno: {visit.advaitNo} · <span className="rpt-doc-tag">{visit.tag}</span></p>
-            <p className="rpt-call-modal-sub">
-              Phone: {visit.phone || "—"} · City: {visit.city || "—"} · Pin: {visit.pincode || "—"} · Specialization: {visit.tag || "—"}
-            </p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <DoctorAvatar name={visit.doctorName} size={44} />
+            <div>
+              <h2>{isEdit ? "Edit Visit" : "Post Visit"} — {visit.doctorName}</h2>
+              <p className="rpt-call-modal-sub">Sno: {visit.advaitNo} · <span className="rpt-doc-tag">{visit.tag}</span></p>
+              <p className="rpt-call-modal-sub">
+                Phone: {visit.phone || "—"} · City: {visit.city || "—"} · Pin: {visit.pincode || "—"} · Specialization: {visit.tag || "—"}
+              </p>
+            </div>
           </div>
           <button className="rpt-call-close" onClick={onClose} type="button">✕</button>
         </div>
@@ -446,7 +486,7 @@ function PostCallModal({ visit, onClose, onSave }) {
           </div>
           <div className="rpt-call-row">
             <div className="rpt-call-field">
-              <label>Call Outcome *</label>
+              <label>Visit Outcome *</label>
               <select value={outcome} onChange={(e) => setOutcome(e.target.value)} required>
                 <option>Interested</option>
                 <option>Prescribed</option>
@@ -491,7 +531,7 @@ function PostCallModal({ visit, onClose, onSave }) {
         <div className="rpt-call-modal-footer">
           <button type="button" className="rpt-btn-outline" onClick={onClose}>Cancel</button>
           <button type="submit" form="postCallForm" className="rpt-btn-primary rpt-btn-post-submit">
-            ✓ Mark as Reported
+            {isEdit ? "✓ Update Visit" : "✓ Mark as Reported"}
           </button>
         </div>
       </div>
@@ -500,10 +540,10 @@ function PostCallModal({ visit, onClose, onSave }) {
 }
 
 /* ─────────────────────────────────────────────────────────
-   EDIT CALL MODAL (same shape as post call but pre-filled)
+   EDIT VISIT MODAL (same shape as post visit but pre-filled)
 ───────────────────────────────────────────────────────── */
 function EditCallModal({ visit, onClose, onSave }) {
-  return <PostCallModal visit={visit} onClose={onClose} onSave={onSave} />;
+  return <PostCallModal visit={visit} onClose={onClose} onSave={onSave} isEdit={true} />;
 }
 
 /* ─────────────────────────────────────────────────────────
@@ -541,9 +581,12 @@ function ReportedCallsModal({ visits, onClose }) {
                     <tr key={v.id}>
                       <td>{v.advaitNo}</td>
                       <td>
-                        <div className="rpt-doc-cell">
-                          <strong>{v.doctorName}</strong>
-                          <span className="rpt-doc-tag">{v.tag}</span>
+                        <div className="rpt-doc-cell" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <DoctorAvatar name={v.doctorName} size={30} />
+                          <div>
+                            <strong>{v.doctorName}</strong>
+                            <span className="rpt-doc-tag" style={{ marginLeft: 6 }}>{v.tag}</span>
+                          </div>
                         </div>
                       </td>
                       <td>{v.phone || "—"}</td>
@@ -1300,7 +1343,7 @@ function ReceivedReportsSection({ data, role, currentRecord }) {
    - Executive: submit reports to Manager, Regional Manager, or Both
    - Manager & Regional Manager: review received reports & give coaching feedback
 ───────────────────────────────────────────────────────── */
-function ViewDoctorModal({ doctor, onClose }) {
+export function ViewDoctorModal({ doctor, onClose }) {
   if (!doctor) return null;
   
   const docName = doctor.doctorName || doctor.name || "—";
@@ -1315,15 +1358,10 @@ function ViewDoctorModal({ doctor, onClose }) {
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', padding: '1.25rem 1.5rem', borderBottom: '1px solid #e2e8f0', position: 'relative' }}>
           
-          <div style={{ 
-            width: 44, height: 44, borderRadius: '50%', backgroundColor: '#e0f7fa', color: 'var(--primary, #00796b)', 
-            display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '1.15rem' 
-          }}>
-            {avatarChar}
-          </div>
+          <DoctorAvatar name={docName} size={48} />
           
-          <div style={{ flex: 1, textAlign: 'center', display: 'flex', flexDirection: 'column' }}>
-            <span style={{ fontWeight: 700, fontSize: '1.05rem', color: '#1e293b' }}>{docName}</span>
+          <div style={{ flex: 1, textAlign: 'left', marginLeft: '14px', display: 'flex', flexDirection: 'column' }}>
+            <span style={{ fontWeight: 700, fontSize: '1.05rem', color: 'var(--foreground, #1e293b)' }}>{docName}</span>
             <span style={{ fontSize: '0.8rem', color: '#64748b', marginTop: 2 }}>{spec}</span>
           </div>
           
@@ -1968,13 +2006,8 @@ function ReportsView({ data, execId, role, managerId, regionalId, currentRecord 
                     <td className="rpt-advait-no">{v.advaitNo}</td>
                     <td>
                       <div className="rpt-doc-cell" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                        <div style={{
-                          width: 36, height: 36, borderRadius: '50%', backgroundColor: '#e0f7fa', color: 'var(--primary, #00796b)',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '1rem', flexShrink: 0
-                        }}>
-                          {(v.doctorName || "").replace(/^dr\.?\s*/i, '').trim().charAt(0).toUpperCase() || "D"}
-                        </div>
-                        <div>
+                        <DoctorAvatar name={v.doctorName} size={36} />
+                        <div style={{ fontWeight: 600, color: 'var(--foreground, #0f172a)' }}>
                           {v.doctorName}
                         </div>
                       </div>
@@ -1999,52 +2032,43 @@ function ReportsView({ data, execId, role, managerId, regionalId, currentRecord 
                     <td style={{ textAlign: "center" }}>
                       <button
                         type="button"
-                        className="rpt-btn-outline"
-                        style={{
-                          width: 32,
-                          height: 32,
-                          borderRadius: "50%",
-                          padding: 0,
-                          display: "inline-flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          borderWidth: 1,
-                          borderColor: "var(--primary)",
-                          color: "var(--primary)"
-                        }}
+                        className="rpt-btn-view-eye"
                         title="View Doctor Details"
                         onClick={() => {
                           const fullDoc = territoryDoctors.find(d => d.id === v.id) || data.doctors?.find(d => d.id === v.id) || {};
                           setViewingDoctor({ ...fullDoc, ...v });
                         }}
                       >
-                        <VscEye size={18} />
+                        <StylizedEyeIcon width={24} height={15} live={true} />
                       </button>
                     </td>
                     <td>
                       <div className="rpt-options">
                         <button
-                          className="rpt-btn-sm rpt-btn-outline"
+                          type="button"
+                          className="rpt-btn-sm rpt-btn-pre"
                           onClick={() => setPreCallVisit(v)}
-                          title="Fill pre-call details"
+                          title="Fill pre-visit details"
                         >
-                          Pre Call
+                          Pre Visit
                         </button>
                         {v.status === "Reported" ? (
                           <button
+                            type="button"
                             className="rpt-btn-sm rpt-btn-edit"
                             onClick={() => setEditCallVisit(v)}
-                            title="Edit reported call"
+                            title="Edit reported visit"
                           >
-                            Edit Call
+                            Edit Visit
                           </button>
                         ) : (
                           <button
+                            type="button"
                             className="rpt-btn-sm rpt-btn-post"
                             onClick={() => setPostCallVisit(v)}
                             title="Mark as reported"
                           >
-                            Post Call
+                            Post Visit
                           </button>
                         )}
                       </div>
@@ -2143,10 +2167,1336 @@ function ReportsView({ data, execId, role, managerId, regionalId, currentRecord 
    - Proper heading matching Reports page style
    - Consistent CSS classes
 ───────────────────────────────────────────────────────── */
+/* ─────────────────────────────────────────────────────────
+   PINCODE TO CITY AUTO-GENERATION DICTIONARY
+───────────────────────────────────────────────────────── */
+const PINCODE_CITY_MAP = {
+  "560068": "Silk Board, Bangalore",
+  "560034": "Koramangala, Bangalore",
+  "560076": "BTM Layout, Bangalore",
+  "560100": "Electronic City, Bangalore",
+  "560038": "Indiranagar, Bangalore",
+  "560001": "Bangalore GPO",
+  "560002": "City Market, Bangalore",
+  "560003": "Malleswaram, Bangalore",
+  "560004": "Basavanagudi, Bangalore",
+  "560011": "Jayanagar, Bangalore",
+  "560025": "Richmond Town, Bangalore",
+  "560041": "Jayanagar 4th Block, Bangalore",
+  "560078": "JP Nagar, Bangalore",
+  "560085": "Banashankari, Bangalore",
+  "560095": "Koramangala 8th Block, Bangalore",
+  "560102": "HSR Layout, Bangalore",
+  "560066": "Whitefield, Bangalore",
+  "560037": "Marathahalli, Bangalore",
+  "560043": "Kalyan Nagar, Bangalore",
+  "560092": "Hebbal, Bangalore",
+  "560064": "Yelahanka, Bangalore",
+  "635653": "Natrampalli, Tamil Nadu",
+  "635851": "Vaniyambadi, Tamil Nadu",
+  "635601": "Tirupattur, Tamil Nadu",
+  "570001": "Mysore",
+  "575001": "Mangalore",
+  "580001": "Hubli",
+  "600001": "Chennai",
+  "400001": "Mumbai",
+  "110001": "New Delhi",
+  "500001": "Hyderabad",
+};
+
+/* ─────────────────────────────────────────────────────────
+   DIGITAL SIGNATURE PAD MODAL (PNG MODEL)
+───────────────────────────────────────────────────────── */
+function SignaturePadModal({ isOpen, onClose, onSave, existingSignature }) {
+  const canvasRef = useRef(null);
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [hasDrawn, setHasDrawn] = useState(false);
+  const fileInputRef = useRef(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    if (existingSignature) {
+      const img = new Image();
+      img.onload = () => {
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        setHasDrawn(true);
+      };
+      img.src = existingSignature;
+    } else {
+      setHasDrawn(false);
+    }
+  }, [isOpen, existingSignature]);
+
+  if (!isOpen) return null;
+
+  const getCoordinates = (e) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return { x: 0, y: 0 };
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+
+    let clientX = e.clientX;
+    let clientY = e.clientY;
+
+    if (e.touches && e.touches.length > 0) {
+      clientX = e.touches[0].clientX;
+      clientY = e.touches[0].clientY;
+    }
+
+    return {
+      x: (clientX - rect.left) * scaleX,
+      y: (clientY - rect.top) * scaleY,
+    };
+  };
+
+  const startDrawing = (e) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const coords = getCoordinates(e);
+    const ctx = canvas.getContext("2d");
+
+    ctx.beginPath();
+    ctx.moveTo(coords.x, coords.y);
+    ctx.lineWidth = 3;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.strokeStyle = "#0f172a";
+    setIsDrawing(true);
+  };
+
+  const draw = (e) => {
+    if (!isDrawing) return;
+    if (e.touches) {
+      e.preventDefault();
+    }
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const coords = getCoordinates(e);
+    const ctx = canvas.getContext("2d");
+
+    ctx.lineTo(coords.x, coords.y);
+    ctx.stroke();
+    setHasDrawn(true);
+  };
+
+  const stopDrawing = () => {
+    setIsDrawing(false);
+  };
+
+  const handleClear = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    setHasDrawn(false);
+  };
+
+  const handleSave = () => {
+    const canvas = canvasRef.current;
+    if (!canvas || !hasDrawn) {
+      alert("Please draw your signature before saving.");
+      return;
+    }
+    const pngDataUrl = canvas.toDataURL("image/png");
+    onSave(pngDataUrl);
+    onClose();
+  };
+
+  const handleFileUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result;
+      const canvas = canvasRef.current;
+      if (canvas && dataUrl) {
+        const ctx = canvas.getContext("2d");
+        const img = new Image();
+        img.onload = () => {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          setHasDrawn(true);
+        };
+        img.src = dataUrl;
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  useEffect(() => {
+    if (!isOpen) return;
+    document.body.classList.add("crm-modal-open");
+    return () => {
+      const remainingModals = document.querySelectorAll(".zzc-modal-overlay");
+      if (remainingModals.length <= 1) {
+        document.body.classList.remove("crm-modal-open");
+      }
+    };
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
+  return createPortal(
+    <div
+      className="zzc-modal-overlay"
+      style={{ zIndex: 11000 }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div
+        className="zzc-modal"
+        style={{ maxWidth: 520, padding: "1.25rem 1.5rem" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.85rem", borderBottom: "1px solid var(--border)", paddingBottom: "0.6rem" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <div style={{ width: "32px", height: "32px", borderRadius: "8px", background: "rgba(13, 148, 136, 0.12)", color: "#0d9488", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <PenTool size={16} />
+            </div>
+            <div>
+              <h3 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 800, color: "var(--foreground)" }}>
+                Digital Signature (PNG Model)
+              </h3>
+              <span style={{ fontSize: "0.74rem", color: "var(--muted-foreground)" }}>
+                Sign below using mouse, stylus, or touch to export transparent PNG
+              </span>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{ background: "none", border: "none", fontSize: "1.2rem", cursor: "pointer", color: "var(--muted-foreground)" }}
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="sig-canvas-container">
+          <canvas
+            ref={canvasRef}
+            width={480}
+            height={180}
+            className="sig-canvas"
+            onMouseDown={startDrawing}
+            onMouseMove={draw}
+            onMouseUp={stopDrawing}
+            onMouseLeave={stopDrawing}
+            onTouchStart={startDrawing}
+            onTouchMove={draw}
+            onTouchEnd={stopDrawing}
+          />
+          <div className="sig-baseline-guide">
+            <span>✕ Sign on line above</span>
+          </div>
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "1rem", flexWrap: "wrap", gap: "0.5rem" }}>
+          <div style={{ display: "flex", gap: "8px" }}>
+            <button
+              type="button"
+              className="zzc-btn zzc-btn-outline"
+              onClick={handleClear}
+              style={{ height: "32px", fontSize: "0.76rem", display: "inline-flex", alignItems: "center", gap: "5px" }}
+            >
+              <RotateCcw size={13} />
+              <span>Clear</span>
+            </button>
+            <button
+              type="button"
+              className="zzc-btn zzc-btn-outline"
+              onClick={() => fileInputRef.current?.click()}
+              style={{ height: "32px", fontSize: "0.76rem", display: "inline-flex", alignItems: "center", gap: "5px" }}
+            >
+              <Upload size={13} />
+              <span>Upload PNG</span>
+            </button>
+            <input
+              type="file"
+              ref={fileInputRef}
+              accept="image/png,image/*"
+              style={{ display: "none" }}
+              onChange={handleFileUpload}
+            />
+          </div>
+
+          <div style={{ display: "flex", gap: "8px" }}>
+            <button
+              type="button"
+              className="zzc-btn zzc-btn-outline"
+              onClick={onClose}
+              style={{ height: "32px", fontSize: "0.78rem" }}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="zzc-btn zzc-btn-primary"
+              onClick={handleSave}
+              style={{
+                height: "32px",
+                fontSize: "0.82rem",
+                fontWeight: 700,
+                background: "linear-gradient(135deg, #0d9488 0%, #007c71 100%)",
+                color: "#fff",
+                border: "none",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "5px",
+                padding: "0 16px",
+                borderRadius: "8px",
+              }}
+            >
+              <Check size={14} strokeWidth={2.5} />
+              <span>Save Signature (PNG)</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+/* ─────────────────────────────────────────────────────────
+   ADD DOCTOR MODAL
+   Allows creating a new doctor record with:
+   - Auto-generated City and Pincode (GPS & Directory)
+   - Inside & Outside Clinic Images with Upload Buttons
+   - Digital Signature Model with PNG export
+───────────────────────────────────────────────────────── */
+function AddDoctorModal({ defaultCity = "", availablePincodes = [], onClose, onDoctorAdded }) {
+  const initialPin = availablePincodes[0] || "560068";
+  const initialCity = defaultCity || (PINCODE_CITY_MAP[initialPin] || "Silk Board, Bangalore");
+
+  const [form, setForm] = useState({
+    name: "",
+    qualification: "",
+    specializations: "",
+    phone: "",
+    experience_years: "",
+    city: initialCity,
+    pincode: initialPin,
+    consultation_fee: "",
+    verification_status: "verified",
+    is_active: "Yes",
+    inside_clinic_image: null,
+    outside_clinic_image: null,
+    digital_signature: null,
+  });
+
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+  const [detectingLocation, setDetectingLocation] = useState(false);
+  const [autoDetected, setAutoDetected] = useState(true);
+  const [showSignatureModal, setShowSignatureModal] = useState(false);
+  const [previewClinicImage, setPreviewClinicImage] = useState(null);
+
+  const insideInputRef = useRef(null);
+  const outsideInputRef = useRef(null);
+
+  const handleChange = (key, value) => {
+    setForm((prev) => ({ ...prev, [key]: value }));
+  };
+
+  // Lock background body scroll and blur all other background pages while modal is open
+  useEffect(() => {
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.body.classList.add("crm-modal-open");
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      document.body.classList.remove("crm-modal-open");
+    };
+  }, []);
+
+  // Auto-detect GPS Location
+  const handleAutoDetectGPS = () => {
+    if (!navigator.geolocation) {
+      alert("Geolocation is not supported by your browser");
+      return;
+    }
+    setDetectingLocation(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const { latitude, longitude } = pos.coords;
+        try {
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`,
+            { headers: { "Accept-Language": "en" } }
+          );
+          const data = await res.json();
+          if (data && data.address) {
+            const addr = data.address;
+            const detectedCity =
+              addr.suburb ||
+              addr.neighbourhood ||
+              addr.city ||
+              addr.town ||
+              addr.county ||
+              initialCity;
+            const detectedPin = addr.postcode || initialPin;
+            setForm((prev) => ({
+              ...prev,
+              city: detectedCity,
+              pincode: detectedPin,
+            }));
+            setAutoDetected(true);
+          }
+        } catch {
+          setForm((prev) => ({
+            ...prev,
+            city: initialCity,
+            pincode: initialPin,
+          }));
+          setAutoDetected(true);
+        } finally {
+          setDetectingLocation(false);
+        }
+      },
+      (err) => {
+        console.warn("GPS Location error:", err);
+        setForm((prev) => ({
+          ...prev,
+          city: initialCity,
+          pincode: initialPin,
+        }));
+        setAutoDetected(true);
+        setDetectingLocation(false);
+      },
+      { timeout: 8000, enableHighAccuracy: true }
+    );
+  };
+
+  // Pincode change handler with auto-fill
+  const handlePincodeChange = (val) => {
+    const cleanPin = val.replace(/\D/g, "").slice(0, 6);
+    setForm((prev) => ({ ...prev, pincode: cleanPin }));
+
+    if (cleanPin.length === 6) {
+      if (PINCODE_CITY_MAP[cleanPin]) {
+        setForm((prev) => ({ ...prev, city: PINCODE_CITY_MAP[cleanPin] }));
+        setAutoDetected(true);
+      } else {
+        // Fallback live Indian Postal Pincode lookup
+        fetch(`https://api.postalpincode.in/pincode/${cleanPin}`)
+          .then((res) => res.json())
+          .then((data) => {
+            if (data?.[0]?.Status === "Success" && data[0].PostOffice?.[0]) {
+              const po = data[0].PostOffice[0];
+              const detectedCity = `${po.Name}, ${po.District || po.State}`;
+              setForm((prev) => ({ ...prev, city: detectedCity }));
+              setAutoDetected(true);
+            }
+          })
+          .catch(() => {});
+      }
+    }
+  };
+
+  // City change handler with auto-suggested pincode
+  const handleCityChange = (val) => {
+    setForm((prev) => ({ ...prev, city: val }));
+    const lower = val.toLowerCase();
+    for (const [pin, name] of Object.entries(PINCODE_CITY_MAP)) {
+      if (name.toLowerCase().includes(lower) && lower.length > 3) {
+        if (!form.pincode || form.pincode === initialPin) {
+          setForm((prev) => ({ ...prev, pincode: pin }));
+          setAutoDetected(true);
+        }
+        break;
+      }
+    }
+  };
+
+  // Image Upload Handler
+  const handleImageUpload = (key, file) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      alert("Please upload a valid image file");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const dataUrl = e.target?.result;
+      if (dataUrl) {
+        setForm((prev) => ({ ...prev, [key]: dataUrl }));
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!form.name.trim()) {
+      setError("Doctor Name is required");
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      const clinicImagesObj = {
+        inside: form.inside_clinic_image || null,
+        outside: form.outside_clinic_image || null,
+      };
+
+      const payload = {
+        name: form.name.trim(),
+        qualification: form.qualification.trim() || null,
+        specializations: form.specializations.trim() || null,
+        phone: form.phone.trim() || null,
+        experience_years: form.experience_years !== "" ? Number(form.experience_years) : null,
+        city: form.city.trim() || null,
+        pincode: form.pincode.trim() || null,
+        consultation_fee: form.consultation_fee !== "" ? Number(form.consultation_fee) : null,
+        verification_status: form.verification_status || "verified",
+        is_active: form.is_active || "Yes",
+        digital_signature: form.digital_signature || null,
+        clinic_images:
+          form.inside_clinic_image || form.outside_clinic_image
+            ? JSON.stringify(clinicImagesObj)
+            : null,
+      };
+      const created = await createRecord("doctors", payload);
+      await onDoctorAdded(created || payload);
+    } catch (err) {
+      console.error("Failed to add doctor:", err);
+      setError(err.message || "Failed to add doctor. Please try again.");
+      setSaving(false);
+    }
+  };
+
+  return createPortal(
+    <div className="zzc-modal-overlay" onClick={(e) => { if (e.target === e.currentTarget && !saving) onClose(); }}>
+      <div className="zzc-modal" style={{ maxWidth: 680, maxHeight: "90vh", overflowY: "auto" }}>
+        {/* Header */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.25rem", borderBottom: "1px solid var(--border)", paddingBottom: "0.75rem" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <div style={{
+              width: "36px",
+              height: "36px",
+              borderRadius: "8px",
+              background: "rgba(13, 148, 136, 0.12)",
+              color: "#0d9488",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: "1.25rem",
+              fontWeight: 900
+            }}>
+              +
+            </div>
+            <div>
+              <h2 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 700, color: "var(--foreground)" }}>Add New Doctor</h2>
+              <span style={{ fontSize: "0.78rem", color: "var(--muted-foreground)" }}>Enter doctor details to add to territory database</span>
+            </div>
+          </div>
+          <button
+            type="button"
+            className="rpt-call-close"
+            onClick={onClose}
+            disabled={saving}
+            style={{ fontSize: "1.1rem", background: "none", border: "none", cursor: "pointer", color: "var(--muted-foreground)" }}
+          >
+            ✕
+          </button>
+        </div>
+
+        {error && (
+          <div className="rpt-call-error" style={{ marginBottom: "1rem", padding: "8px 12px", background: "#fef2f2", color: "#dc2626", borderRadius: "8px", fontSize: "0.85rem", border: "1px solid #fecaca" }}>
+            {error}
+          </div>
+        )}
+
+        <form id="addDoctorForm" className="zzc-modal-form" onSubmit={handleSubmit}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "12px" }}>
+            {/* Full Name */}
+            <div className="zzc-field" style={{ gridColumn: "1 / -1" }}>
+              <label htmlFor="doc_name">Doctor Name <span style={{ color: "#ef4444" }}>*</span></label>
+              <input
+                id="doc_name"
+                type="text"
+                placeholder="e.g. Dr. Rajesh Kumar"
+                value={form.name}
+                onChange={(e) => handleChange("name", e.target.value)}
+                required
+                autoFocus
+              />
+            </div>
+
+            {/* Qualification */}
+            <div className="zzc-field">
+              <label htmlFor="doc_qualification">Qualification</label>
+              <input
+                id="doc_qualification"
+                type="text"
+                placeholder="e.g. BVSc & AH, MVSc"
+                value={form.qualification}
+                onChange={(e) => handleChange("qualification", e.target.value)}
+              />
+            </div>
+
+            {/* Specialization */}
+            <div className="zzc-field">
+              <label htmlFor="doc_specialization">Specialization</label>
+              <input
+                id="doc_specialization"
+                type="text"
+                placeholder="e.g. Surgery, Dermatology"
+                value={form.specializations}
+                onChange={(e) => handleChange("specializations", e.target.value)}
+              />
+            </div>
+
+            {/* Phone */}
+            <div className="zzc-field">
+              <label htmlFor="doc_phone">Phone Number</label>
+              <input
+                id="doc_phone"
+                type="tel"
+                placeholder="e.g. 9876543210"
+                value={form.phone}
+                onChange={(e) => handleChange("phone", e.target.value)}
+              />
+            </div>
+
+            {/* Experience */}
+            <div className="zzc-field">
+              <label htmlFor="doc_exp">Experience (Years)</label>
+              <input
+                id="doc_exp"
+                type="number"
+                min="0"
+                step="1"
+                placeholder="e.g. 5"
+                value={form.experience_years}
+                onChange={(e) => handleChange("experience_years", e.target.value)}
+              />
+            </div>
+
+            {/* City (with Auto-generate) */}
+            <div className="zzc-field">
+              <div className="doc-loc-header">
+                <label htmlFor="doc_city">City</label>
+                <button
+                  type="button"
+                  className="doc-detect-btn"
+                  onClick={handleAutoDetectGPS}
+                  disabled={detectingLocation}
+                  title="Auto-detect City & Pincode using GPS"
+                >
+                  <MapPin size={11} />
+                  <span>{detectingLocation ? "Detecting…" : "Auto Detect"}</span>
+                </button>
+              </div>
+              <input
+                id="doc_city"
+                type="text"
+                placeholder="e.g. Silk Board, Bangalore"
+                value={form.city}
+                onChange={(e) => handleCityChange(e.target.value)}
+              />
+              {autoDetected && (
+                <span className="doc-auto-badge">
+                  <Sparkles size={11} /> Auto-generated
+                </span>
+              )}
+            </div>
+
+            {/* Pin Code (with Auto-generate) */}
+            <div className="zzc-field">
+              <div className="doc-loc-header">
+                <label htmlFor="doc_pincode">Pin Code</label>
+                <span style={{ fontSize: "0.68rem", color: "var(--muted-foreground)" }}>6 Digits</span>
+              </div>
+              <input
+                id="doc_pincode"
+                type="text"
+                list="pincode-options"
+                placeholder="e.g. 560068"
+                maxLength={6}
+                value={form.pincode}
+                onChange={(e) => handlePincodeChange(e.target.value)}
+              />
+              {availablePincodes.length > 0 && (
+                <datalist id="pincode-options">
+                  {availablePincodes.map((pc) => (
+                    <option key={pc} value={pc} />
+                  ))}
+                </datalist>
+              )}
+            </div>
+
+            {/* Consultation Fee */}
+            <div className="zzc-field">
+              <label htmlFor="doc_fee">Consultation Fee (₹)</label>
+              <input
+                id="doc_fee"
+                type="number"
+                min="0"
+                step="10"
+                placeholder="e.g. 500"
+                value={form.consultation_fee}
+                onChange={(e) => handleChange("consultation_fee", e.target.value)}
+              />
+            </div>
+
+            {/* Status (Active / Inactive) */}
+            <div className="zzc-field">
+              <label htmlFor="doc_active">Active Status</label>
+              <select
+                id="doc_active"
+                value={form.is_active}
+                onChange={(e) => handleChange("is_active", e.target.value)}
+              >
+                <option value="Yes">Active</option>
+                <option value="No">Inactive</option>
+              </select>
+            </div>
+
+            {/* Verification Status */}
+            <div className="zzc-field" style={{ gridColumn: "1 / -1" }}>
+              <label htmlFor="doc_verification">Verification Status</label>
+              <select
+                id="doc_verification"
+                value={form.verification_status}
+                onChange={(e) => handleChange("verification_status", e.target.value)}
+              >
+                <option value="verified">Verified</option>
+                <option value="pending">Pending</option>
+              </select>
+            </div>
+
+            {/* ── CLINIC PHOTOS SECTION (INSIDE & OUTSIDE CLINIC IMAGES) ── */}
+            <div className="clinic-photos-section">
+              <div className="clinic-photos-title-row">
+                <div>
+                  <h4>
+                    <Building2 size={16} color="#0d9488" />
+                    <span>Clinic Verification Photos</span>
+                  </h4>
+                  <p>Add inside and outside clinic images for field verification</p>
+                </div>
+              </div>
+
+              <div className="clinic-photos-grid">
+                {/* Inside Clinic Image Card */}
+                <div className={`clinic-photo-card ${form.inside_clinic_image ? "has-photo" : ""}`}>
+                  <input
+                    type="file"
+                    ref={insideInputRef}
+                    accept="image/*"
+                    style={{ display: "none" }}
+                    onChange={(e) => handleImageUpload("inside_clinic_image", e.target.files?.[0])}
+                  />
+
+                  {form.inside_clinic_image ? (
+                    <>
+                      <img
+                        src={form.inside_clinic_image}
+                        alt="Inside Clinic"
+                        className="clinic-photo-thumb"
+                      />
+                      <span className="clinic-photo-tag">Inside Clinic</span>
+                      <div className="clinic-photo-overlay">
+                        <button
+                          type="button"
+                          onClick={() => setPreviewClinicImage({ url: form.inside_clinic_image, title: "Inside Clinic Photo" })}
+                        >
+                          <Eye size={12} /> View
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => insideInputRef.current?.click()}
+                        >
+                          <Camera size={12} /> Change
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-del"
+                          onClick={() => setForm((prev) => ({ ...prev, inside_clinic_image: null }))}
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <Building size={24} color="#0d9488" style={{ opacity: 0.8, marginBottom: "4px" }} />
+                      <span className="clinic-photo-card-label">Inside Clinic Image</span>
+                      <span className="clinic-photo-card-sub">Consultation area, exam table, interior</span>
+                      <button
+                        type="button"
+                        className="clinic-photo-action-btn"
+                        onClick={() => insideInputRef.current?.click()}
+                      >
+                        <Camera size={14} />
+                        <span>Inside Clinic Image</span>
+                      </button>
+                    </>
+                  )}
+                </div>
+
+                {/* Outside Clinic Image Card */}
+                <div className={`clinic-photo-card ${form.outside_clinic_image ? "has-photo" : ""}`}>
+                  <input
+                    type="file"
+                    ref={outsideInputRef}
+                    accept="image/*"
+                    style={{ display: "none" }}
+                    onChange={(e) => handleImageUpload("outside_clinic_image", e.target.files?.[0])}
+                  />
+
+                  {form.outside_clinic_image ? (
+                    <>
+                      <img
+                        src={form.outside_clinic_image}
+                        alt="Outside Clinic"
+                        className="clinic-photo-thumb"
+                      />
+                      <span className="clinic-photo-tag">Outside Clinic</span>
+                      <div className="clinic-photo-overlay">
+                        <button
+                          type="button"
+                          onClick={() => setPreviewClinicImage({ url: form.outside_clinic_image, title: "Outside Clinic Photo" })}
+                        >
+                          <Eye size={12} /> View
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => outsideInputRef.current?.click()}
+                        >
+                          <Camera size={12} /> Change
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-del"
+                          onClick={() => setForm((prev) => ({ ...prev, outside_clinic_image: null }))}
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <Building2 size={24} color="#0d9488" style={{ opacity: 0.8, marginBottom: "4px" }} />
+                      <span className="clinic-photo-card-label">Outside Clinic Image</span>
+                      <span className="clinic-photo-card-sub">Signboard, entrance, building exterior</span>
+                      <button
+                        type="button"
+                        className="clinic-photo-action-btn"
+                        onClick={() => outsideInputRef.current?.click()}
+                      >
+                        <Camera size={14} />
+                        <span>Outside Clinic Image</span>
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* ── DIGITAL SIGNATURE SECTION (PNG MODEL) ── */}
+            <div className="doc-signature-section">
+              <div className="clinic-photos-title-row">
+                <div>
+                  <h4>
+                    <PenTool size={16} color="#0d9488" />
+                    <span>Doctor / Executive Signature</span>
+                  </h4>
+                  <p>Official verified signature captured in transparent PNG format</p>
+                </div>
+              </div>
+
+              <div className={`doc-signature-card ${form.digital_signature ? "has-sig" : ""}`}>
+                {form.digital_signature ? (
+                  <>
+                    <div className="doc-signature-left">
+                      <img
+                        src={form.digital_signature}
+                        alt="Doctor Signature"
+                        className="doc-signature-preview-img"
+                      />
+                      <div>
+                        <div className="doc-signature-badge">
+                          <Check size={14} strokeWidth={2.5} />
+                          <span>PNG Signature Confirmed</span>
+                        </div>
+                        <span style={{ fontSize: "0.7rem", color: "var(--muted-foreground)", display: "block", marginTop: "2px" }}>
+                          Transparent PNG model format
+                        </span>
+                      </div>
+                    </div>
+
+                    <div style={{ display: "flex", gap: "8px" }}>
+                      <button
+                        type="button"
+                        className="doc-sig-action-btn"
+                        onClick={() => setShowSignatureModal(true)}
+                      >
+                        <PenTool size={13} />
+                        <span>Re-sign</span>
+                      </button>
+                      <button
+                        type="button"
+                        className="doc-sig-action-btn btn-del"
+                        onClick={() => setForm((prev) => ({ ...prev, digital_signature: null }))}
+                      >
+                        <Trash2 size={13} />
+                        <span>Remove</span>
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div>
+                      <span style={{ fontSize: "0.8rem", fontWeight: 700, color: "var(--foreground)" }}>
+                        No Signature Attached
+                      </span>
+                      <p style={{ margin: "2px 0 0 0", fontSize: "0.72rem", color: "var(--muted-foreground)" }}>
+                        Click to draw or upload official doctor onboarding signature (PNG)
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      className="doc-signature-trigger-btn"
+                      onClick={() => setShowSignatureModal(true)}
+                    >
+                      <PenTool size={15} />
+                      <span>Signature</span>
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        </form>
+
+        {/* Modal Actions */}
+        <div className="zzc-modal-actions" style={{ marginTop: "1.5rem" }}>
+          <button
+            type="button"
+            className="zzc-btn zzc-btn-outline"
+            onClick={onClose}
+            disabled={saving}
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            form="addDoctorForm"
+            className="zzc-btn zzc-btn-primary"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              background: "linear-gradient(135deg, #0d9488 0%, #007c71 100%)",
+              color: "#fff",
+              border: "none",
+              padding: "0 22px",
+              fontWeight: 700,
+              fontSize: "0.88rem",
+              borderRadius: "8px",
+              cursor: saving ? "not-allowed" : "pointer",
+            }}
+            disabled={saving}
+          >
+            {saving ? (
+              "Saving…"
+            ) : (
+              <>
+                <Check size={16} strokeWidth={2.5} />
+                <span>Save</span>
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* ── SIGNATURE PAD MODAL (PNG MODEL) ── */}
+      <SignaturePadModal
+        isOpen={showSignatureModal}
+        onClose={() => setShowSignatureModal(false)}
+        onSave={(pngDataUrl) => setForm((prev) => ({ ...prev, digital_signature: pngDataUrl }))}
+        existingSignature={form.digital_signature}
+      />
+
+      {/* ── CLINIC PHOTO LIGHTBOX PREVIEW ── */}
+      {previewClinicImage && (
+        <div
+          className="attend-preview-lightbox"
+          onClick={() => setPreviewClinicImage(null)}
+          style={{ zIndex: 1000005 }}
+        >
+          <div
+            className="attend-lightbox-card"
+            style={{ maxWidth: 540 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="attend-lightbox-header">
+              <div className="attend-lightbox-title">
+                <Camera size={18} className="camera-icon-teal" />
+                <span>{previewClinicImage.title}</span>
+              </div>
+              <button
+                type="button"
+                className="attend-lightbox-close"
+                onClick={() => setPreviewClinicImage(null)}
+              >
+                ✕
+              </button>
+            </div>
+            <div className="attend-lightbox-body">
+              <img
+                src={previewClinicImage.url}
+                alt="Clinic Preview"
+                style={{ width: "100%", maxHeight: "360px", objectFit: "contain", borderRadius: "10px", background: "#0f172a" }}
+              />
+              <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                <button
+                  type="button"
+                  className="zzc-btn zzc-btn-outline"
+                  onClick={() => setPreviewClinicImage(null)}
+                >
+                  Close Preview
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>,
+    document.body
+  );
+}
+
+/* ─────────────────────────────────────────────────────────
+   DOCTOR DETAILS MODAL
+   - Opens when clicking doctor row or "Details" button
+   - Shows focused details only, all background pages blurred
+   - Displays full doctor credentials, clinic verification
+     photos, and official transparent PNG signature
+───────────────────────────────────────────────────────── */
+function DoctorDetailsModal({ doctor, onClose }) {
+  const [previewClinicImage, setPreviewClinicImage] = useState(null);
+
+  useEffect(() => {
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.body.classList.add("crm-modal-open");
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      document.body.classList.remove("crm-modal-open");
+    };
+  }, []);
+
+  if (!doctor) return null;
+
+  let clinicImages = null;
+  if (doctor.clinic_images) {
+    try {
+      clinicImages =
+        typeof doctor.clinic_images === "string"
+          ? JSON.parse(doctor.clinic_images)
+          : doctor.clinic_images;
+    } catch {
+      clinicImages = null;
+    }
+  }
+
+  const isActive = doctor.is_active === "Yes" || doctor.is_active === true;
+
+  return createPortal(
+    <div
+      className="zzc-modal-overlay"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div className="zzc-modal doc-details-modal" style={{ maxWidth: 680, maxHeight: "90vh", overflowY: "auto" }}>
+        {/* Header */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.25rem", borderBottom: "1px solid var(--border)", paddingBottom: "0.75rem" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+            <DoctorAvatar name={doctor.name || doctor.doctorName} size={42} />
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <h3 style={{ margin: 0, fontSize: "1.25rem", fontWeight: 800, color: "var(--foreground)" }}>
+                  {doctor.name || "Doctor Details"}
+                </h3>
+                <span className={"doc-status-badge" + (isActive ? " active" : " inactive")}>
+                  {isActive ? "Active" : "Inactive"}
+                </span>
+              </div>
+              <span style={{ fontSize: "0.8rem", color: "var(--muted-foreground)" }}>
+                ID #{doctor.id} • {doctor.verification_status || "Verified"} Territory Doctor Profile
+              </span>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{
+              background: "none",
+              border: "none",
+              fontSize: "1.3rem",
+              cursor: "pointer",
+              color: "var(--muted-foreground)",
+              padding: "4px 8px",
+              borderRadius: "6px"
+            }}
+            aria-label="Close"
+          >
+            ✕
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="doc-details-body">
+          {/* Quick Metrics Bar */}
+          <div className="doc-details-stats-bar">
+            <div className="doc-details-stat-box">
+              <span className="doc-details-stat-label">Experience</span>
+              <strong className="doc-details-stat-val">
+                {doctor.experience_years != null ? `${doctor.experience_years} Years` : "—"}
+              </strong>
+            </div>
+            <div className="doc-details-stat-box">
+              <span className="doc-details-stat-label">Consultation Fee</span>
+              <strong className="doc-details-stat-val" style={{ color: "#0d9488" }}>
+                {doctor.consultation_fee != null ? `₹${doctor.consultation_fee}` : "—"}
+              </strong>
+            </div>
+            <div className="doc-details-stat-box">
+              <span className="doc-details-stat-label">Assigned City</span>
+              <strong className="doc-details-stat-val">
+                {doctor.city || "—"}
+              </strong>
+            </div>
+            <div className="doc-details-stat-box">
+              <span className="doc-details-stat-label">Pin Code</span>
+              <strong className="doc-details-stat-val">
+                {doctor.pincode || "—"}
+              </strong>
+            </div>
+          </div>
+
+          {/* Details Grid */}
+          <div className="doc-details-info-grid">
+            <div className="doc-details-item">
+              <span className="doc-details-label">Qualification</span>
+              <span className="doc-details-value">{doctor.qualification || "—"}</span>
+            </div>
+            <div className="doc-details-item">
+              <span className="doc-details-label">Phone Number</span>
+              <span className="doc-details-value" style={{ fontWeight: 600, color: "var(--primary)" }}>
+                {doctor.phone || "—"}
+              </span>
+            </div>
+            <div className="doc-details-item" style={{ gridColumn: "1 / -1" }}>
+              <span className="doc-details-label">Specializations</span>
+              <div style={{ marginTop: "4px", display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                {doctor.specializations ? (
+                  doctor.specializations.split(",").map((s, idx) => (
+                    <span key={idx} className="rpt-doc-tag" style={{ fontSize: "0.82rem", padding: "3px 10px" }}>
+                      {s.trim()}
+                    </span>
+                  ))
+                ) : (
+                  <span className="doc-muted">—</span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Clinic Verification Photos */}
+          <div className="clinic-photos-section" style={{ marginTop: "1.25rem" }}>
+            <div className="clinic-photos-title-row">
+              <div>
+                <h4>
+                  <Building size={16} color="#0d9488" />
+                  <span>Clinic Verification Photos</span>
+                </h4>
+                <p>Verified physical clinic premises</p>
+              </div>
+            </div>
+
+            <div className="clinic-photos-grid">
+              {/* Inside Clinic Image */}
+              <div className={`clinic-photo-card ${clinicImages?.inside ? "has-photo" : ""}`}>
+                {clinicImages?.inside ? (
+                  <>
+                    <img
+                      src={clinicImages.inside}
+                      alt="Inside Clinic"
+                      className="clinic-photo-thumb"
+                    />
+                    <span className="clinic-photo-tag">Inside Clinic</span>
+                    <div className="clinic-photo-overlay">
+                      <button
+                        type="button"
+                        onClick={() => setPreviewClinicImage({ url: clinicImages.inside, title: "Inside Clinic Photo" })}
+                      >
+                        <Eye size={12} /> View
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ textAlign: "center", padding: "1.5rem 0", color: "var(--muted-foreground)" }}>
+                    <Building size={28} style={{ opacity: 0.35, marginBottom: "6px" }} />
+                    <div style={{ fontSize: "0.8rem", fontWeight: 600 }}>No Inside Photo</div>
+                  </div>
+                )}
+              </div>
+
+              {/* Outside Clinic Image */}
+              <div className={`clinic-photo-card ${clinicImages?.outside ? "has-photo" : ""}`}>
+                {clinicImages?.outside ? (
+                  <>
+                    <img
+                      src={clinicImages.outside}
+                      alt="Outside Clinic"
+                      className="clinic-photo-thumb"
+                    />
+                    <span className="clinic-photo-tag">Outside Clinic</span>
+                    <div className="clinic-photo-overlay">
+                      <button
+                        type="button"
+                        onClick={() => setPreviewClinicImage({ url: clinicImages.outside, title: "Outside Clinic Photo" })}
+                      >
+                        <Eye size={12} /> View
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ textAlign: "center", padding: "1.5rem 0", color: "var(--muted-foreground)" }}>
+                    <Building2 size={28} style={{ opacity: 0.35, marginBottom: "6px" }} />
+                    <div style={{ fontSize: "0.8rem", fontWeight: 600 }}>No Outside Photo</div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Digital Signature Model Section */}
+          <div className="doc-signature-section" style={{ marginTop: "1.25rem" }}>
+            <div className="clinic-photos-title-row">
+              <div>
+                <h4>
+                  <PenTool size={16} color="#0d9488" />
+                  <span>Doctor Official Signature</span>
+                </h4>
+                <p>Digital signature verified on territory database (PNG Model)</p>
+              </div>
+            </div>
+
+            <div className={`doc-signature-card ${doctor.digital_signature ? "has-sig" : ""}`}>
+              {doctor.digital_signature ? (
+                <div className="doc-signature-left" style={{ width: "100%", justifyContent: "space-between" }}>
+                  <img
+                    src={doctor.digital_signature}
+                    alt="Doctor Signature"
+                    className="doc-signature-preview-img"
+                  />
+                  <div>
+                    <div className="doc-signature-badge">
+                      <Check size={14} strokeWidth={2.5} />
+                      <span>Verified PNG Signature</span>
+                    </div>
+                    <span style={{ fontSize: "0.72rem", color: "var(--muted-foreground)", display: "block", marginTop: "3px" }}>
+                      Authenticated digital model
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ padding: "0.5rem 0", color: "var(--muted-foreground)", fontSize: "0.8rem" }}>
+                  No digital signature captured for this doctor yet.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Modal Footer Actions */}
+        <div className="zzc-modal-actions" style={{ marginTop: "1.5rem" }}>
+          <button
+            type="button"
+            className="zzc-btn zzc-btn-primary"
+            onClick={onClose}
+            style={{
+              padding: "0 24px",
+              background: "linear-gradient(135deg, #0d9488 0%, #007c71 100%)",
+              border: "none",
+              color: "#fff",
+              fontWeight: 700
+            }}
+          >
+            Close Details
+          </button>
+        </div>
+      </div>
+
+      {/* Clinic Photo Lightbox Preview */}
+      {previewClinicImage && (
+        <div
+          className="attend-preview-lightbox"
+          onClick={() => setPreviewClinicImage(null)}
+          style={{ zIndex: 1000005 }}
+        >
+          <div
+            className="attend-lightbox-card"
+            style={{ maxWidth: 540 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="attend-lightbox-header">
+              <div className="attend-lightbox-title">
+                <Camera size={18} className="camera-icon-teal" />
+                <span>{previewClinicImage.title}</span>
+              </div>
+              <button
+                type="button"
+                className="attend-lightbox-close"
+                onClick={() => setPreviewClinicImage(null)}
+              >
+                ✕
+              </button>
+            </div>
+            <div className="attend-lightbox-body">
+              <img
+                src={previewClinicImage.url}
+                alt="Clinic Preview"
+                style={{ width: "100%", maxHeight: "360px", objectFit: "contain", borderRadius: "10px", background: "#0f172a" }}
+              />
+              <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                <button
+                  type="button"
+                  className="zzc-btn zzc-btn-outline"
+                  onClick={() => setPreviewClinicImage(null)}
+                >
+                  Close Preview
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>,
+    document.body
+  );
+}
+
 function DoctorsView({ data, execId }) {
   const [search, setSearch] = useState("");
   const [filterPincode, setFilterPincode] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
+  const [showAddDoctorModal, setShowAddDoctorModal] = useState(false);
+  const [selectedDoctorDetails, setSelectedDoctorDetails] = useState(null);
+  const [successToast, setSuccessToast] = useState("");
 
   const exec = data.executives.find((e) => e.id === execId) || data.executives[0];
 
@@ -2208,9 +3558,29 @@ function DoctorsView({ data, execId }) {
   return (
     <div className="doc-view-wrap">
 
-      {/* ── PAGE TITLE — same pattern as Reports ── */}
-      <div className="crm-page-title">
-        <h2>Doctors in My Region</h2>
+      {/* ── SUCCESS TOAST ── */}
+      {successToast && (
+        <div className="rpt-submit-toast" style={{ marginBottom: "0.5rem" }}>
+          <div className="rpt-submit-toast-icon">✓</div>
+          <div>
+            <strong>Doctor Added</strong>
+            <p>{successToast}</p>
+          </div>
+          <button className="rpt-call-close" onClick={() => setSuccessToast("")} type="button">✕</button>
+        </div>
+      )}
+
+      {/* ── PAGE TITLE & + ADD DOCTOR BUTTON ── */}
+      <div className="crm-page-title doc-header-row">
+        <h2 style={{ margin: 0 }}>Doctors in My Region</h2>
+        <button
+          type="button"
+          className="doc-add-btn"
+          onClick={() => setShowAddDoctorModal(true)}
+        >
+          <span style={{ fontSize: "1.25rem", fontWeight: "900", lineHeight: 1 }}>+</span>
+          <span>Add Doctor</span>
+        </button>
       </div>
 
       {/* ── STAT PILLS ── */}
@@ -2303,13 +3673,19 @@ function DoctorsView({ data, execId }) {
                 <th>City</th>
                 <th>Pin Code</th>
                 <th>Status</th>
+                <th style={{ textAlign: "center" }}>Action</th>
               </tr>
             </thead>
             <tbody>
               {filtered.map((doc, i) => {
                 const isActive = doc.is_active === "Yes" || doc.is_active === true;
                 return (
-                  <tr key={doc.id}>
+                  <tr
+                    key={doc.id}
+                    className="doc-table-row"
+                    onClick={() => setSelectedDoctorDetails(doc)}
+                    title="Click row to view full doctor details"
+                  >
                     <td className="doc-row-num">{i + 1}</td>
                     <td>
                       <div>
@@ -2338,12 +3714,47 @@ function DoctorsView({ data, execId }) {
                         {isActive ? "Active" : "Inactive"}
                       </span>
                     </td>
+                    <td style={{ textAlign: "center" }} onClick={(e) => e.stopPropagation()}>
+                      <button
+                        type="button"
+                        className="doc-details-view-btn"
+                        onClick={() => setSelectedDoctorDetails(doc)}
+                        title="View Doctor Details"
+                      >
+                        <StylizedEyeIcon width={18} height={11} live={true} />
+                        <span>Details</span>
+                      </button>
+                    </td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
         </div>
+      )}
+      {/* ── ADD DOCTOR MODAL ── */}
+      {showAddDoctorModal && (
+        <AddDoctorModal
+          defaultCity={exec?.city || ""}
+          availablePincodes={Array.from(myPincodes)}
+          onClose={() => setShowAddDoctorModal(false)}
+          onDoctorAdded={async (newDoc) => {
+            if (data?.reload) {
+              await data.reload();
+            }
+            setShowAddDoctorModal(false);
+            setSuccessToast(`Doctor "${newDoc?.name || "New Doctor"}" added successfully!`);
+            setTimeout(() => setSuccessToast(""), 5000);
+          }}
+        />
+      )}
+
+      {/* ── DOCTOR DETAILS MODAL (Focused details, all background pages blurred) ── */}
+      {selectedDoctorDetails && (
+        <DoctorDetailsModal
+          doctor={selectedDoctorDetails}
+          onClose={() => setSelectedDoctorDetails(null)}
+        />
       )}
     </div>
   );
@@ -2810,6 +4221,8 @@ const ROLE_TITLES = {
 };
 
 const SECTION_TITLES = {
+  attendance: "Attendance & Shift Punch",
+  attendance_report: "Sales Executive Attendance Report",
   dashboard: "Dashboard",
   doctors: "Doctors",
   plan: "Plan",
@@ -2817,21 +4230,92 @@ const SECTION_TITLES = {
   reports: "Reports",
 };
 
-export default function SalesCrm({ role, onSwitchRole, onExit }) {
+export default function SalesCrm({ role, initialUser, onSwitchRole, onExit }) {
+  const [theme, setTheme] = useTheme();
   const data = useSalesData();
-  const [execId, setExecId] = useState(null);
-  const [managerId, setManagerId] = useState(null);
-  const [regionalId, setRegionalId] = useState(null);
+  const [execId, setExecId] = useState(() => {
+    if (initialUser?.id) return initialUser.id;
+    try {
+      const prefId = localStorage.getItem("zippy_crm_preferred_exec_id");
+      if (prefId) return Number(prefId);
+      const authStr = localStorage.getItem("zippy_crm_active_auth");
+      if (authStr) {
+        const auth = JSON.parse(authStr);
+        if (auth?.role === "executive" && auth?.user?.id) {
+          return auth.user.id;
+        }
+      }
+    } catch (e) {}
+    return null;
+  });
+  const [managerId, setManagerId] = useState(() => {
+    if (role === "manager" && initialUser?.id) return initialUser.id;
+    return null;
+  });
+  const [regionalId, setRegionalId] = useState(() => {
+    if (role === "regional" && initialUser?.id) return initialUser.id;
+    return null;
+  });
   const [region, setRegion] = useState("");
   const [profileOpen, setProfileOpen] = useState(false);
-  const [activeSection, setActiveSection] = useState("dashboard");
+  const [loginModal, setLoginModal] = useState({ isOpen: false, role: "executive" });
+  const [activeSection, setActiveSection] = useState(() => {
+    try {
+      const hash = window.location.hash.replace("#", "");
+      if (["attendance", "attendance_report", "dashboard", "doctors", "plan", "approvals", "reports"].includes(hash)) {
+        return hash;
+      }
+    } catch (e) {}
+    return "attendance";
+  });
+
+  const handleSelectSection = (sec) => {
+    setActiveSection(sec);
+    try {
+      window.location.hash = sec;
+    } catch (e) {}
+  };
 
   useEffect(() => {
-    if (!execId && data.executives.length) {
-      const t = setTimeout(() => setExecId(data.executives[0].id), 0);
-      return () => clearTimeout(t);
+    if (initialUser?.id) {
+      if (role === ROLES.EXECUTIVE) setExecId(initialUser.id);
+      if (role === ROLES.MANAGER) setManagerId(initialUser.id);
+      if (role === ROLES.REGIONAL) setRegionalId(initialUser.id);
     }
-  }, [data.executives, execId]);
+  }, [initialUser, role]);
+
+  useEffect(() => {
+    if (role === ROLES.EXECUTIVE && data.executives.length) {
+      try {
+        const prefId = localStorage.getItem("zippy_crm_preferred_exec_id");
+        if (prefId) {
+          const match = data.executives.find((e) => String(e.id) === String(prefId));
+          if (match) {
+            setExecId(match.id);
+            return;
+          }
+        }
+        const authStr = localStorage.getItem("zippy_crm_active_auth");
+        if (authStr) {
+          const auth = JSON.parse(authStr);
+          if (auth?.role === ROLES.EXECUTIVE && auth?.user?.id) {
+            const match = data.executives.find((e) => e.id === auth.user.id);
+            if (match) {
+              setExecId(match.id);
+              return;
+            }
+          }
+        }
+      } catch (e) {}
+      if (!execId) {
+        // Default to latest added executive (newest record in database)
+        const latest = data.executives[data.executives.length - 1];
+        if (latest?.id) {
+          setExecId(latest.id);
+        }
+      }
+    }
+  }, [data.executives, role]);
 
   useEffect(() => {
     if (!managerId && data.salesManagers.length) {
@@ -2853,6 +4337,8 @@ export default function SalesCrm({ role, onSwitchRole, onExit }) {
       t = setTimeout(() => setActiveSection("approvals"), 0);
     } else if (role === ROLES.EXECUTIVE && activeSection === "approvals") {
       t = setTimeout(() => setActiveSection("plan"), 0);
+    } else if (role === ROLES.EXECUTIVE && activeSection === "attendance_report") {
+      t = setTimeout(() => setActiveSection("attendance"), 0);
     }
     return () => clearTimeout(t);
   }, [role, activeSection]);
@@ -2871,12 +4357,36 @@ export default function SalesCrm({ role, onSwitchRole, onExit }) {
   );
 
   const currentTableKey = ROLE_TABLE_KEY[role];
-  const currentRecord =
-    role === ROLES.EXECUTIVE
-      ? data.executives.find((e) => e.id === execId)
-      : role === ROLES.MANAGER
-        ? data.salesManagers.find((m) => m.id === managerId)
-        : data.regionalManagers.find((r) => r.id === regionalId);
+  const currentRecord = useMemo(() => {
+    if (role === ROLES.EXECUTIVE) {
+      const match = data.executives.find((e) => String(e.id) === String(execId));
+      if (match) return match;
+      if (initialUser && (String(initialUser.id) === String(execId) || !execId)) return initialUser;
+      try {
+        const authStr = localStorage.getItem("zippy_crm_active_auth");
+        if (authStr) {
+          const auth = JSON.parse(authStr);
+          if (auth?.role === ROLES.EXECUTIVE && auth?.user) {
+            if (String(auth.user.id) === String(execId) || !execId) return auth.user;
+          }
+        }
+      } catch (e) {}
+      return initialUser || data.executives[data.executives.length - 1] || null;
+    }
+    if (role === ROLES.MANAGER) {
+      const match = data.salesManagers.find((m) => String(m.id) === String(managerId));
+      if (match) return match;
+      if (initialUser && (String(initialUser.id) === String(managerId) || !managerId)) return initialUser;
+      return initialUser || data.salesManagers[0] || null;
+    }
+    if (role === ROLES.REGIONAL) {
+      const match = data.regionalManagers.find((r) => String(r.id) === String(regionalId));
+      if (match) return match;
+      if (initialUser && (String(initialUser.id) === String(regionalId) || !regionalId)) return initialUser;
+      return initialUser || data.regionalManagers[0] || null;
+    }
+    return null;
+  }, [role, data.executives, data.salesManagers, data.regionalManagers, execId, managerId, regionalId, initialUser]);
 
   function initialsOf(name) {
     if (!name) return "?";
@@ -2884,70 +4394,106 @@ export default function SalesCrm({ role, onSwitchRole, onExit }) {
   }
 
   function handleSwitchRole(newRole) {
-    setActiveSection("dashboard");
+    handleSelectSection(newRole === ROLES.EXECUTIVE ? "attendance" : "dashboard");
     onSwitchRole(newRole);
+  }
+
+  function handleRequestSwitchRole(targetRole) {
+    if (targetRole === role) return;
+    setLoginModal({
+      isOpen: true,
+      role: targetRole,
+    });
+  }
+
+  function handleLoginModalSuccess({ role: targetRole, user }) {
+    setLoginModal({ isOpen: false, role: targetRole });
+    handleSelectSection(targetRole === ROLES.EXECUTIVE ? "attendance" : "dashboard");
+    onSwitchRole(targetRole);
+    if (targetRole === ROLES.EXECUTIVE && user?.id) {
+      setExecId(user.id);
+    } else if (targetRole === ROLES.MANAGER && user?.id) {
+      setManagerId(user.id);
+    } else if (targetRole === ROLES.REGIONAL && user?.id) {
+      setRegionalId(user.id);
+    }
   }
 
   const pageTitle = `${ROLE_TITLES[role]} — ${SECTION_TITLES[activeSection] ?? "Dashboard"}`;
 
   return (
-    <div className="app">
+    <div className={`app ${theme}`}>
       <aside className="sidebar">
         <div className="brand">
           <div className="brand-logo"><img src={logo} alt="Zenve Zippy" /></div>
           <div>
             <div className="brand-name">Zenve Zippy CRM</div>
-            <div className="brand-sub">Sales CRM</div>
+            <div className="brand-sub">
+              <span style={{ color: "#10b981", marginRight: "4px" }}>●</span> SALES CRM
+            </div>
           </div>
         </div>
 
         <nav>
           <button
-            className={"nav-item" + (activeSection === "dashboard" ? " active" : "")}
-            onClick={() => setActiveSection("dashboard")}
+            className={"nav-item" + (activeSection === "attendance" ? " active" : "")}
+            onClick={() => handleSelectSection("attendance")}
           >
+            <Clock size={16} style={{ marginRight: "10px", flexShrink: 0 }} />
+            Attendance
+          </button>
+          {role !== ROLES.EXECUTIVE && (
+            <button
+              className={"nav-item" + (activeSection === "attendance_report" ? " active" : "")}
+              onClick={() => handleSelectSection("attendance_report")}
+            >
+              <UserCheck size={16} style={{ marginRight: "10px", flexShrink: 0 }} />
+              Attendance Report
+            </button>
+          )}
+          <button
+            className={"nav-item" + (activeSection === "dashboard" ? " active" : "")}
+            onClick={() => handleSelectSection("dashboard")}
+          >
+            <LayoutGrid size={16} style={{ marginRight: "10px", flexShrink: 0 }} />
             Dashboard
           </button>
           <button
             className={"nav-item" + (activeSection === "doctors" ? " active" : "")}
-            onClick={() => setActiveSection("doctors")}
+            onClick={() => handleSelectSection("doctors")}
           >
+            <Stethoscope size={16} style={{ marginRight: "10px", flexShrink: 0 }} />
             Doctors
           </button>
-          {role === ROLES.EXECUTIVE && (
+          {role === ROLES.EXECUTIVE ? (
             <button
               className={"nav-item" + (activeSection === "plan" ? " active" : "")}
-              onClick={() => setActiveSection("plan")}
+              onClick={() => handleSelectSection("plan")}
             >
+              <Calendar size={16} style={{ marginRight: "10px", flexShrink: 0 }} />
               Plan
             </button>
-          )}
-          {(role === ROLES.MANAGER || role === ROLES.REGIONAL) && (
+          ) : (
             <button
               className={"nav-item" + (activeSection === "approvals" ? " active" : "")}
-              onClick={() => setActiveSection("approvals")}
+              onClick={() => handleSelectSection("approvals")}
             >
+              <ClipboardCheck size={16} style={{ marginRight: "10px", flexShrink: 0 }} />
               Approvals
             </button>
           )}
           <button
             className={"nav-item" + (activeSection === "reports" ? " active" : "")}
-            onClick={() => setActiveSection("reports")}
+            onClick={() => handleSelectSection("reports")}
           >
+            <FileText size={16} style={{ marginRight: "10px", flexShrink: 0 }} />
             Reports
           </button>
 
-          <div className="nav-heading">SALES CRM</div>
-          <button className={"nav-item" + (role === ROLES.REGIONAL ? " active" : "")} onClick={() => handleSwitchRole(ROLES.REGIONAL)}>
-            Regional Managers
+          <button className="nav-item" onClick={onExit} style={{ marginTop: "0.5rem" }}>
+            <LogOut size={16} style={{ marginRight: "10px", flexShrink: 0 }} />
+            Admin CRM
           </button>
-          <button className={"nav-item" + (role === ROLES.MANAGER ? " active" : "")} onClick={() => handleSwitchRole(ROLES.MANAGER)}>
-            Sales Managers
-          </button>
-          <button className={"nav-item" + (role === ROLES.EXECUTIVE ? " active" : "")} onClick={() => handleSwitchRole(ROLES.EXECUTIVE)}>
-            Sales Executives
-          </button>
-          <button className="nav-item" onClick={onExit}>Admin CRM</button>
         </nav>
       </aside>
 
@@ -2962,28 +4508,17 @@ export default function SalesCrm({ role, onSwitchRole, onExit }) {
 
           <div className="header-right">
             <div className="role-switch">
-              <label>View As</label>
-              <select value={role} onChange={(e) => handleSwitchRole(e.target.value)}>
+              <label>VIEW AS</label>
+              <select value={role} onChange={(e) => handleRequestSwitchRole(e.target.value)}>
                 <option value={ROLES.REGIONAL}>Regional Manager</option>
                 <option value={ROLES.MANAGER}>Sales Manager</option>
                 <option value={ROLES.EXECUTIVE}>Sales Executive</option>
               </select>
             </div>
 
-            {role === ROLES.EXECUTIVE && data.executives.length > 0 && (
-              <div className="role-switch">
-                <label>Executive</label>
-                <select value={execId ?? ""} onChange={(e) => setExecId(Number(e.target.value))}>
-                  {data.executives.map((e) => (
-                    <option key={e.id} value={e.id}>{e.name}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-
             {role === ROLES.MANAGER && data.salesManagers.length > 0 && (
               <div className="role-switch">
-                <label>Manager</label>
+                <label>MANAGER</label>
                 <select value={managerId ?? ""} onChange={(e) => setManagerId(Number(e.target.value))}>
                   {data.salesManagers.map((m) => (
                     <option key={m.id} value={m.id}>{m.name}</option>
@@ -2994,7 +4529,7 @@ export default function SalesCrm({ role, onSwitchRole, onExit }) {
 
             {role === ROLES.REGIONAL && data.regionalManagers.length > 0 && (
               <div className="role-switch">
-                <label>Regional Manager</label>
+                <label>REGIONAL MANAGER</label>
                 <select value={regionalId ?? ""} onChange={(e) => setRegionalId(Number(e.target.value))}>
                   {data.regionalManagers.map((r) => (
                     <option key={r.id} value={r.id}>{r.name}</option>
@@ -3005,7 +4540,7 @@ export default function SalesCrm({ role, onSwitchRole, onExit }) {
 
             {(role === ROLES.MANAGER || role === ROLES.REGIONAL) && (
               <div className="role-switch">
-                <label>Region filter</label>
+                <label>REGION FILTER</label>
                 <select value={region} onChange={(e) => setRegion(e.target.value)}>
                   <option value="">All</option>
                   {regions.map((r) => (
@@ -3016,7 +4551,7 @@ export default function SalesCrm({ role, onSwitchRole, onExit }) {
             )}
 
             <div className="role-switch">
-              <label>Month</label>
+              <label>MONTH</label>
               <select value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)}>
                 {monthOptions.map((opt) => (
                   <option key={opt.key} value={opt.key}>{opt.label}</option>
@@ -3024,18 +4559,72 @@ export default function SalesCrm({ role, onSwitchRole, onExit }) {
               </select>
             </div>
 
-            <button
-              className="profile-avatar-btn"
+            <div
+              className="header-user-status-pill"
               title={currentRecord ? `${currentRecord.name} — view profile` : "No profile selected"}
               onClick={() => currentRecord && setProfileOpen(true)}
-              disabled={!currentRecord}
             >
-              {initialsOf(currentRecord?.name)}
+              <DoctorAvatar name={currentRecord?.name || "dhanushkodi"} size={26} isOnline={true} />
+              <div className="header-user-meta">
+                <span className="header-user-name">{currentRecord?.name || "dhanushkodi"}</span>
+                <span className="header-user-status-tag">
+                  <span className="online-dot" /> Online
+                </span>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              className="header-logout-btn"
+              onClick={onExit}
+              title="Log Out of Sales CRM"
+            >
+              <LogOut size={13} />
+              <span>Log Out</span>
             </button>
+
+            <div className="header-theme-toggle">
+              <button
+                type="button"
+                className={`theme-toggle-option ${theme !== "dark" ? "active" : ""}`}
+                onClick={() => setTheme("light")}
+                title="Switch to Light Theme"
+              >
+                <Sun size={12} />
+                <span>Light</span>
+              </button>
+              <button
+                type="button"
+                className={`theme-toggle-option ${theme === "dark" ? "active" : ""}`}
+                onClick={() => setTheme("dark")}
+                title="Switch to Dark Theme"
+              >
+                <Moon size={12} />
+                <span>Dark</span>
+              </button>
+            </div>
           </div>
         </header>
 
         <section className="content">
+          {activeSection === "attendance" && (
+            <AttendanceView
+              data={data}
+              execId={execId}
+              role={role}
+              currentRecord={currentRecord}
+              onSwitchExecutive={(newId) => setExecId(newId)}
+            />
+          )}
+
+          {activeSection === "attendance_report" && (
+            <AttendanceReportView
+              data={data}
+              execId={execId}
+              role={role}
+              currentRecord={currentRecord}
+            />
+          )}
           {activeSection === "dashboard" && (
             <>
               {data.loading && <p style={{ color: "#7f8b98" }}>Loading dashboard…</p>}
@@ -3124,6 +4713,13 @@ export default function SalesCrm({ role, onSwitchRole, onExit }) {
           onClose={() => setProfileOpen(false)}
         />
       )}
+
+      <SalesCrmLoginModal
+        isOpen={loginModal.isOpen}
+        initialRole={loginModal.role}
+        onClose={() => setLoginModal((prev) => ({ ...prev, isOpen: false }))}
+        onLoginSuccess={handleLoginModalSuccess}
+      />
     </div>
   );
 }

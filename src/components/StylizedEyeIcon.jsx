@@ -101,6 +101,12 @@ export default function StylizedEyeIcon({
 
   const activeTracking = tracking || isHovered;
 
+  const clipIdRef = useRef(null);
+  if (!clipIdRef.current) {
+    clipIdRef.current = "eye-clip-" + Math.random().toString(36).substring(2, 9);
+  }
+  const clipId = clipIdRef.current;
+
   return (
     <svg
       ref={svgRef}
@@ -123,6 +129,9 @@ export default function StylizedEyeIcon({
       {...props}
     >
       <defs>
+        <clipPath id={clipId}>
+          <path d="M 5 31 C 18 1, 82 1, 95 31 C 82 61, 18 61, 5 31 Z" />
+        </clipPath>
         <style>{`
           @keyframes liveEyeBlinkAnim {
             0%, 88%, 100% { transform: scaleY(1); }
@@ -148,11 +157,18 @@ export default function StylizedEyeIcon({
         {/* Soft pastel sky-blue almond sclera */}
         <path
           d="M 5 31 C 18 1, 82 1, 95 31 C 82 61, 18 61, 5 31 Z"
-          fill="#bce5f8"
+          fill="#c0e8fa"
         />
 
-        {/* Pupil & Iris Group with gentle glancing and interactive cursor tracking */}
+        {/* Lower eyelid soft crescent highlight matching exact reference artwork */}
+        <path
+          d="M 12 34 C 26 53, 74 53, 88 34 C 74 48, 26 48, 12 34 Z"
+          fill="rgba(255, 255, 255, 0.4)"
+        />
+
+        {/* Pupil & Iris Group with gentle glancing, clipping and interactive cursor tracking */}
         <g
+          clipPath={`url(#${clipId})`}
           style={{
             transform: activeTracking
               ? `translate(${pupilOffset.x}px, ${pupilOffset.y}px)`

@@ -359,7 +359,7 @@
 
 .face-fallback-primary-btn {
   padding: 8px 16px;
-  background: linear-gradient(135deg, #0d9488 0%, #10b981 100%);
+  background: linear-gradient(135deg, #0369a1 0%, #10b981 100%);
   color: #ffffff;
   border: none;
   border-radius: 10px;
@@ -550,6 +550,71 @@
 
 [data-theme="dark"] .face-telemetry-sub {
   color: #94a3b8;
+}
+
+/* Auto-detect button inside location card */
+.face-auto-location-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: rgba(14, 165, 233, 0.1);
+  color: #0284c7;
+  border: 1px solid rgba(14, 165, 233, 0.3);
+  border-radius: 999px;
+  padding: 1px 6px;
+  font-size: 0.62rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  line-height: 1.2;
+}
+
+.face-auto-location-btn:hover {
+  background: #0284c7;
+  color: #ffffff;
+  border-color: #0284c7;
+}
+
+[data-theme="dark"] .face-auto-location-btn {
+  background: rgba(56, 189, 248, 0.15);
+  color: #38bdf8;
+  border-color: rgba(56, 189, 248, 0.3);
+}
+
+[data-theme="dark"] .face-auto-location-btn:hover {
+  background: #38bdf8;
+  color: #0f172a;
+}
+
+.spinning {
+  animation: faceSpin 1s linear infinite;
+}
+
+@keyframes faceSpin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.face-auto-loc-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: #0d9488;
+  background: rgba(13, 148, 136, 0.1);
+  padding: 1px 6px;
+  border-radius: 4px;
+  margin-top: 4px;
+}
+
+[data-theme="dark"] .face-auto-loc-badge {
+  color: #2dd4bf;
+  background: rgba(45, 212, 191, 0.15);
 }
 
 /* Modal Bottom Actions */
@@ -780,7 +845,7 @@
 }
 
 .camera-icon-teal {
-  color: #0d9488;
+  color: #0369a1;
 }
 
 .attend-lightbox-close {

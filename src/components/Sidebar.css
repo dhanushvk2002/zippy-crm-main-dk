@@ -45,8 +45,8 @@
   height: 38px;
   border-radius: 10px;
   background: #f0fdfa;
-  border: 1.5px solid rgba(13, 148, 136, 0.25);
-  box-shadow: 0 2px 8px rgba(13, 148, 136, 0.12);
+  border: 1.5px solid rgba(3, 105, 161, 0.25);
+  box-shadow: 0 2px 8px rgba(3, 105, 161, 0.12);
   display: flex;
   align-items: center;
   justify-content: center;

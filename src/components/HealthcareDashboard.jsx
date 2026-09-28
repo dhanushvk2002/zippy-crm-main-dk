@@ -57,8 +57,8 @@ export default function HealthcareDashboard({
       trendUp: true,
       compare: "vs last month",
       icon: Users,
-      color: "#0d9488",
-      bg: "rgba(13, 148, 136, 0.08)",
+      color: "#0369a1",
+      bg: "rgba(3, 105, 161, 0.08)",
       key: "pet_parents",
     },
     {

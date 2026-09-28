@@ -487,8 +487,9 @@
 .hc-modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.45);
-  backdrop-filter: blur(4px);
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   z-index: 100;
   display: flex;
   justify-content: flex-end;
@@ -577,7 +578,7 @@
 
 .hc-hero-spec {
   font-size: 0.86rem;
-  color: #0d9488;
+  color: #0369a1;
   font-weight: 600;
   margin: 0 0 8px 0;
 }
@@ -703,7 +704,7 @@
 }
 
 .hc-pstat-icon.teal {
-  color: #0d9488;
+  color: #0369a1;
 }
 
 .hc-pstat-icon.amber {
@@ -960,4 +961,103 @@
 .hc-btn-secondary:hover {
   background: #e2e8f0;
   color: #0f172a;
+}
+
+/* =========================================================
+   HEALTHCARE DOCTORS VIEW DARK THEME OVERRIDES
+========================================================= */
+[data-theme="dark"] .hc-view-title,
+.dark .hc-view-title {
+  color: #f8fafc !important;
+}
+
+[data-theme="dark"] .hc-view-subtitle,
+.dark .hc-view-subtitle {
+  color: #94a3b8 !important;
+}
+
+[data-theme="dark"] .hc-doctors-toolbar,
+.dark .hc-doctors-toolbar {
+  background: #131d31 !important;
+  border-color: rgba(51, 65, 85, 0.7) !important;
+}
+
+[data-theme="dark"] .hc-search-field,
+.dark .hc-search-field {
+  background: #0b1120 !important;
+  border-color: rgba(51, 65, 85, 0.8) !important;
+}
+
+[data-theme="dark"] .hc-search-field input,
+.dark .hc-search-field input {
+  color: #f8fafc !important;
+}
+
+[data-theme="dark"] .hc-filter-select,
+.dark .hc-filter-select {
+  background-color: #0b1120 !important;
+  color: #f8fafc !important;
+  border-color: rgba(51, 65, 85, 0.8) !important;
+}
+
+[data-theme="dark"] .hc-doctor-card,
+.dark .hc-doctor-card {
+  background: #131d31 !important;
+  border-color: rgba(51, 65, 85, 0.7) !important;
+}
+
+[data-theme="dark"] .hc-doctor-card:hover,
+.dark .hc-doctor-card:hover {
+  border-color: #0d9488 !important;
+}
+
+[data-theme="dark"] .hc-doctor-name,
+.dark .hc-doctor-name {
+  color: #f8fafc !important;
+}
+
+[data-theme="dark"] .hc-doctor-spec,
+.dark .hc-doctor-spec {
+  color: #2dd4bf !important;
+}
+
+[data-theme="dark"] .hc-doctor-stats,
+.dark .hc-doctor-stats {
+  background: rgba(11, 17, 32, 0.6) !important;
+  border-color: rgba(51, 65, 85, 0.7) !important;
+}
+
+[data-theme="dark"] .hc-doctor-footer,
+.dark .hc-doctor-footer {
+  border-color: rgba(51, 65, 85, 0.7) !important;
+}
+
+[data-theme="dark"] .hc-table-container,
+.dark .hc-table-container {
+  background: #131d31 !important;
+  border-color: rgba(51, 65, 85, 0.7) !important;
+}
+
+[data-theme="dark"] .hc-table th,
+.dark .hc-table th {
+  background: #0d1527 !important;
+  color: #94a3b8 !important;
+  border-color: rgba(51, 65, 85, 0.6) !important;
+}
+
+[data-theme="dark"] .hc-table td,
+.dark .hc-table td {
+  border-color: rgba(51, 65, 85, 0.4) !important;
+  color: #cbd5e1 !important;
+}
+
+[data-theme="dark"] .hc-table tr:hover td,
+.dark .hc-table tr:hover td {
+  background: rgba(30, 41, 59, 0.6) !important;
+}
+
+[data-theme="dark"] .hc-drawer-content,
+.dark .hc-drawer-content {
+  background: #131d31 !important;
+  color: #f8fafc !important;
 }

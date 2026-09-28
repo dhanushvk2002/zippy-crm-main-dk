@@ -111,8 +111,8 @@
 }
 
 .med-date-pill:hover {
-  border-color: #007c71;
-  color: #007c71;
+  border-color: #0284c7;
+  color: #0284c7;
 }
 
 .med-quick-btn {
@@ -120,21 +120,21 @@
   align-items: center;
   gap: 7px;
   padding: 8px 16px;
-  background: linear-gradient(135deg, #007c71 0%, #0d9488 100%);
+  background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
   color: #ffffff;
   border: none;
   border-radius: 12px;
   font-size: 0.84rem;
   font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 4px 14px rgba(0, 124, 113, 0.25);
+  box-shadow: 0 4px 14px rgba(2, 132, 199, 0.25);
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .med-quick-btn:hover {
   background: linear-gradient(135deg, #006b61 0%, #0b8075 100%);
   transform: translateY(-1px);
-  box-shadow: 0 6px 18px rgba(0, 124, 113, 0.32);
+  box-shadow: 0 6px 18px rgba(2, 132, 199, 0.32);
 }
 
 .med-quick-menu-dropdown {
@@ -182,7 +182,7 @@
 
 .med-quick-item:hover {
   background: #f1f5f9;
-  color: #007c71;
+  color: #0284c7;
 }
 
 [data-theme="dark"] .med-quick-item:hover {
@@ -240,7 +240,7 @@
 
 .med-stat-card:hover {
   transform: translateY(-2px);
-  border-color: rgba(0, 124, 113, 0.25);
+  border-color: rgba(2, 132, 199, 0.25);
   box-shadow: 0 8px 24px -4px rgba(15, 23, 42, 0.08);
 }
 
@@ -465,7 +465,7 @@
 
 .med-card-header-icon.teal {
   background: #e6f7f5;
-  color: #007c71;
+  color: #0284c7;
 }
 
 .med-card-header-icon.blue {
@@ -495,14 +495,14 @@
 }
 
 .med-dropdown-pill:hover {
-  border-color: #007c71;
-  color: #007c71;
+  border-color: #0284c7;
+  color: #0284c7;
 }
 
 .med-card-link {
   font-size: 0.78rem;
   font-weight: 700;
-  color: #007c71;
+  color: #0284c7;
   text-decoration: none;
   cursor: pointer;
   transition: opacity 0.15s ease;
@@ -533,7 +533,7 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #007c71;
+  background: #0284c7;
 }
 
 .med-legend-dash {
@@ -602,11 +602,11 @@
 }
 
 .med-bar-pill.chennai {
-  background: linear-gradient(180deg, #007c71 0%, #0d9488 100%);
+  background: linear-gradient(180deg, #0284c7 0%, #0369a1 100%);
 }
 
 .med-bar-pill.bengaluru {
-  background: linear-gradient(180deg, #0d9488 0%, #14b8a6 100%);
+  background: linear-gradient(180deg, #0369a1 0%, #14b8a6 100%);
 }
 
 .med-bar-pill.hyderabad {
@@ -748,8 +748,8 @@
 }
 
 .med-action-icon-btn:hover {
-  border-color: #007c71;
-  color: #007c71;
+  border-color: #0284c7;
+  color: #0284c7;
   background: #f0fdfa;
 }
 
@@ -836,7 +836,7 @@
 
 .med-metric-icon-wrap.teal {
   background: #e6f7f5;
-  color: #007c71;
+  color: #0284c7;
 }
 
 .med-metric-content {
@@ -927,7 +927,7 @@
 }
 
 .med-timeline-icon.teal {
-  background: #007c71;
+  background: #0284c7;
   color: #ffffff;
 }
 
@@ -1022,7 +1022,7 @@
 
 .med-activity-icon.teal {
   background: #e6f7f5;
-  color: #007c71;
+  color: #0284c7;
 }
 
 .med-activity-info {
@@ -1053,7 +1053,7 @@
 /* ── 9. Right Column: Promo Card with Golden Retriever ── */
 .med-promo-card {
   background: linear-gradient(135deg, #f0fdfa 0%, #e6fffa 100%);
-  border: 1.5px solid rgba(0, 124, 113, 0.18);
+  border: 1.5px solid rgba(2, 132, 199, 0.18);
   border-radius: 18px;
   padding: 1.15rem 1.25rem;
   display: flex;
@@ -1062,7 +1062,7 @@
   gap: 12px;
   overflow: hidden;
   position: relative;
-  box-shadow: 0 4px 16px -2px rgba(0, 124, 113, 0.08);
+  box-shadow: 0 4px 16px -2px rgba(2, 132, 199, 0.08);
 }
 
 [data-theme="dark"] .med-promo-card {
@@ -1106,7 +1106,7 @@
   margin-top: 6px;
   font-size: 0.76rem;
   font-weight: 700;
-  color: #007c71;
+  color: #0284c7;
   text-decoration: none;
   cursor: pointer;
 }

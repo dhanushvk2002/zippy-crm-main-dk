@@ -171,14 +171,14 @@
 
 .admin-action-btn.edit {
   background: #ffffff;
-  border-color: #007c71;
-  color: #007c71;
+  border-color: #0284c7;
+  color: #0284c7;
 }
 
 .admin-action-btn.edit:hover {
   background: #e6f7f5;
-  color: #005a52;
-  border-color: #005a52;
+  color: #0c4a6e;
+  border-color: #0c4a6e;
 }
 
 .admin-action-btn.delete {
@@ -286,7 +286,7 @@
   align-items: center;
   justify-content: center;
   border-radius: 8px;
-  background: #007c71;
+  background: #0284c7;
   color: #ffffff;
   font-size: 0.78rem;
   font-weight: 700;

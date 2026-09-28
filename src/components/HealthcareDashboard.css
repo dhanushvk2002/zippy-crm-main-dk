@@ -445,7 +445,7 @@
 
 /* ── Promo Box ── */
 .hc-promo-box {
-  background: linear-gradient(135deg, rgba(2, 132, 199, 0.08) 0%, rgba(13, 148, 136, 0.08) 100%);
+  background: linear-gradient(135deg, rgba(2, 132, 199, 0.08) 0%, rgba(3, 105, 161, 0.08) 100%);
   border-color: rgba(2, 132, 199, 0.25);
 }
 

@@ -54,6 +54,148 @@
     sans-serif;
 }
 
+/* =========================================================
+   DARK THEME TOKENS & OVERRIDES
+   Activated by [data-theme="dark"], .dark, or .theme-dark
+========================================================= */
+[data-theme="dark"],
+.dark,
+.theme-dark {
+  --background: #0b1120;
+  --foreground: #f8fafc;
+  --card: #131d31;
+  --card-foreground: #f8fafc;
+  --popover: #131d31;
+  --popover-foreground: #f8fafc;
+  --primary: #0d9488;
+  --primary-foreground: #ffffff;
+  --secondary: #1e293b;
+  --secondary-foreground: #e2e8f0;
+  --muted: #1e293b;
+  --muted-foreground: #94a3b8;
+  --accent: rgba(13, 148, 136, 0.18);
+  --accent-foreground: #5eead4;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --border: rgba(51, 65, 85, 0.7);
+  --input: rgba(51, 65, 85, 0.8);
+  --ring: #0d9488;
+  --chart-1: #0d9488;
+  --chart-2: #f59e0b;
+  --chart-3: #38bdf8;
+  --chart-4: #818cf8;
+  --chart-5: #ec4899;
+  --sidebar: #090e1a;
+  --sidebar-foreground: #f8fafc;
+  --sidebar-primary: #0d9488;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: rgba(13, 148, 136, 0.15);
+  --sidebar-accent-foreground: #5eead4;
+  --sidebar-border: rgba(51, 65, 85, 0.5);
+  --sidebar-ring: #0d9488;
+  --shadow-soft: 0 10px 30px -12px rgba(0, 0, 0, 0.6);
+  --gradient-hero: linear-gradient(135deg, #0d9488 0%, #0369a1 55%, #f59e0b 100%);
+}
+
+/* Dark mode explicit styling for core admin CRM elements */
+[data-theme="dark"] .zzc-topbar,
+.dark .zzc-topbar {
+  background-color: #0d1527;
+  border-bottom-color: rgba(51, 65, 85, 0.7);
+}
+
+[data-theme="dark"] .zzc-sidebar,
+.dark .zzc-sidebar,
+[data-theme="dark"] .zzc-sidebar-header,
+.dark .zzc-sidebar-header {
+  background-color: #090e1a !important;
+  border-color: rgba(51, 65, 85, 0.6);
+}
+
+[data-theme="dark"] .zzc-search-input,
+.dark .zzc-search-input {
+  background-color: #131d31;
+  color: #f8fafc;
+  border-color: rgba(51, 65, 85, 0.8);
+}
+
+[data-theme="dark"] .zzc-sales-menu,
+.dark .zzc-sales-menu {
+  background-color: #131d31;
+  border-color: rgba(51, 65, 85, 0.8);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="dark"] .zzc-sales-menu button,
+.dark .zzc-sales-menu button {
+  color: #e2e8f0;
+}
+
+[data-theme="dark"] .zzc-sales-menu button:hover,
+.dark .zzc-sales-menu button:hover {
+  background-color: rgba(13, 148, 136, 0.15);
+  color: #2dd4bf;
+}
+
+[data-theme="dark"] .zzc-nav-btn,
+.dark .zzc-nav-btn {
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .zzc-nav-btn:hover,
+.dark .zzc-nav-btn:hover {
+  background-color: rgba(13, 148, 136, 0.15);
+  color: #2dd4bf;
+}
+
+[data-theme="dark"] .zzc-nav-btn.active,
+.dark .zzc-nav-btn.active {
+  background-color: #0d9488;
+  color: #ffffff;
+}
+
+[data-theme="dark"] .zzc-btn-outline,
+.dark .zzc-btn-outline {
+  border-color: rgba(51, 65, 85, 0.8);
+  color: #e2e8f0;
+}
+
+[data-theme="dark"] .zzc-btn-outline:hover,
+.dark .zzc-btn-outline:hover {
+  background-color: rgba(30, 41, 59, 0.8);
+  color: #ffffff;
+}
+
+[data-theme="dark"] .zzc-btn-link,
+.dark .zzc-btn-link {
+  border-color: rgba(51, 65, 85, 0.8);
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .zzc-btn-link:hover,
+.dark .zzc-btn-link:hover {
+  background-color: rgba(30, 41, 59, 0.8);
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .zzc-modal,
+.dark .zzc-modal {
+  background-color: #131d31;
+  color: #f8fafc;
+  border-color: rgba(51, 65, 85, 0.8);
+}
+
+[data-theme="dark"] .zzc-field input,
+.dark .zzc-field input,
+[data-theme="dark"] .zzc-field select,
+.dark .zzc-field select,
+[data-theme="dark"] .zzc-field textarea,
+.dark .zzc-field textarea {
+  background-color: #0b1120;
+  color: #f8fafc;
+  border-color: rgba(51, 65, 85, 0.8);
+}
+
 /* =========================
    GLOBAL
 ========================= */
@@ -391,6 +533,45 @@ a {
   flex-wrap: wrap;
 }
 
+/* =========================
+   TOPBAR THEME TOGGLE
+========================= */
+.zzc-theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: 9999px;
+  padding: 2px;
+  height: 2.25rem;
+  gap: 2px;
+}
+
+.zzc-theme-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: calc(2.25rem - 6px);
+  padding: 0 10px;
+  border-radius: 9999px;
+  border: none;
+  background: transparent;
+  color: var(--muted-foreground);
+  font-size: 0.74rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.16s ease;
+}
+
+.zzc-theme-btn:hover {
+  color: var(--foreground);
+}
+
+.zzc-theme-btn.active {
+  background: var(--primary);
+  color: var(--primary-foreground);
+  box-shadow: 0 1px 4px rgba(13, 148, 136, 0.3);
+}
 
 /* =========================
    SEARCH
@@ -709,25 +890,40 @@ a {
 
 
 /* =========================
+   BACKGROUND BLUR WHEN MODAL IS OPEN
+   Blurs all other background pages completely while the open
+   modal page displays crisp, focused details.
+========================= */
+
+body.crm-modal-open > #root,
+body.modal-open > #root {
+  filter: blur(10px) brightness(0.65) saturate(110%) !important;
+  -webkit-filter: blur(10px) brightness(0.65) saturate(110%) !important;
+  pointer-events: none !important;
+  user-select: none !important;
+  transition: filter 0.25s cubic-bezier(0.16, 1, 0.3, 1), -webkit-filter 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+body.crm-modal-open,
+body.modal-open {
+  overflow: hidden !important;
+}
+
+/* =========================
    MODAL
 ========================= */
 
 .zzc-modal-overlay {
   position: fixed;
-
   inset: 0;
-
-  background-color: rgb(0 0 0 / .4);
-
+  background-color: rgba(10, 18, 30, 0.78);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   display: flex;
-
   align-items: center;
-
   justify-content: center;
-
   padding: 1rem;
-
-  z-index: 50;
+  z-index: 999999;
 }
 
 .zzc-modal {

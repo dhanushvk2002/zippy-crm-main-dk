@@ -76,12 +76,12 @@
 
 .hc-payment-tag {
   font-size: 0.74rem;
-  color: #0d9488;
+  color: #0369a1;
   font-weight: 600;
   background: #f0fdfa;
   padding: 2px 7px;
   border-radius: 6px;
-  border: 1px solid rgba(13, 148, 136, 0.2);
+  border: 1px solid rgba(3, 105, 161, 0.2);
 }
 
 .hc-order-detail-modal {
