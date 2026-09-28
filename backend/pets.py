@@ -1,8 +1,24 @@
 import os
 import shutil
 from typing import Optional
-from datetime import datetime, date, time
+from datetime import datetime, date, time, timezone, timedelta
 from zoneinfo import ZoneInfo
+
+IST = timezone(timedelta(hours=5, minutes=30))
+
+def parse_ist_datetime(val):
+    if not val:
+        return datetime.now(IST).replace(tzinfo=None)
+    if isinstance(val, str):
+        try:
+            val = datetime.fromisoformat(val.replace("Z", "+00:00"))
+        except Exception:
+            return datetime.now(IST).replace(tzinfo=None)
+    if isinstance(val, datetime):
+        if val.tzinfo is not None:
+            return val.astimezone(IST).replace(tzinfo=None)
+        return val
+    return datetime.now(IST).replace(tzinfo=None)
 
 from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Response, Request
 from fastapi.responses import JSONResponse
@@ -4090,6 +4106,16 @@ class Attendance(Base):
         index=True
     )
 
+    executive_name = Column(
+        String(255),
+        nullable=True
+    )
+
+    executive_code = Column(
+        String(100),
+        nullable=True
+    )
+
     attendance_date = Column(
         Date,
         nullable=False
@@ -4222,21 +4248,22 @@ class AttendanceCreate(BaseModel):
 
 @app.post("/attendance/punch-in")
 def attendance_punch_in(payload: AttendancePunchIn, db: Session = Depends(get_db)):
-    today_val = payload.attendance_date or datetime.now(ZoneInfo("Asia/Kolkata")).date()
-    login_dt = payload.login_time or datetime.now(ZoneInfo("Asia/Kolkata")).replace(tzinfo=None)
-    
     exec_obj = db.query(SalesExecutive).filter(SalesExecutive.id == payload.executive_id).first()
     if not exec_obj:
         raise HTTPException(status_code=404, detail="Sales executive not found")
-        
+
+    today_val = payload.attendance_date or datetime.now(ZoneInfo("Asia/Kolkata")).date()
+    login_dt = parse_ist_datetime(payload.login_time)
+    now_ts = datetime.now(ZoneInfo("Asia/Kolkata")).replace(tzinfo=None)
+    
     record = db.query(Attendance).filter(
         Attendance.executive_id == payload.executive_id,
         Attendance.attendance_date == today_val
     ).first()
     
-    now_ts = datetime.now(ZoneInfo("Asia/Kolkata")).replace(tzinfo=None)
-    
     if record:
+        record.executive_name = exec_obj.name
+        record.executive_code = exec_obj.code
         record.login_time = login_dt
         if payload.login_latitude is not None:
             record.login_latitude = payload.login_latitude
@@ -4251,6 +4278,8 @@ def attendance_punch_in(payload: AttendancePunchIn, db: Session = Depends(get_db
     else:
         record = Attendance(
             executive_id=payload.executive_id,
+            executive_name=exec_obj.name,
+            executive_code=exec_obj.code,
             attendance_date=today_val,
             login_time=login_dt,
             login_latitude=payload.login_latitude,
@@ -4273,8 +4302,12 @@ def attendance_punch_in(payload: AttendancePunchIn, db: Session = Depends(get_db
 
 @app.post("/attendance/punch-out")
 def attendance_punch_out(payload: AttendancePunchOut, db: Session = Depends(get_db)):
+    exec_obj = db.query(SalesExecutive).filter(SalesExecutive.id == payload.executive_id).first()
+    if not exec_obj:
+        raise HTTPException(status_code=404, detail="Sales executive not found")
+
     today_val = payload.attendance_date or datetime.now(ZoneInfo("Asia/Kolkata")).date()
-    logout_dt = payload.logout_time or datetime.now(ZoneInfo("Asia/Kolkata")).replace(tzinfo=None)
+    logout_dt = parse_ist_datetime(payload.logout_time)
     now_ts = datetime.now(ZoneInfo("Asia/Kolkata")).replace(tzinfo=None)
     
     record = db.query(Attendance).filter(
@@ -4285,6 +4318,8 @@ def attendance_punch_out(payload: AttendancePunchOut, db: Session = Depends(get_
     if not record:
         record = Attendance(
             executive_id=payload.executive_id,
+            executive_name=exec_obj.name,
+            executive_code=exec_obj.code,
             attendance_date=today_val,
             logout_time=logout_dt,
             logout_latitude=payload.logout_latitude,
@@ -4298,6 +4333,8 @@ def attendance_punch_out(payload: AttendancePunchOut, db: Session = Depends(get_
         )
         db.add(record)
     else:
+        record.executive_name = exec_obj.name
+        record.executive_code = exec_obj.code
         record.logout_time = logout_dt
         if payload.logout_latitude is not None:
             record.logout_latitude = payload.logout_latitude
@@ -4317,11 +4354,9 @@ def attendance_punch_out(payload: AttendancePunchOut, db: Session = Depends(get_
         
     db.commit()
     db.refresh(record)
-    exec_obj = db.query(SalesExecutive).filter(SalesExecutive.id == payload.executive_id).first()
     resp = model_response(record)
-    if exec_obj:
-        resp["executive_name"] = exec_obj.name
-        resp["executive_code"] = exec_obj.code
+    resp["executive_name"] = exec_obj.name
+    resp["executive_code"] = exec_obj.code
     return resp
 
 
@@ -4345,8 +4380,8 @@ def get_all_attendance(
     output = []
     for att, exec_name, exec_code, exec_reg in results:
         data = model_response(att)
-        data["executive_name"] = exec_name or f"Executive {att.executive_id}"
-        data["executive_code"] = exec_code or f"SE-{att.executive_id}"
+        data["executive_name"] = att.executive_name or exec_name or f"Executive {att.executive_id}"
+        data["executive_code"] = att.executive_code or exec_code or f"SE-{att.executive_id}"
         data["region"] = exec_reg or "Tamil Nadu"
         output.append(data)
     return output
@@ -4364,8 +4399,8 @@ def get_today_attendance(executive_id: int, attendance_date: Optional[date] = No
     exec_obj = db.query(SalesExecutive).filter(SalesExecutive.id == executive_id).first()
     resp = model_response(att)
     if exec_obj:
-        resp["executive_name"] = exec_obj.name
-        resp["executive_code"] = exec_obj.code
+        resp["executive_name"] = att.executive_name or exec_obj.name
+        resp["executive_code"] = att.executive_code or exec_obj.code
         resp["region"] = exec_obj.region
     return resp
 
@@ -4378,19 +4413,22 @@ def get_attendance_by_id(attendance_id: int, db: Session = Depends(get_db)):
     exec_obj = db.query(SalesExecutive).filter(SalesExecutive.id == rec.executive_id).first()
     resp = model_response(rec)
     if exec_obj:
-        resp["executive_name"] = exec_obj.name
-        resp["executive_code"] = exec_obj.code
+        resp["executive_name"] = rec.executive_name or exec_obj.name
+        resp["executive_code"] = rec.executive_code or exec_obj.code
     return resp
 
 
 @app.post("/attendance")
 def create_attendance_record(payload: AttendanceCreate, db: Session = Depends(get_db)):
+    exec_obj = db.query(SalesExecutive).filter(SalesExecutive.id == payload.executive_id).first()
     now_ts = datetime.now(ZoneInfo("Asia/Kolkata")).replace(tzinfo=None)
     rec = Attendance(
         executive_id=payload.executive_id,
+        executive_name=exec_obj.name if exec_obj else f"Executive {payload.executive_id}",
+        executive_code=exec_obj.code if exec_obj else f"SE-{payload.executive_id}",
         attendance_date=payload.attendance_date,
-        login_time=payload.login_time,
-        logout_time=payload.logout_time,
+        login_time=parse_ist_datetime(payload.login_time) if payload.login_time else None,
+        logout_time=parse_ist_datetime(payload.logout_time) if payload.logout_time else None,
         login_latitude=payload.login_latitude,
         login_longitude=payload.login_longitude,
         login_area=payload.login_area,

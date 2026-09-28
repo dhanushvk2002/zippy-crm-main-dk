@@ -22,6 +22,7 @@ import ModernDatePicker from "./ModernDatePicker.jsx";
 import FacePunchModal from "./FacePunchModal.jsx";
 import defaultFacePhoto from "../assets/doctor-male.jpg";
 import {
+  fetchList,
   punchInAttendance,
   punchOutAttendance,
   fetchAttendanceList,
@@ -32,6 +33,12 @@ import "./AttendanceView.css";
 import "./FacePunchModal.css";
 
 const STORAGE_KEY = "zenve_crm_attendance_records";
+
+function getLocalIsoString() {
+  const d = new Date();
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
 
 function formatTime(date) {
   return date.toLocaleTimeString("en-US", {
@@ -112,20 +119,62 @@ export default function AttendanceView({
 }) {
   const isManagerOrRegional = role === "manager" || role === "regional" || isExecutiveReportView;
 
+  const [internalExecutives, setInternalExecutives] = useState([]);
+
+  useEffect(() => {
+    if (!data?.executives || !data.executives.length) {
+      fetchList("sales_executives")
+        .then((list) => {
+          if (Array.isArray(list) && list.length) {
+            setInternalExecutives(list);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [data?.executives]);
+
+  const executivesList = useMemo(() => {
+    if (data?.executives && Array.isArray(data.executives) && data.executives.length) {
+      return data.executives;
+    }
+    return internalExecutives;
+  }, [data?.executives, internalExecutives]);
+
+  const [selectedExecId, setSelectedExecId] = useState(() => {
+    try {
+      const saved = localStorage.getItem("zippy_crm_selected_exec_id");
+      if (saved) return Number(saved);
+    } catch (e) {}
+    return execId || null;
+  });
+
+  const handleSwitchExec = (newId) => {
+    setSelectedExecId(newId);
+    try {
+      localStorage.setItem("zippy_crm_selected_exec_id", String(newId));
+      localStorage.setItem("zippy_crm_preferred_exec_id", String(newId));
+    } catch (e) {}
+    onSwitchExecutive?.(newId);
+  };
+
   // Active executive
   const activeExecutive = useMemo(() => {
+    if (selectedExecId && executivesList.length) {
+      const bySel = executivesList.find((e) => e && String(e.id) === String(selectedExecId));
+      if (bySel) return bySel;
+    }
     if (currentRecord?.name) {
       return currentRecord;
     }
-    if (execId && data?.executives && Array.isArray(data.executives) && data.executives.length) {
-      const byId = data.executives.find((e) => e && (String(e.id) === String(execId)));
+    if (execId && executivesList.length) {
+      const byId = executivesList.find((e) => e && (String(e.id) === String(execId)));
       if (byId) return byId;
     }
     // Check if preferred executive ID exists in localStorage
     try {
       const prefId = localStorage.getItem("zippy_crm_preferred_exec_id");
-      if (prefId && data?.executives && Array.isArray(data.executives)) {
-        const byPref = data.executives.find((e) => String(e.id) === String(prefId));
+      if (prefId && executivesList.length) {
+        const byPref = executivesList.find((e) => String(e.id) === String(prefId));
         if (byPref) return byPref;
       }
     } catch (e) {}
@@ -136,33 +185,26 @@ export default function AttendanceView({
       if (authStr) {
         const auth = JSON.parse(authStr);
         if (auth?.role === "executive" && auth?.user?.name) {
+          const matchAuth = executivesList.find((e) => String(e.id) === String(auth.user.id) || e.name === auth.user.name);
+          if (matchAuth) return matchAuth;
           return auth.user;
         }
       }
     } catch (e) {}
 
-    // Check if latest added executive exists in localStorage
-    try {
-      const latestStr = localStorage.getItem("zippy_crm_latest_added_executive");
-      if (latestStr) {
-        const latest = JSON.parse(latestStr);
-        if (latest?.name) return latest;
-      }
-    } catch (e) {}
-
-    // Default to latest added executive (newest in database)
-    if (data?.executives && Array.isArray(data.executives) && data.executives.length) {
-      return data.executives[data.executives.length - 1];
+    // Default to first or preferred executive in database
+    if (executivesList.length) {
+      return executivesList[0];
     }
 
     return {
-      id: 6,
+      id: 7,
       name: "Kavin",
       code: "KN-24",
       region: "Tamil Nadu",
       city: "Tirupathur",
     };
-  }, [role, currentRecord, data?.executives, execId, isExecutiveReportView]);
+  }, [selectedExecId, currentRecord, executivesList, execId]);
 
   const profileName = (role === "manager" || role === "regional") && currentRecord?.name
     ? currentRecord.name
@@ -436,7 +478,7 @@ export default function AttendanceView({
         const payload = {
           executive_id: Number(activeExecutive.id),
           attendance_date: punchDate || todayIso,
-          login_time: new Date().toISOString(),
+          login_time: getLocalIsoString(),
           login_latitude: locationData?.coords?.latitude || locationData?.lat || null,
           login_longitude: locationData?.coords?.longitude || locationData?.lng || null,
           login_area: locationData?.locality || profileRegion,
@@ -492,7 +534,7 @@ export default function AttendanceView({
         const payload = {
           executive_id: Number(activeExecutive.id),
           attendance_date: punchDate || todayIso,
-          logout_time: new Date().toISOString(),
+          logout_time: getLocalIsoString(),
           logout_latitude: locationData?.coords?.latitude || locationData?.lat || null,
           logout_longitude: locationData?.coords?.longitude || locationData?.lng || null,
           logout_area: locationData?.locality || profileRegion,
@@ -840,17 +882,31 @@ export default function AttendanceView({
             <span>{liveLocality ? `📍 ${liveLocality}` : "GPS Live Synced"}</span>
           </div>
 
-          {/* Executive Switcher — only shown for Manager / Regional roles */}
-          {isManagerOrRegional && data.executives && data.executives.length > 0 && (
-            <div className="attend-exec-switcher">
-              <label>SWITCH EXECUTIVE</label>
+          {/* Executive Switcher — accessible to switch between all 15 sales executives */}
+          {executivesList && executivesList.length > 0 && (
+            <div className="attend-exec-switcher" style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
+              <label style={{ fontSize: "10px", fontWeight: 800, color: "#0f766e", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                Select Sales Executive
+              </label>
               <select
                 value={activeExecutive.id}
-                onChange={(e) => onSwitchExecutive?.(Number(e.target.value))}
+                onChange={(e) => handleSwitchExec(Number(e.target.value))}
+                style={{
+                  padding: "6px 12px",
+                  borderRadius: "8px",
+                  border: "1.5px solid #0d9488",
+                  background: "#ffffff",
+                  color: "#0f766e",
+                  fontWeight: 700,
+                  fontSize: "13px",
+                  cursor: "pointer",
+                  outline: "none",
+                  boxShadow: "0 1px 3px rgba(0,0,0,0.06)"
+                }}
               >
-                {data.executives.map((exec) => (
+                {executivesList.map((exec) => (
                   <option key={exec.id} value={exec.id}>
-                    {exec.name} ({exec.code || exec.employee_code || `SE-00${exec.id}`})
+                    {exec.name} ({exec.code || `SE-00${exec.id}`}) — {exec.city || exec.region || "Field"}
                   </option>
                 ))}
               </select>
