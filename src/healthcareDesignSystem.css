@@ -1,0 +1,419 @@
+/* ==========================================================================
+   ZENVE ZIPPY — HEALTHCARE CRM DESIGN SYSTEM
+   Professional Modern Doctors & Veterinary Healthcare SaaS Tokens
+   ========================================================================== */
+
+:root {
+  /* ── Core Healthcare Color Palette ── */
+  --hc-primary: #0284c7;          /* Healthcare Sky Blue */
+  --hc-primary-hover: #0369a1;
+  --hc-primary-light: #e0f2fe;
+  --hc-primary-ring: rgba(2, 132, 199, 0.2);
+
+  --hc-teal: #0d9488;             /* Clinical Medical Teal */
+  --hc-teal-hover: #0f766e;
+  --hc-teal-light: #ccfbf1;
+  --hc-teal-ring: rgba(13, 148, 136, 0.2);
+
+  --hc-navy: #0f172a;             /* Dark Navy Text */
+  --hc-charcoal: #1e293b;
+  --hc-muted: #64748b;
+  --hc-muted-light: #94a3b8;
+
+  --hc-bg: #f8fafc;               /* Clean Hospital-Grade Light Background */
+  --hc-card: #ffffff;
+  --hc-card-border: rgba(226, 232, 240, 0.9);
+  --hc-card-border-hover: rgba(2, 132, 199, 0.35);
+
+  /* ── Status Colors ── */
+  --hc-success: #10b981;
+  --hc-success-bg: #ecfdf5;
+  --hc-success-border: #a7f3d0;
+
+  --hc-warning: #f59e0b;
+  --hc-warning-bg: #fffbeb;
+  --hc-warning-border: #fde68a;
+
+  --hc-danger: #ef4444;
+  --hc-danger-bg: #fef2f2;
+  --hc-danger-border: #fecaca;
+
+  --hc-purple: #8b5cf6;
+  --hc-purple-bg: #f5f3ff;
+  --hc-purple-border: #ddd6fe;
+
+  /* ── Shadows & Radius ── */
+  --hc-shadow-xs: 0 1px 2px 0 rgba(15, 23, 42, 0.04);
+  --hc-shadow-sm: 0 1px 3px 0 rgba(15, 23, 42, 0.06), 0 1px 2px -1px rgba(15, 23, 42, 0.04);
+  --hc-shadow-md: 0 4px 14px -2px rgba(15, 23, 42, 0.06), 0 2px 6px -2px rgba(15, 23, 42, 0.04);
+  --hc-shadow-lg: 0 10px 25px -3px rgba(15, 23, 42, 0.08), 0 4px 10px -4px rgba(15, 23, 42, 0.04);
+  --hc-shadow-xl: 0 20px 40px -5px rgba(15, 23, 42, 0.12);
+
+  --hc-radius-sm: 8px;
+  --hc-radius-md: 12px;
+  --hc-radius-lg: 16px;
+  --hc-radius-xl: 20px;
+  --hc-radius-full: 9999px;
+
+  /* ── Typography ── */
+  --hc-font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --hc-font-display: 'Outfit', 'Inter', -apple-system, sans-serif;
+}
+
+/* ── Dark Mode Overrides ── */
+[data-theme="dark"],
+.theme-dark {
+  --hc-bg: #0b1120;
+  --hc-card: #131d31;
+  --hc-card-border: rgba(51, 65, 85, 0.7);
+  --hc-card-border-hover: rgba(56, 189, 248, 0.4);
+
+  --hc-navy: #f8fafc;
+  --hc-charcoal: #e2e8f0;
+  --hc-muted: #94a3b8;
+  --hc-muted-light: #64748b;
+
+  --hc-primary-light: rgba(2, 132, 199, 0.15);
+  --hc-teal-light: rgba(13, 148, 136, 0.15);
+  --hc-success-bg: rgba(16, 185, 129, 0.15);
+  --hc-warning-bg: rgba(245, 158, 11, 0.15);
+  --hc-danger-bg: rgba(239, 68, 68, 0.15);
+
+  --hc-shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.35);
+  --hc-shadow-md: 0 6px 18px rgba(0, 0, 0, 0.45);
+}
+
+/* ── Common Healthcare Layout Containers ── */
+.zzc-app {
+  display: flex;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--hc-bg, #f8fafc);
+}
+
+.zzc-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  height: 100vh;
+  overflow-y: auto;
+  background: var(--hc-bg, #f8fafc);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(2, 132, 199, 0.2) transparent;
+}
+
+.zzc-main::-webkit-scrollbar {
+  width: 6px;
+}
+
+.zzc-main::-webkit-scrollbar-thumb {
+  background: rgba(2, 132, 199, 0.2);
+  border-radius: 9999px;
+}
+
+.hc-page-container {
+  padding: 1.5rem 1.75rem 3rem;
+  max-width: 1540px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.hc-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.hc-section-title-wrap {
+  display: flex;
+  flex-direction: column;
+}
+
+.hc-page-title {
+  font-family: var(--hc-font-display);
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--hc-navy);
+  letter-spacing: -0.025em;
+  margin: 0;
+  line-height: 1.2;
+}
+
+.hc-page-subtitle {
+  font-size: 0.82rem;
+  color: var(--hc-muted);
+  margin-top: 3px;
+}
+
+/* ── Common Action Buttons ── */
+.hc-btn-primary {
+  height: 38px;
+  padding: 0 16px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  border-radius: var(--hc-radius-md);
+  border: none;
+  background: linear-gradient(135deg, var(--hc-primary) 0%, #0369a1 100%);
+  color: #ffffff;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  box-shadow: 0 2px 8px rgba(2, 132, 199, 0.28);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  white-space: nowrap;
+}
+
+.hc-btn-primary:hover {
+  transform: translateY(-1.5px);
+  box-shadow: 0 5px 15px rgba(2, 132, 199, 0.38);
+  filter: brightness(1.05);
+}
+
+.hc-btn-primary:active {
+  transform: translateY(0);
+}
+
+.hc-btn-secondary {
+  height: 38px;
+  padding: 0 14px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  border-radius: var(--hc-radius-md);
+  border: 1px solid var(--hc-card-border);
+  background: var(--hc-card);
+  color: var(--hc-charcoal);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: var(--hc-shadow-xs);
+  transition: all 0.18s ease;
+  white-space: nowrap;
+}
+
+.hc-btn-secondary:hover {
+  background: var(--hc-primary-light);
+  border-color: var(--hc-primary);
+  color: var(--hc-primary);
+}
+
+/* ── Common Filter Bars ── */
+.hc-filter-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.25rem;
+  gap: 12px;
+  flex-wrap: wrap;
+  background: var(--hc-card);
+  padding: 10px 14px;
+  border-radius: var(--hc-radius-lg);
+  border: 1px solid var(--hc-card-border);
+  box-shadow: var(--hc-shadow-xs);
+}
+
+.hc-filter-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  flex: 1;
+}
+
+.hc-search-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: var(--hc-bg);
+  border: 1.5px solid var(--hc-card-border);
+  border-radius: var(--hc-radius-md);
+  padding: 0 10px 0 32px;
+  height: 36px;
+  min-width: 220px;
+  transition: all 0.2s ease;
+}
+
+.hc-search-input-wrap:focus-within {
+  border-color: var(--hc-primary);
+  background: var(--hc-card);
+  box-shadow: 0 0 0 3px var(--hc-primary-ring);
+  min-width: 260px;
+}
+
+.hc-search-icon {
+  position: absolute;
+  left: 10px;
+  color: var(--hc-muted-light);
+  pointer-events: none;
+}
+
+.hc-search-input {
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 0.82rem;
+  color: var(--hc-navy);
+  width: 100%;
+}
+
+.hc-filter-select {
+  height: 36px;
+  padding: 0 10px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  border-radius: var(--hc-radius-md);
+  border: 1.5px solid var(--hc-card-border);
+  background: var(--hc-bg);
+  color: var(--hc-charcoal);
+  outline: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.hc-filter-select:focus {
+  border-color: var(--hc-primary);
+  box-shadow: 0 0 0 3px var(--hc-primary-ring);
+}
+
+/* ── View Switcher (Grid / List) ── */
+.hc-view-switch {
+  display: flex;
+  background: var(--hc-bg);
+  padding: 3px;
+  border-radius: var(--hc-radius-md);
+  border: 1px solid var(--hc-card-border);
+  gap: 2px;
+}
+
+.hc-view-btn {
+  height: 30px;
+  padding: 0 10px;
+  font-size: 0.77rem;
+  font-weight: 600;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--hc-muted);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.18s ease;
+}
+
+.hc-view-btn.active {
+  background: var(--hc-card);
+  color: var(--hc-primary);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+/* ── Status Badges ── */
+.hc-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: var(--hc-radius-full);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.hc-badge-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.hc-badge-available,
+.hc-badge-active,
+.hc-badge-completed,
+.hc-badge-healthy,
+.hc-badge-confirmed {
+  background: var(--hc-success-bg);
+  color: #059669;
+  border: 1px solid var(--hc-success-border);
+}
+.hc-badge-available .hc-badge-dot,
+.hc-badge-active .hc-badge-dot,
+.hc-badge-completed .hc-badge-dot,
+.hc-badge-healthy .hc-badge-dot,
+.hc-badge-confirmed .hc-badge-dot {
+  background: var(--hc-success);
+}
+
+.hc-badge-pending,
+.hc-badge-scheduled,
+.hc-badge-duesoon,
+.hc-badge-lowstock {
+  background: var(--hc-warning-bg);
+  color: #d97706;
+  border: 1px solid var(--hc-warning-border);
+}
+.hc-badge-pending .hc-badge-dot,
+.hc-badge-scheduled .hc-badge-dot,
+.hc-badge-duesoon .hc-badge-dot,
+.hc-badge-lowstock .hc-badge-dot {
+  background: var(--hc-warning);
+}
+
+.hc-badge-cancelled,
+.hc-badge-inactive,
+.hc-badge-outofstock {
+  background: var(--hc-danger-bg);
+  color: #dc2626;
+  border: 1px solid var(--hc-danger-border);
+}
+.hc-badge-cancelled .hc-badge-dot,
+.hc-badge-inactive .hc-badge-dot,
+.hc-badge-outofstock .hc-badge-dot {
+  background: var(--hc-danger);
+}
+
+/* ── Empty States ── */
+.hc-empty-card {
+  background: var(--hc-card);
+  border-radius: var(--hc-radius-lg);
+  border: 1px solid var(--hc-card-border);
+  padding: 3.5rem 1.5rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--hc-shadow-xs);
+}
+
+.hc-empty-icon-box {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--hc-bg);
+  color: var(--hc-muted-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+
+.hc-empty-title {
+  font-family: var(--hc-font-display);
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--hc-navy);
+  margin-bottom: 4px;
+}
+
+.hc-empty-desc {
+  font-size: 0.82rem;
+  color: var(--hc-muted);
+  max-width: 360px;
+  line-height: 1.4;
+  margin-bottom: 16px;
+}
