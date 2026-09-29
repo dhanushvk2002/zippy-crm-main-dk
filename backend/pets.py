@@ -119,6 +119,16 @@ def model_response(obj):
         data["latitude"] = login_lat
         data["longitude"] = login_lng
         data["area"] = login_ar
+        data["lunch_out_time"] = data.get("lunch_out_time")
+        data["lunch_in_time"] = data.get("lunch_in_time")
+        data["lunch_out"] = data.get("lunch_out_time")
+        data["lunch_in"] = data.get("lunch_in_time")
+        data["lunch_out_latitude"] = data.get("lunch_out_latitude")
+        data["lunch_out_longitude"] = data.get("lunch_out_longitude")
+        data["lunch_out_area"] = data.get("lunch_out_area") or data.get("login_area") or data.get("area")
+        data["lunch_in_latitude"] = data.get("lunch_in_latitude")
+        data["lunch_in_longitude"] = data.get("lunch_in_longitude")
+        data["lunch_in_area"] = data.get("lunch_in_area") or data.get("login_area") or data.get("area")
     return data
 def get_db():
     db = SessionLocal()
@@ -4146,6 +4156,46 @@ class Attendance(Base):
         nullable=True
     )
 
+    lunch_out_time = Column(
+        DateTime,
+        nullable=True
+    )
+
+    lunch_in_time = Column(
+        DateTime,
+        nullable=True
+    )
+
+    lunch_out_latitude = Column(
+        Float,
+        nullable=True
+    )
+
+    lunch_out_longitude = Column(
+        Float,
+        nullable=True
+    )
+
+    lunch_out_area = Column(
+        String(255),
+        nullable=True
+    )
+
+    lunch_in_latitude = Column(
+        Float,
+        nullable=True
+    )
+
+    lunch_in_longitude = Column(
+        Float,
+        nullable=True
+    )
+
+    lunch_in_area = Column(
+        String(255),
+        nullable=True
+    )
+
     login_latitude = Column(
         Float,
         nullable=True
@@ -4232,6 +4282,10 @@ class AttendancePunchIn(BaseModel):
     login_latitude: Optional[float] = None
     login_longitude: Optional[float] = None
     login_area: Optional[str] = None
+    lunch_out_time: Optional[datetime] = None
+    lunch_in_time: Optional[datetime] = None
+    lunch_out: Optional[str] = None
+    lunch_in: Optional[str] = None
     login_selfie_url: Optional[str] = None
     status: Optional[str] = "Working"
 
@@ -4243,9 +4297,23 @@ class AttendancePunchOut(BaseModel):
     logout_latitude: Optional[float] = None
     logout_longitude: Optional[float] = None
     logout_area: Optional[str] = None
+    lunch_out_time: Optional[datetime] = None
+    lunch_in_time: Optional[datetime] = None
+    lunch_out: Optional[str] = None
+    lunch_in: Optional[str] = None
     logout_selfie_url: Optional[str] = None
     total_working_minutes: Optional[int] = None
     status: Optional[str] = "Completed"
+
+
+class AttendanceLunchPunch(BaseModel):
+    executive_id: int
+    attendance_date: Optional[date] = None
+    action: str  # "lunch_out" | "lunch_in"
+    punch_time: Optional[datetime] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    area: Optional[str] = None
 
 
 class AttendanceCreate(BaseModel):
@@ -4253,6 +4321,10 @@ class AttendanceCreate(BaseModel):
     attendance_date: date
     login_time: Optional[datetime] = None
     logout_time: Optional[datetime] = None
+    lunch_out_time: Optional[datetime] = None
+    lunch_in_time: Optional[datetime] = None
+    lunch_out: Optional[str] = None
+    lunch_in: Optional[str] = None
     login_latitude: Optional[float] = None
     login_longitude: Optional[float] = None
     login_area: Optional[str] = None
@@ -4420,6 +4492,88 @@ def attendance_punch_out(payload: AttendancePunchOut, db: Session = Depends(get_
                 diff = (logout_dt - record.login_time).total_seconds()
                 setattr(record, "total_working_minutes", max(0, int(diff / 60)))
             setattr(record, "status", payload.status or "Completed")
+            setattr(record, "updated_at", now_ts)
+            db.commit()
+
+    db.refresh(record)
+    resp = model_response(record)
+    resp["executive_name"] = exec_obj.name
+    resp["executive_code"] = exec_obj.code
+    return resp
+
+
+@app.post("/attendance/lunch")
+def attendance_lunch_punch(payload: AttendanceLunchPunch, db: Session = Depends(get_db)):
+    exec_obj = db.query(SalesExecutive).filter(SalesExecutive.id == payload.executive_id).first()
+    if not exec_obj:
+        raise HTTPException(status_code=404, detail="Sales executive not found")
+
+    today_val = payload.attendance_date or datetime.now(ZoneInfo("Asia/Kolkata")).date()
+    punch_dt = parse_ist_datetime(payload.punch_time)
+    now_ts = datetime.now(ZoneInfo("Asia/Kolkata")).replace(tzinfo=None)
+
+    record = db.query(Attendance).filter(
+        Attendance.executive_id == payload.executive_id,
+        Attendance.attendance_date == today_val
+    ).first()
+
+    if not record:
+        record = Attendance(
+            executive_id=payload.executive_id,
+            executive_name=exec_obj.name,
+            executive_code=exec_obj.code,
+            attendance_date=today_val,
+            login_time=punch_dt,
+            created_at=now_ts,
+            updated_at=now_ts
+        )
+        db.add(record)
+
+    setattr(record, "executive_name", exec_obj.name)
+    setattr(record, "executive_code", exec_obj.code)
+    if payload.action == "lunch_out":
+        setattr(record, "lunch_out_time", punch_dt)
+        if payload.latitude is not None:
+            setattr(record, "lunch_out_latitude", payload.latitude)
+        if payload.longitude is not None:
+            setattr(record, "lunch_out_longitude", payload.longitude)
+        if payload.area:
+            setattr(record, "lunch_out_area", payload.area)
+    elif payload.action == "lunch_in":
+        setattr(record, "lunch_in_time", punch_dt)
+        if payload.latitude is not None:
+            setattr(record, "lunch_in_latitude", payload.latitude)
+        if payload.longitude is not None:
+            setattr(record, "lunch_in_longitude", payload.longitude)
+        if payload.area:
+            setattr(record, "lunch_in_area", payload.area)
+    setattr(record, "updated_at", now_ts)
+
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        record = db.query(Attendance).filter(
+            Attendance.executive_id == payload.executive_id,
+            Attendance.attendance_date == today_val
+        ).first()
+        if record:
+            if payload.action == "lunch_out":
+                setattr(record, "lunch_out_time", punch_dt)
+                if payload.latitude is not None:
+                    setattr(record, "lunch_out_latitude", payload.latitude)
+                if payload.longitude is not None:
+                    setattr(record, "lunch_out_longitude", payload.longitude)
+                if payload.area:
+                    setattr(record, "lunch_out_area", payload.area)
+            elif payload.action == "lunch_in":
+                setattr(record, "lunch_in_time", punch_dt)
+                if payload.latitude is not None:
+                    setattr(record, "lunch_in_latitude", payload.latitude)
+                if payload.longitude is not None:
+                    setattr(record, "lunch_in_longitude", payload.longitude)
+                if payload.area:
+                    setattr(record, "lunch_in_area", payload.area)
             setattr(record, "updated_at", now_ts)
             db.commit()
 

@@ -27,10 +27,14 @@ export const TABLE_CONFIG = {
       { key: "executive_id", type: "number", required: true },
       { key: "attendance_date", type: "date", required: true },
       { key: "login_time", type: "datetime" },
+      { key: "lunch_out_time", type: "datetime" },
+      { key: "lunch_in_time", type: "datetime" },
       { key: "logout_time", type: "datetime" },
       { key: "login_latitude", type: "number" },
       { key: "login_longitude", type: "number" },
       { key: "login_area", type: "text" },
+      { key: "lunch_out_area", type: "text" },
+      { key: "lunch_in_area", type: "text" },
       { key: "logout_latitude", type: "number" },
       { key: "logout_longitude", type: "number" },
       { key: "logout_area", type: "text" },
@@ -703,6 +707,15 @@ export async function punchInAttendance(payload) {
 
 export async function punchOutAttendance(payload) {
   const res = await fetch(`${API_BASE}/attendance/punch-out`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  return handleResponse(res);
+}
+
+export async function punchLunchAttendance(payload) {
+  const res = await fetch(`${API_BASE}/attendance/lunch`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),

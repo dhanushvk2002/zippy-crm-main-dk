@@ -183,7 +183,15 @@ export default function AttendanceReportView({
         const d1 = new Date(row.login_time);
         const d2 = new Date(row.logout_time);
         if (!isNaN(d1.getTime()) && !isNaN(d2.getTime())) {
-          const diffM = Math.max(0, Math.floor((d2 - d1) / (1000 * 60)));
+          let diffM = Math.max(0, Math.floor((d2 - d1) / (1000 * 60)));
+          if (row.lunch_out_time && row.lunch_in_time) {
+            const lo = new Date(row.lunch_out_time);
+            const li = new Date(row.lunch_in_time);
+            if (!isNaN(lo.getTime()) && !isNaN(li.getTime()) && li > lo) {
+              const lunchM = Math.floor((li - lo) / (1000 * 60));
+              diffM = Math.max(0, diffM - lunchM);
+            }
+          }
           durStr = `${Math.floor(diffM / 60)}h ${diffM % 60}m`;
         }
       }
@@ -201,6 +209,8 @@ export default function AttendanceReportView({
           coords: { latitude: row.latitude ?? row.login_latitude, longitude: row.longitude ?? row.login_longitude },
         },
         faceImage: row.login_selfie_url,
+        lunchOut: formatIsoToTimeStr(row.lunch_out_time || row.lunch_out),
+        lunchIn: formatIsoToTimeStr(row.lunch_in_time || row.lunch_in),
         punchOut: outTime,
         punchOutLocation: (row.area || row.logout_area)
           ? {
@@ -331,6 +341,8 @@ export default function AttendanceReportView({
       "Punch In Time",
       "Punch In Locality",
       "Punch In Face",
+      "Lunch Out Time",
+      "Lunch In Time",
       "Punch Out Time",
       "Punch Out Locality",
       "Punch Out Face",
@@ -348,6 +360,8 @@ export default function AttendanceReportView({
       `"${r.punchIn || ""}"`,
       `"${r.punchInLocation?.locality || ""}"`,
       `"${r.faceImage ? "Verified" : "No"}"`,
+      `"${r.lunchOut || ""}"`,
+      `"${r.lunchIn || ""}"`,
       `"${r.punchOut || ""}"`,
       `"${r.punchOutLocation?.locality || ""}"`,
       `"${r.punchOutFaceImage ? "Verified" : "No"}"`,
@@ -524,6 +538,8 @@ export default function AttendanceReportView({
                   <th>Territory / Region</th>
                   <th>Morning Punch In</th>
                   <th>Punch In Face</th>
+                  <th>Lunch Out</th>
+                  <th>Lunch In</th>
                   <th>Evening Logout</th>
                   <th>Punch Out Face</th>
                   <th>Working Hours</th>
@@ -587,12 +603,12 @@ export default function AttendanceReportView({
                               title="Click to view Punch In biometric face verification"
                               onClick={() =>
                                 setPreviewPhotoModal({
-                                  image: row.faceImage,
-                                  execName: row.execName,
-                                  time: row.punchIn,
-                                  date: row.date,
-                                  location: row.punchInLocation,
-                                  punchType: "Punch In",
+                                   image: row.faceImage,
+                                   execName: row.execName,
+                                   time: row.punchIn,
+                                   date: row.date,
+                                   location: row.punchInLocation,
+                                   punchType: "Punch In",
                                 })
                               }
                             />
@@ -614,6 +630,30 @@ export default function AttendanceReportView({
                         ) : (
                           <span style={{ fontSize: "0.75rem", color: "#94a3b8" }}>—</span>
                         )}
+                      </td>
+                      <td>
+                        <div>
+                          <span className={`att-rep-time-pill ${row.lunchOut ? "lunch" : "empty"}`}>
+                            {row.lunchOut || "—"}
+                          </span>
+                          {row.lunchOut && (
+                            <div style={{ fontSize: "0.68rem", color: "#64748b", fontStyle: "italic", marginTop: "2px" }}>
+                              Timing Only
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                      <td>
+                        <div>
+                          <span className={`att-rep-time-pill ${row.lunchIn ? "lunch-in" : "empty"}`}>
+                            {row.lunchIn || "—"}
+                          </span>
+                          {row.lunchIn && (
+                            <div style={{ fontSize: "0.68rem", color: "#64748b", fontStyle: "italic", marginTop: "2px" }}>
+                              Timing Only
+                            </div>
+                          )}
+                        </div>
                       </td>
                       <td>
                         <div>

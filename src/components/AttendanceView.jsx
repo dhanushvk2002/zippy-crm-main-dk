@@ -15,6 +15,8 @@ import {
   Camera,
   MapPin,
   UserCheck,
+  Utensils,
+  Coffee,
 } from "lucide-react";
 import DoctorAvatar from "./DoctorAvatar.jsx";
 import ModernDatePicker from "./ModernDatePicker.jsx";
@@ -24,6 +26,7 @@ import {
   fetchList,
   punchInAttendance,
   punchOutAttendance,
+  punchLunchAttendance,
   fetchAttendanceList,
   fetchTodayAttendance,
 } from "../api.js";
@@ -81,22 +84,38 @@ function parseTimeToDate(timeStr, dateStr = getTodayIso()) {
   return null;
 }
 
-function calculateTotalMinutes(inTimeStr, outTimeStr, dateStr = getTodayIso()) {
+function calculateTotalMinutes(inTimeStr, outTimeStr, lunchOutStr, lunchInStr, dateStr = getTodayIso()) {
   if (!inTimeStr) return 0;
   const inDate = parseTimeToDate(inTimeStr, dateStr);
-  const outDate = outTimeStr ? parseTimeToDate(outTimeStr, dateStr) : new Date();
+  let outDate = outTimeStr ? parseTimeToDate(outTimeStr, dateStr) : new Date();
   if (!inDate || !outDate) return 0;
-  const diffMs = Math.max(0, outDate.getTime() - inDate.getTime());
+
+  // If on lunch break and not yet resumed or logged out, freeze live work timer at lunch-out time
+  if (lunchOutStr && !lunchInStr && !outTimeStr) {
+    const lOut = parseTimeToDate(lunchOutStr, dateStr);
+    if (lOut && lOut <= outDate) {
+      outDate = lOut;
+    }
+  }
+
+  let diffMs = Math.max(0, outDate.getTime() - inDate.getTime());
+
+  // Deduct completed lunch break if both lunchOut and lunchIn are present
+  if (lunchOutStr && lunchInStr) {
+    const lOut = parseTimeToDate(lunchOutStr, dateStr);
+    const lIn = parseTimeToDate(lunchInStr, dateStr);
+    if (lOut && lIn && lIn > lOut) {
+      const lunchMs = lIn.getTime() - lOut.getTime();
+      diffMs = Math.max(0, diffMs - lunchMs);
+    }
+  }
+
   return Math.floor(diffMs / (1000 * 60));
 }
 
-function calculateDuration(inTimeStr, outTimeStr, dateStr = getTodayIso()) {
+function calculateDuration(inTimeStr, outTimeStr, lunchOutStr, lunchInStr, dateStr = getTodayIso()) {
   if (!inTimeStr) return "0h 0m";
-  const inDate = parseTimeToDate(inTimeStr, dateStr);
-  const outDate = outTimeStr ? parseTimeToDate(outTimeStr, dateStr) : new Date();
-  if (!inDate || !outDate) return "—";
-  const diffMs = Math.max(0, outDate.getTime() - inDate.getTime());
-  const totalMinutes = Math.floor(diffMs / (1000 * 60));
+  const totalMinutes = calculateTotalMinutes(inTimeStr, outTimeStr, lunchOutStr, lunchInStr, dateStr);
   const hrs = Math.floor(totalMinutes / 60);
   const mins = totalMinutes % 60;
   return `${hrs}h ${mins}m`;
@@ -335,6 +354,8 @@ export default function AttendanceView({
               coords: { latitude: todayDb.latitude ?? todayDb.login_latitude, longitude: todayDb.longitude ?? todayDb.login_longitude },
             },
             faceImage: todayDb.login_selfie_url,
+            lunchOut: formatIsoToTimeStr(todayDb.lunch_out_time || todayDb.lunch_out),
+            lunchIn: formatIsoToTimeStr(todayDb.lunch_in_time || todayDb.lunch_in),
             punchOut: formatIsoToTimeStr(todayDb.logout_time),
             punchOutLocation: (todayDb.area || todayDb.logout_area)
               ? {
@@ -348,7 +369,9 @@ export default function AttendanceView({
                 ? `${Math.floor(todayDb.total_working_minutes / 60)}h ${todayDb.total_working_minutes % 60}m`
                 : calculateDuration(
                     formatIsoToTimeStr(todayDb.login_time),
-                    formatIsoToTimeStr(todayDb.logout_time)
+                    formatIsoToTimeStr(todayDb.logout_time),
+                    formatIsoToTimeStr(todayDb.lunch_out_time || todayDb.lunch_out),
+                    formatIsoToTimeStr(todayDb.lunch_in_time || todayDb.lunch_in)
                   ),
             status: todayDb.status || (todayDb.logout_time ? "Completed" : "Working"),
             remarks: todayDb.logout_time
@@ -387,6 +410,8 @@ export default function AttendanceView({
 
   // Status computation
   const isPunchedIn = Boolean(todayRecord?.punchIn);
+  const isLunchOut = Boolean(todayRecord?.lunchOut);
+  const isLunchIn = Boolean(todayRecord?.lunchIn);
   const isPunchedOut = Boolean(todayRecord?.punchOut);
 
   // Success alert toast state
@@ -410,7 +435,14 @@ export default function AttendanceView({
     }
 
     const updateLiveTimer = () => {
-      setLiveDuration(calculateDuration(todayRecord?.punchIn, null));
+      setLiveDuration(
+        calculateDuration(
+          todayRecord?.punchIn,
+          todayRecord?.punchOut,
+          todayRecord?.lunchOut,
+          todayRecord?.lunchIn
+        )
+      );
     };
 
     updateLiveTimer();
@@ -437,6 +469,79 @@ export default function AttendanceView({
     setPunchModalOpen(true);
   };
 
+  // Action: Record Lunch Out (Timing only - no face auto generation modal)
+  const handleLunchOut = async () => {
+    if (!isPunchedIn || isLunchOut || isPunchedOut) return;
+    const now = new Date();
+    const timeStr = formatTime(now);
+    const isoNow = getLocalIsoString();
+
+    const updated = {
+      ...records,
+      [todayKey]: {
+        ...(todayRecord || {
+          id: todayKey,
+          execId: activeExecutive.id,
+          execName: activeExecutive.name,
+          date: todayIso,
+        }),
+        lunchOut: timeStr,
+      },
+    };
+    setRecords(updated);
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    } catch (e) {
+      console.error(e);
+    }
+    setToastMessage(`🍴 Lunch Out recorded at ${timeStr}! (Punched timing only)`);
+
+    try {
+      await punchLunchAttendance({
+        executive_id: Number(activeExecutive.id),
+        attendance_date: todayRecord?.date || todayIso,
+        action: "lunch_out",
+        punch_time: isoNow,
+      });
+    } catch (err) {
+      console.error("Backend punchLunchAttendance lunch_out error:", err);
+    }
+  };
+
+  // Action: Record Lunch In (Timing only - no face auto generation modal)
+  const handleLunchIn = async () => {
+    if (!isLunchOut || isLunchIn || isPunchedOut) return;
+    const now = new Date();
+    const timeStr = formatTime(now);
+    const isoNow = getLocalIsoString();
+
+    const updated = {
+      ...records,
+      [todayKey]: {
+        ...todayRecord,
+        lunchIn: timeStr,
+      },
+    };
+    setRecords(updated);
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    } catch (e) {
+      console.error(e);
+    }
+    setToastMessage(`🍱 Lunch In recorded at ${timeStr}! (Punched timing only)`);
+
+    try {
+      await punchLunchAttendance({
+        executive_id: Number(activeExecutive.id),
+        attendance_date: todayRecord?.date || todayIso,
+        action: "lunch_in",
+        punch_time: isoNow,
+      });
+    } catch (err) {
+      console.error("Backend punchLunchAttendance lunch_in error:", err);
+    }
+  };
+
   // Confirm and Save Verified Punch Record to LocalStorage and MySQL Database
   const handleConfirmPunch = async ({ punchTime, punchDate, locationData, faceImage }) => {
     setPunchModalOpen(false);
@@ -450,6 +555,8 @@ export default function AttendanceView({
         punchIn: punchTime,
         punchInLocation: locationData,
         faceImage: faceImage,
+        lunchOut: null,
+        lunchIn: null,
         punchOut: null,
         punchOutLocation: null,
         punchOutFaceImage: null,
@@ -506,8 +613,18 @@ export default function AttendanceView({
     } else {
       // Punch Out
       if (!todayRecord?.punchIn) return;
-      const finalDuration = calculateDuration(todayRecord.punchIn, punchTime);
-      const totalMinutes = calculateTotalMinutes(todayRecord.punchIn, punchTime);
+      const finalDuration = calculateDuration(
+        todayRecord.punchIn,
+        punchTime,
+        todayRecord.lunchOut,
+        todayRecord.lunchIn
+      );
+      const totalMinutes = calculateTotalMinutes(
+        todayRecord.punchIn,
+        punchTime,
+        todayRecord.lunchOut,
+        todayRecord.lunchIn
+      );
 
       const updated = {
         ...records,
@@ -588,6 +705,8 @@ export default function AttendanceView({
           coords: { latitude: d.latitude ?? d.login_latitude, longitude: d.longitude ?? d.login_longitude },
         },
         faceImage: d.login_selfie_url,
+        lunchOut: formatIsoToTimeStr(d.lunch_out_time || d.lunch_out),
+        lunchIn: formatIsoToTimeStr(d.lunch_in_time || d.lunch_in),
         punchOut: formatIsoToTimeStr(d.logout_time),
         punchOutLocation: (d.area || d.logout_area)
           ? {
@@ -599,7 +718,12 @@ export default function AttendanceView({
         duration:
           d.total_working_minutes !== null && d.total_working_minutes !== undefined
             ? `${Math.floor(d.total_working_minutes / 60)}h ${d.total_working_minutes % 60}m`
-            : calculateDuration(formatIsoToTimeStr(d.login_time), formatIsoToTimeStr(d.logout_time)),
+            : calculateDuration(
+                formatIsoToTimeStr(d.login_time),
+                formatIsoToTimeStr(d.logout_time),
+                formatIsoToTimeStr(d.lunch_out_time || d.lunch_out),
+                formatIsoToTimeStr(d.lunch_in_time || d.lunch_in)
+              ),
         status: d.status || (d.logout_time ? "Completed" : "Working"),
         remarks: d.logout_time
           ? `Shift completed · 📍 ${d.logout_area || profileRegion}`
@@ -709,6 +833,11 @@ export default function AttendanceView({
               <CheckCircle2 size={14} />
               <span>Shift Completed ({liveDuration})</span>
             </div>
+          ) : isLunchOut && !isLunchIn ? (
+            <div className="attend-header-status-chip lunch">
+              <Utensils size={14} />
+              <span>On Lunch Break ({todayRecord?.lunchOut})</span>
+            </div>
           ) : isPunchedIn ? (
             <div className="attend-header-status-chip active">
               <span className="attend-header-pulse-dot"></span>
@@ -758,11 +887,26 @@ export default function AttendanceView({
 
           <div className="attend-shift-status-box">
             <div className="attend-shift-label">Today's Shift Status</div>
-            <div className={`attend-status-indicator ${isPunchedOut ? "done" : isPunchedIn ? "active" : "pending"}`}>
+            <div
+              className={`attend-status-indicator ${
+                isPunchedOut
+                  ? "done"
+                  : isLunchOut && !isLunchIn
+                  ? "lunch"
+                  : isPunchedIn
+                  ? "active"
+                  : "pending"
+              }`}
+            >
               {isPunchedOut ? (
                 <>
                   <CheckCircle2 size={16} />
                   <span>Shift Completed</span>
+                </>
+              ) : isLunchOut && !isLunchIn ? (
+                <>
+                  <Utensils size={16} />
+                  <span>On Lunch Break ({todayRecord?.lunchOut})</span>
                 </>
               ) : isPunchedIn ? (
                 <>
@@ -779,7 +923,7 @@ export default function AttendanceView({
           </div>
         </div>
 
-        {/* Right Card: Punch In / Punch Out Buttons */}
+        {/* Right Card: Punch Buttons (Morning, Lunch Out, Lunch In, Evening) */}
         <div className="attend-actions-card">
           <div className="attend-actions-title">
             <div className="attend-actions-icon-badge">
@@ -787,18 +931,18 @@ export default function AttendanceView({
             </div>
             <div>
               <h3>Daily Shift Punch — {todayInfo.formattedDate}, {todayInfo.dayName}</h3>
-              <p>Record biometric morning login and evening logout for field duty</p>
+              <p>Record biometric morning login, lunch breaks, and evening logout for field duty</p>
             </div>
           </div>
 
           <div className="attend-punch-buttons-row">
-            {/* MORNING PUNCH IN BUTTON */}
+            {/* 1. MORNING PUNCH IN BUTTON (Biometric Face Verification Modal) */}
             <button
               type="button"
               className={`attend-punch-btn punch-in-btn ${isPunchedIn ? "punched" : ""}`}
               onClick={handlePunchIn}
               disabled={isPunchedIn}
-              title={isPunchedIn ? `Morning Punched In at ${todayRecord?.punchIn}` : "Click to record Morning Punch In"}
+              title={isPunchedIn ? `Morning Punched In at ${todayRecord?.punchIn}` : "Click to record Morning Punch In with biometric face verification"}
             >
               <div className="attend-btn-icon-wrap in-icon">
                 {isPunchedIn ? <Check size={24} /> : <LogIn size={24} />}
@@ -813,7 +957,89 @@ export default function AttendanceView({
               </div>
             </button>
 
-            {/* EVENING LOGOUT BUTTON */}
+            {/* 2. LUNCH OUT BUTTON (Timing only - NO face auto generation) */}
+            <button
+              type="button"
+              className={`attend-punch-btn lunch-out-btn ${
+                isLunchOut
+                  ? "punched"
+                  : !isPunchedIn || isPunchedOut
+                  ? "disabled"
+                  : ""
+              }`}
+              onClick={handleLunchOut}
+              disabled={!isPunchedIn || isLunchOut || isPunchedOut}
+              title={
+                !isPunchedIn
+                  ? "Please punch in morning first"
+                  : isLunchOut
+                  ? `Lunch Out recorded at ${todayRecord?.lunchOut} (Timing only)`
+                  : isPunchedOut
+                  ? "Shift already ended"
+                  : "Click to record Lunch Out (Timing only - no biometric prompt)"
+              }
+            >
+              <div className="attend-btn-icon-wrap lunch-out-icon">
+                {isLunchOut ? <Check size={24} /> : <Utensils size={24} />}
+              </div>
+              <div className="attend-btn-content">
+                <span className="attend-btn-action">
+                  {isLunchOut ? "Lunch Out Recorded" : "Lunch Out"}
+                </span>
+                <span className="attend-btn-time">
+                  {isLunchOut
+                    ? todayRecord?.lunchOut
+                    : !isPunchedIn
+                    ? "Punch In First"
+                    : isPunchedOut
+                    ? "Shift Ended"
+                    : "Click to Record"}
+                </span>
+              </div>
+            </button>
+
+            {/* 3. LUNCH IN BUTTON (Timing only - NO face auto generation) */}
+            <button
+              type="button"
+              className={`attend-punch-btn lunch-in-btn ${
+                isLunchIn
+                  ? "punched"
+                  : !isLunchOut || isPunchedOut
+                  ? "disabled"
+                  : ""
+              }`}
+              onClick={handleLunchIn}
+              disabled={!isLunchOut || isLunchIn || isPunchedOut}
+              title={
+                !isLunchOut
+                  ? "Please record Lunch Out first"
+                  : isLunchIn
+                  ? `Lunch In recorded at ${todayRecord?.lunchIn} (Timing recorded)`
+                  : isPunchedOut
+                  ? "Shift already ended"
+                  : "Click to record Lunch In (Timing only - no biometric prompt)"
+              }
+            >
+              <div className="attend-btn-icon-wrap lunch-in-icon">
+                {isLunchIn ? <Check size={24} /> : <Coffee size={24} />}
+              </div>
+              <div className="attend-btn-content">
+                <span className="attend-btn-action">
+                  {isLunchIn ? "Lunch In Recorded" : "Lunch In"}
+                </span>
+                <span className="attend-btn-time">
+                  {isLunchIn
+                    ? todayRecord?.lunchIn
+                    : !isLunchOut
+                    ? "Lunch Out First"
+                    : isPunchedOut
+                    ? "Shift Ended"
+                    : "Click to Resume"}
+                </span>
+              </div>
+            </button>
+
+            {/* 4. EVENING LOGOUT BUTTON (Biometric Face Verification Modal) */}
             <button
               type="button"
               className={`attend-punch-btn punch-out-btn ${isPunchedOut ? "punched" : !isPunchedIn ? "disabled" : ""}`}
@@ -824,7 +1050,7 @@ export default function AttendanceView({
                   ? "Please complete Morning Punch In first"
                   : isPunchedOut
                   ? `Evening Logged Out at ${todayRecord?.punchOut}`
-                  : "Click to record Evening Logout and complete shift"
+                  : "Click to record Evening Logout with biometric face verification"
               }
             >
               <div className="attend-btn-icon-wrap out-icon">
@@ -845,8 +1071,9 @@ export default function AttendanceView({
             </button>
           </div>
 
-          {/* Today's Punch Summary Bar */}
+          {/* Today's Punch Summary Bar: Morning, Lunch Out, Lunch In, Evening Logout, Duration */}
           <div className="attend-summary-bar">
+            {/* Morning Punch In */}
             <div className="attend-bar-item">
               <span className="bar-label">Morning Punch In</span>
               <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
@@ -882,7 +1109,46 @@ export default function AttendanceView({
                 </span>
               )}
             </div>
+
             <div className="attend-bar-divider"></div>
+
+            {/* Lunch Out (Timing only - no face photo) */}
+            <div className="attend-bar-item">
+              <span className="bar-label">Lunch Out</span>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <span className="bar-val">{todayRecord?.lunchOut || "—"}</span>
+                {todayRecord?.lunchOut && (
+                  <span className="attend-timing-chip amber">
+                    <Check size={10} /> Punched
+                  </span>
+                )}
+              </div>
+              <span className="attend-loc-sub timing-sub">
+                {todayRecord?.lunchOut ? "Punched Timing Only" : "Break Out"}
+              </span>
+            </div>
+
+            <div className="attend-bar-divider"></div>
+
+            {/* Lunch In (Timing only - no face photo) */}
+            <div className="attend-bar-item">
+              <span className="bar-label">Lunch In</span>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <span className="bar-val">{todayRecord?.lunchIn || "—"}</span>
+                {todayRecord?.lunchIn && (
+                  <span className="attend-timing-chip sky">
+                    <Check size={10} /> Punched
+                  </span>
+                )}
+              </div>
+              <span className="attend-loc-sub timing-sub">
+                {todayRecord?.lunchIn ? "Punched Timing Only" : "Break In"}
+              </span>
+            </div>
+
+            <div className="attend-bar-divider"></div>
+
+            {/* Evening Logout */}
             <div className="attend-bar-item">
               <span className="bar-label">Evening Logout</span>
               <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
@@ -918,7 +1184,10 @@ export default function AttendanceView({
                 </span>
               )}
             </div>
+
             <div className="attend-bar-divider"></div>
+
+            {/* Total Duration */}
             <div className="attend-bar-item">
               <span className="bar-label">Total Duration</span>
               <span className="bar-val">{isPunchedIn ? liveDuration : "0h 0m"}</span>
@@ -1056,6 +1325,8 @@ export default function AttendanceView({
                   <th>Executive</th>
                   <th>Face Verification</th>
                   <th>Morning Punch In</th>
+                  <th>Lunch Out</th>
+                  <th>Lunch In</th>
                   <th>Evening Logout</th>
                   <th>Working Hours</th>
                   <th>Status</th>
@@ -1155,6 +1426,30 @@ export default function AttendanceView({
                             <span className="attend-loc-sub">
                               <MapPin size={10} />
                               {row.punchInLocation?.locality || profileRegion}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td>
+                        <div className="attend-punch-cell">
+                          <span className={`attend-time-pill ${row.lunchOut ? "lunch" : "empty"}`}>
+                            {row.lunchOut || "—"}
+                          </span>
+                          {row.lunchOut && (
+                            <span className="attend-loc-sub timing-only">
+                              Timing Only
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td>
+                        <div className="attend-punch-cell">
+                          <span className={`attend-time-pill ${row.lunchIn ? "lunch-in" : "empty"}`}>
+                            {row.lunchIn || "—"}
+                          </span>
+                          {row.lunchIn && (
+                            <span className="attend-loc-sub timing-only">
+                              Timing Only
                             </span>
                           )}
                         </div>
