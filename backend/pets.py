@@ -1,5 +1,7 @@
 import os
 import shutil
+import hashlib
+import secrets
 from typing import Optional
 from datetime import datetime, date, time, timezone, timedelta
 from zoneinfo import ZoneInfo
@@ -72,6 +74,25 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 os.makedirs("uploads", exist_ok=True)
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+
+PASSWORD_MIN_LENGTH = 6
+_PBKDF2_ITERATIONS = 200_000
+
+def hash_password(password: str) -> str:
+    salt = secrets.token_hex(16)
+    digest = hashlib.pbkdf2_hmac(
+        "sha256", password.encode("utf-8"), bytes.fromhex(salt), _PBKDF2_ITERATIONS
+    ).hex()
+    return f"pbkdf2_sha256${_PBKDF2_ITERATIONS}${salt}${digest}"
+
+def validate_new_password(password: Optional[str]) -> str:
+    if not password or len(password) < PASSWORD_MIN_LENGTH:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Password must be at least {PASSWORD_MIN_LENGTH} characters",
+        )
+    return password
+
 def yes_no_to_bool(value):
     if isinstance(value, bool):
         return value
@@ -95,8 +116,12 @@ def model_response(obj):
     data = {
         key: value
         for key, value in obj.__dict__.items()
-        if key != "_sa_instance_state" and not isinstance(value, (bytes, bytearray))
+        if key not in ("_sa_instance_state", "password_hash", "password_value") and not isinstance(value, (bytes, bytearray))
     }
+    if getattr(obj, "__tablename__", None) in ("sales_executives", "regional_managers", "sales_managers"):
+        password_value = getattr(obj, "password_value", None)
+        has_password = bool(getattr(obj, "password_hash", None))
+        data["password_display"] = password_value or ("Reset required" if has_password else "Not set")
     if "is_active" in data:
         data["is_active"] = "Yes" if data["is_active"] else "No"
     for k, v in data.items():
@@ -492,6 +517,8 @@ class RegionalManager(Base):
     email = Column(String(100))
     region = Column(String(150))
     is_active = Column(Boolean, default=True)
+    password_hash = Column(String(255), nullable=True)
+    password_value = Column(Text, nullable=True)
 class SalesManager(Base):
     __tablename__ = "sales_managers"
     id = Column(Integer, primary_key=True, index=True)
@@ -501,6 +528,8 @@ class SalesManager(Base):
     email = Column(String(100))
     region = Column(String(150))
     is_active = Column(Boolean, default=True)
+    password_hash = Column(String(255), nullable=True)
+    password_value = Column(Text, nullable=True)
 class SalesExecutive(Base):
     __tablename__ = "sales_executives"
     id = Column(Integer, primary_key=True, index=True)
@@ -512,6 +541,8 @@ class SalesExecutive(Base):
     city = Column(String(150))
     monthly_target = Column(Float, default=0)
     is_active = Column(Boolean, default=True)
+    password_hash = Column(String(255), nullable=True)
+    password_value = Column(Text, nullable=True)
 class PincodeCoverage(Base):
     __tablename__ = "pincode_coverages"
     id = Column(Integer, primary_key=True, index=True)
@@ -880,6 +911,7 @@ class RegionalManagerCreate(BaseModel):
     email: Optional[str] = None
     region: Optional[str] = None
     is_active: str = "Yes"
+    password: Optional[str] = None
 class SalesManagerCreate(BaseModel):
     name: str
     code: str
@@ -887,6 +919,7 @@ class SalesManagerCreate(BaseModel):
     email: Optional[str] = None
     region: Optional[str] = None
     is_active: str = "Yes"
+    password: Optional[str] = None
 class SalesExecutiveCreate(BaseModel):
     name: str
     code: str
@@ -896,6 +929,7 @@ class SalesExecutiveCreate(BaseModel):
     city: Optional[str] = None
     monthly_target: Optional[float] = 0
     is_active: str = "Yes"
+    password: Optional[str] = None
 class PincodeCoverageCreate(BaseModel):
     executive_id: int
     pincode: str
@@ -3428,13 +3462,16 @@ def create_regional_manager(data: RegionalManagerCreate,db: Session = Depends(ge
     existing = db.query(RegionalManager).filter(RegionalManager.code == data.code).first()
     if existing:
         raise HTTPException(status_code=400,detail="Regional manager code already exists")
+    password = validate_new_password(data.password)
     manager = RegionalManager(
         name=data.name,
         code=data.code,
         phone=data.phone,
         email=data.email,
         region=data.region,
-        is_active=yes_no_to_bool(data.is_active)
+        is_active=yes_no_to_bool(data.is_active),
+        password_hash=hash_password(password),
+        password_value=password
     )
     db.add(manager)
     db.commit()
@@ -3459,6 +3496,11 @@ def update_regional_manager(manager_id: int,data: RegionalManagerCreate,db: Sess
     if not manager:
         raise HTTPException(status_code=404,detail="Regional manager not found")
     update_data = data.model_dump(exclude_unset=True)
+    new_password = update_data.pop("password", None)
+    if new_password:
+        validate_new_password(new_password)
+        setattr(manager, "password_hash", hash_password(new_password))
+        setattr(manager, "password_value", new_password)
     if "is_active" in update_data:
         update_data["is_active"] = yes_no_to_bool(update_data["is_active"])
     for field, value in update_data.items():
@@ -3482,13 +3524,16 @@ def create_sales_manager(data: SalesManagerCreate,db: Session = Depends(get_db))
     existing = db.query(SalesManager).filter(SalesManager.code == data.code).first()
     if existing:
         raise HTTPException(status_code=400,detail="Sales manager code already exists")
+    password = validate_new_password(data.password)
     manager = SalesManager(
         name=data.name,
         code=data.code,
         phone=data.phone,
         email=data.email,
         region=data.region,
-        is_active=yes_no_to_bool(data.is_active)
+        is_active=yes_no_to_bool(data.is_active),
+        password_hash=hash_password(password),
+        password_value=password
     )
     db.add(manager)
     db.commit()
@@ -3513,6 +3558,11 @@ def update_sales_manager(manager_id: int,data: SalesManagerCreate,db: Session = 
     if not manager:
         raise HTTPException(status_code=404,detail="Sales manager not found")
     update_data = data.model_dump(exclude_unset=True)
+    new_password = update_data.pop("password", None)
+    if new_password:
+        validate_new_password(new_password)
+        setattr(manager, "password_hash", hash_password(new_password))
+        setattr(manager, "password_value", new_password)
     if "is_active" in update_data:
         update_data["is_active"] = yes_no_to_bool(update_data["is_active"])
     for field, value in update_data.items():
@@ -3533,7 +3583,10 @@ def delete_sales_manager(manager_id: int,db: Session = Depends(get_db)):
     }
 @app.post("/sales-executives")
 def create_sales_executive(data: SalesExecutiveCreate,db: Session = Depends(get_db)):
+    password = validate_new_password(data.password)
     executive = SalesExecutive(
+        password_hash=hash_password(password),
+        password_value=password,
         name=data.name,
         code=data.code,
         phone=data.phone,
@@ -3565,6 +3618,11 @@ def update_sales_executive(executive_id: int,data: SalesExecutiveCreate,db: Sess
     if not executive:
         raise HTTPException( status_code=404, detail="Sales executive not found")
     update_data = data.model_dump(exclude_unset=True)
+    new_password = update_data.pop("password", None)
+    if new_password:
+        validate_new_password(new_password)
+        setattr(executive, "password_hash", hash_password(new_password))
+        setattr(executive, "password_value", new_password)
     if "is_active" in update_data:
         update_data["is_active"] = yes_no_to_bool(
             update_data["is_active"]
@@ -4275,6 +4333,22 @@ class Attendance(Base):
 # =========================================================
 
 Base.metadata.create_all(bind=engine)
+
+def _ensure_sales_team_password_columns():
+    from sqlalchemy import inspect as sa_inspect
+    for table_name in ("sales_executives", "regional_managers", "sales_managers"):
+        try:
+            columns = {column["name"] for column in sa_inspect(engine).get_columns(table_name)}
+            with engine.begin() as connection:
+                if "password_hash" not in columns:
+                    connection.execute(text(f"ALTER TABLE {table_name} ADD COLUMN password_hash VARCHAR(255) NULL"))
+                if "password_value" not in columns:
+                    connection.execute(text(f"ALTER TABLE {table_name} ADD COLUMN password_value TEXT NULL"))
+        except Exception as exc:
+            print(f"WARNING: could not ensure password columns for {table_name}: {exc}")
+
+_ensure_sales_team_password_columns()
+
 class AttendancePunchIn(BaseModel):
     executive_id: int
     attendance_date: Optional[date] = None

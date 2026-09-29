@@ -486,19 +486,15 @@ export const TABLE_CONFIG = {
       { key: "code", type: "text", required: true },
       { key: "phone", type: "text" },
       { key: "email", type: "text" },
+      { key: "password_display", type: "text", label: "Password", readOnly: true, tableOnly: true },
+      { key: "password", type: "password", label: "Password", required: true, formOnly: true },
       { key: "region", type: "text" },
       { key: "city", type: "text" },
       { key: "monthly_target", type: "number" },
       { key: "is_active", type: "yesno", default: "Yes" },
     ],
   },
-  // NOTE: the backend (pets.py) has no /regional-managers or /sales-managers
-  // routes yet — these are sidebar entries prepared ahead of that backend
-  // work, using the same shape as sales_executives (the closest existing
-  // table) as a placeholder schema. Until those endpoints exist, opening
-  // either section will show the usual "couldn't reach backend" banner.
-  // Once real routes are added, this config likely won't need to change at
-  // all (only the field list, if the real schema differs).
+  // Manager records share the sales-team password form and table behavior.
   regional_managers: {
     path: "/regional-managers",
     fields: [
@@ -506,6 +502,8 @@ export const TABLE_CONFIG = {
       { key: "code", type: "text" },
       { key: "phone", type: "text" },
       { key: "email", type: "text" },
+      { key: "password_display", type: "text", label: "Password", readOnly: true, tableOnly: true },
+      { key: "password", type: "password", label: "Password", required: true, formOnly: true },
       { key: "region", type: "text" },
       { key: "is_active", type: "yesno", default: "Yes" },
     ],
@@ -517,6 +515,8 @@ export const TABLE_CONFIG = {
       { key: "code", type: "text" },
       { key: "phone", type: "text" },
       { key: "email", type: "text" },
+      { key: "password_display", type: "text", label: "Password", readOnly: true, tableOnly: true },
+      { key: "password", type: "password", label: "Password", required: true, formOnly: true },
       { key: "region", type: "text" },
       { key: "is_active", type: "yesno", default: "Yes" },
     ],
@@ -744,4 +744,4 @@ export async function deleteAttendanceRecord(attendanceId) {
     method: "DELETE",
   });
   return handleResponse(res);
-}
+}
