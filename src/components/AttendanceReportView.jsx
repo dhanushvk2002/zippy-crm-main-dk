@@ -15,10 +15,12 @@ import {
   Sparkles,
   Users,
   FileSpreadsheet,
+  PlusCircle,
+  X,
 } from "lucide-react";
 import DoctorAvatar from "./DoctorAvatar.jsx";
 import defaultFacePhoto from "../assets/doctor-male.jpg";
-import { fetchAttendanceList } from "../api.js";
+import { fetchAttendanceList, punchInAttendance } from "../api.js";
 import { formatAttendanceDateAndDay } from "../dateUtils.js";
 import "./AttendanceReportView.css";
 
@@ -87,8 +89,61 @@ export default function AttendanceReportView({
   const [periodFilter, setPeriodFilter] = useState("all");
   const [previewPhotoModal, setPreviewPhotoModal] = useState(null);
 
+  // New Record modal state (for managers)
+  const isManager = role === "manager" || role === "regional";
+  const [newRecordModal, setNewRecordModal] = useState(false);
+  const [newRecordForm, setNewRecordForm] = useState({
+    executive_id: "",
+    attendance_date: new Date().toISOString().slice(0, 10),
+    login_time: "",
+    logout_time: "",
+    login_area: "",
+    logout_area: "",
+    status: "Present",
+  });
+  const [newRecordSaving, setNewRecordSaving] = useState(false);
+  const [newRecordError, setNewRecordError] = useState("");
+
   // Backend attendance records from MySQL database
   const [dbAttendanceList, setDbAttendanceList] = useState([]);
+
+  const handleNewRecordSave = async () => {
+    if (!newRecordForm.executive_id || !newRecordForm.attendance_date || !newRecordForm.login_time) {
+      setNewRecordError("Executive, Date and Punch In Time are required.");
+      return;
+    }
+    setNewRecordSaving(true);
+    setNewRecordError("");
+    try {
+      const dateStr = newRecordForm.attendance_date;
+      await punchInAttendance({
+        executive_id: Number(newRecordForm.executive_id),
+        attendance_date: dateStr,
+        login_time: `${dateStr}T${newRecordForm.login_time}:00`,
+        ...(newRecordForm.logout_time ? { logout_time: `${dateStr}T${newRecordForm.logout_time}:00` } : {}),
+        login_area: newRecordForm.login_area || undefined,
+        logout_area: newRecordForm.logout_area || undefined,
+        status: newRecordForm.status || "Present",
+      });
+      setNewRecordModal(false);
+      setNewRecordForm({
+        executive_id: "",
+        attendance_date: new Date().toISOString().slice(0, 10),
+        login_time: "",
+        logout_time: "",
+        login_area: "",
+        logout_area: "",
+        status: "Present",
+      });
+      // Refresh list
+      const rows = await fetchAttendanceList();
+      if (Array.isArray(rows)) setDbAttendanceList(rows);
+    } catch (err) {
+      setNewRecordError(err?.message || "Failed to save record. Please try again.");
+    } finally {
+      setNewRecordSaving(false);
+    }
+  };
 
   // Fetch real verified attendance logs from MySQL backend
   useEffect(() => {
@@ -397,6 +452,22 @@ export default function AttendanceReportView({
         </div>
 
         <div className="att-rep-header-actions">
+          {isManager && (
+            <button
+              type="button"
+              className="att-rep-btn-export"
+              onClick={() => setNewRecordModal(true)}
+              title="Manually add a new attendance record"
+              style={{
+                background: "linear-gradient(135deg, #0d9488, #059669)",
+                color: "#fff",
+                border: "none",
+              }}
+            >
+              <PlusCircle size={16} />
+              <span>New Record</span>
+            </button>
+          )}
           <button
             type="button"
             className="att-rep-btn-export"
@@ -636,9 +707,10 @@ export default function AttendanceReportView({
                           <span className={`att-rep-time-pill ${row.lunchOut ? "lunch" : "empty"}`}>
                             {row.lunchOut || "—"}
                           </span>
-                          {row.lunchOut && (
-                            <div style={{ fontSize: "0.68rem", color: "#64748b", fontStyle: "italic", marginTop: "2px" }}>
-                              Timing Only
+                          {row.lunchOut && row.lunchOutLocation?.locality && (
+                            <div className="att-rep-loc-sub">
+                              <MapPin size={10} />
+                              {row.lunchOutLocation.locality}
                             </div>
                           )}
                         </div>
@@ -648,9 +720,10 @@ export default function AttendanceReportView({
                           <span className={`att-rep-time-pill ${row.lunchIn ? "lunch-in" : "empty"}`}>
                             {row.lunchIn || "—"}
                           </span>
-                          {row.lunchIn && (
-                            <div style={{ fontSize: "0.68rem", color: "#64748b", fontStyle: "italic", marginTop: "2px" }}>
-                              Timing Only
+                          {row.lunchIn && row.lunchInLocation?.locality && (
+                            <div className="att-rep-loc-sub">
+                              <MapPin size={10} />
+                              {row.lunchInLocation.locality}
                             </div>
                           )}
                         </div>
@@ -820,6 +893,135 @@ export default function AttendanceReportView({
               >
                 <Check size={14} /> Biometric Match Confirmed · 100% Genuine ({previewPhotoModal.punchType || "Punch In"})
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* ── NEW RECORD MODAL (Manager only) ── */}
+      {newRecordModal && (
+        <div
+          style={{
+            position: "fixed", inset: 0,
+            background: "rgba(15,23,42,0.65)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            zIndex: 9999, padding: "1rem",
+          }}
+          onClick={() => setNewRecordModal(false)}
+        >
+          <div
+            style={{
+              background: "var(--bg-card, #fff)",
+              borderRadius: "16px",
+              padding: "1.5rem",
+              width: "100%", maxWidth: 480,
+              boxShadow: "0 20px 50px rgba(0,0,0,0.25)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.25rem" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <div style={{ background: "linear-gradient(135deg,#0d9488,#059669)", borderRadius: "10px", padding: "8px", display: "flex" }}>
+                  <PlusCircle size={18} color="#fff" />
+                </div>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: "1rem", color: "var(--text-primary, #0f172a)" }}>New Attendance Record</div>
+                  <div style={{ fontSize: "0.75rem", color: "#64748b" }}>Manually add a punch record for an executive</div>
+                </div>
+              </div>
+              <button type="button" onClick={() => setNewRecordModal(false)}
+                style={{ background: "none", border: "none", cursor: "pointer", color: "#64748b", padding: "4px" }}>
+                <X size={20} />
+              </button>
+            </div>
+
+            {newRecordError && (
+              <div style={{ background: "#fef2f2", color: "#dc2626", borderRadius: "8px", padding: "10px 14px", marginBottom: "1rem", fontSize: "0.82rem" }}>
+                {newRecordError}
+              </div>
+            )}
+
+            <div style={{ display: "grid", gap: "0.85rem" }}>
+              <div>
+                <label style={{ display: "block", fontSize: "0.78rem", fontWeight: 600, color: "#475569", marginBottom: "4px" }}>Sales Executive *</label>
+                <select
+                  style={{ width: "100%", padding: "8px 10px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "0.85rem", background: "var(--bg-card,#fff)", color: "var(--text-primary,#0f172a)" }}
+                  value={newRecordForm.executive_id}
+                  onChange={(e) => setNewRecordForm((f) => ({ ...f, executive_id: e.target.value }))}
+                >
+                  <option value="">— Select Executive —</option>
+                  {executives.map((exec) => (
+                    <option key={exec.id} value={exec.id}>
+                      {exec.name} ({exec.employee_code || `SE-00${exec.id}`})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: "0.78rem", fontWeight: 600, color: "#475569", marginBottom: "4px" }}>Attendance Date *</label>
+                <input type="date" style={{ width: "100%", padding: "8px 10px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "0.85rem", background: "var(--bg-card,#fff)", color: "var(--text-primary,#0f172a)" }}
+                  value={newRecordForm.attendance_date}
+                  onChange={(e) => setNewRecordForm((f) => ({ ...f, attendance_date: e.target.value }))}
+                />
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+                <div>
+                  <label style={{ display: "block", fontSize: "0.78rem", fontWeight: 600, color: "#475569", marginBottom: "4px" }}>Punch In Time *</label>
+                  <input type="time" style={{ width: "100%", padding: "8px 10px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "0.85rem", background: "var(--bg-card,#fff)", color: "var(--text-primary,#0f172a)" }}
+                    value={newRecordForm.login_time}
+                    onChange={(e) => setNewRecordForm((f) => ({ ...f, login_time: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: "block", fontSize: "0.78rem", fontWeight: 600, color: "#475569", marginBottom: "4px" }}>Punch Out Time</label>
+                  <input type="time" style={{ width: "100%", padding: "8px 10px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "0.85rem", background: "var(--bg-card,#fff)", color: "var(--text-primary,#0f172a)" }}
+                    value={newRecordForm.logout_time}
+                    onChange={(e) => setNewRecordForm((f) => ({ ...f, logout_time: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+                <div>
+                  <label style={{ display: "block", fontSize: "0.78rem", fontWeight: 600, color: "#475569", marginBottom: "4px" }}>Punch In Area</label>
+                  <input type="text" placeholder="e.g. Tirupathur, Tamil Nadu" style={{ width: "100%", padding: "8px 10px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "0.85rem", background: "var(--bg-card,#fff)", color: "var(--text-primary,#0f172a)" }}
+                    value={newRecordForm.login_area}
+                    onChange={(e) => setNewRecordForm((f) => ({ ...f, login_area: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: "block", fontSize: "0.78rem", fontWeight: 600, color: "#475569", marginBottom: "4px" }}>Punch Out Area</label>
+                  <input type="text" placeholder="e.g. Vellore, Tamil Nadu" style={{ width: "100%", padding: "8px 10px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "0.85rem", background: "var(--bg-card,#fff)", color: "var(--text-primary,#0f172a)" }}
+                    value={newRecordForm.logout_area}
+                    onChange={(e) => setNewRecordForm((f) => ({ ...f, logout_area: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: "0.78rem", fontWeight: 600, color: "#475569", marginBottom: "4px" }}>Status</label>
+                <select
+                  style={{ width: "100%", padding: "8px 10px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "0.85rem", background: "var(--bg-card,#fff)", color: "var(--text-primary,#0f172a)" }}
+                  value={newRecordForm.status}
+                  onChange={(e) => setNewRecordForm((f) => ({ ...f, status: e.target.value }))}
+                >
+                  <option value="Present">Present</option>
+                  <option value="Working">Working</option>
+                  <option value="Completed">Completed</option>
+                </select>
+              </div>
+            </div>
+
+            <div style={{ display: "flex", gap: "0.75rem", marginTop: "1.25rem" }}>
+              <button type="button" onClick={() => setNewRecordModal(false)}
+                style={{ flex: 1, padding: "10px", borderRadius: "8px", border: "1px solid #cbd5e1", background: "transparent", cursor: "pointer", fontSize: "0.85rem", color: "#64748b", fontWeight: 600 }}>
+                Cancel
+              </button>
+              <button type="button" onClick={handleNewRecordSave} disabled={newRecordSaving}
+                style={{ flex: 2, padding: "10px", borderRadius: "8px", border: "none", background: "linear-gradient(135deg,#0d9488,#059669)", color: "#fff", cursor: newRecordSaving ? "not-allowed" : "pointer", fontSize: "0.85rem", fontWeight: 700, opacity: newRecordSaving ? 0.7 : 1 }}>
+                {newRecordSaving ? "Saving…" : "Save Record"}
+              </button>
             </div>
           </div>
         </div>

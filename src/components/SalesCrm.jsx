@@ -4263,10 +4263,15 @@ export default function SalesCrm({ role, initialUser, onSwitchRole, onExit }) {
     try {
       const hash = window.location.hash.replace("#", "");
       if (["attendance", "attendance_report", "dashboard", "doctors", "plan", "approvals", "reports"].includes(hash)) {
+        // Managers and regional managers should not land on attendance
+        if ((role === ROLES.MANAGER || role === ROLES.REGIONAL) && hash === "attendance") {
+          return "dashboard";
+        }
         return hash;
       }
     } catch (e) {}
-    return "attendance";
+    // Default: executives start at Attendance, managers/regional start at Dashboard
+    return (role === ROLES.MANAGER || role === ROLES.REGIONAL) ? "dashboard" : "attendance";
   });
 
   const handleSelectSection = (sec) => {
@@ -4435,13 +4440,15 @@ export default function SalesCrm({ role, initialUser, onSwitchRole, onExit }) {
         </div>
 
         <nav>
-          <button
-            className={"nav-item" + (activeSection === "attendance" ? " active" : "")}
-            onClick={() => handleSelectSection("attendance")}
-          >
-            <Clock size={16} style={{ marginRight: "10px", flexShrink: 0 }} />
-            Attendance
-          </button>
+          {role === ROLES.EXECUTIVE && (
+            <button
+              className={"nav-item" + (activeSection === "attendance" ? " active" : "")}
+              onClick={() => handleSelectSection("attendance")}
+            >
+              <Clock size={16} style={{ marginRight: "10px", flexShrink: 0 }} />
+              Attendance
+            </button>
+          )}
           {role !== ROLES.EXECUTIVE && (
             <button
               className={"nav-item" + (activeSection === "attendance_report" ? " active" : "")}

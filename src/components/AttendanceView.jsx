@@ -244,7 +244,66 @@ export default function AttendanceView({
     return () => clearInterval(timer);
   }, []);
 
-  // Live Auto-Generated GPS Locality
+  // Shared helper: rich reverse-geocode to get specific area name
+  // Uses BigDataCloud first, falls back to OpenStreetMap Nominatim
+  const resolveAreaFromCoords = async (latitude, longitude) => {
+    // 1. BigDataCloud — fast, free, CORS-safe
+    try {
+      const res = await fetch(
+        `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`
+      );
+      if (res.ok) {
+        const data = await res.json();
+
+        // localityInfo.informative is ordered general→specific (continent first, neighbourhood last)
+        // Iterate in REVERSE to get the most specific area, skip continent/country
+        let finestArea = "";
+        const informative = data.localityInfo?.informative || [];
+        const skipDesc = new Set(["continent", "country", "country region", "region", "postcode", "postal code", "zip code", "zip"]);
+        for (let i = informative.length - 1; i >= 0; i--) {
+          const info = informative[i];
+          const desc = (info.description || "").toLowerCase();
+          if (info.name && info.name.trim() && !skipDesc.has(desc)) {
+            finestArea = info.name.trim();
+            break;
+          }
+        }
+
+        const locality = finestArea || data.locality || "";
+        const city = data.city || data.principalSubdivision || "";
+        const state = data.principalSubdivision || "";
+        const parts = [];
+        if (locality && locality !== city) parts.push(locality);
+        if (city && !parts.includes(city)) parts.push(city);
+        if (state && !parts.includes(state)) parts.push(state);
+        if (parts.length > 0) return parts.join(", ");
+      }
+    } catch (e) {}
+
+    // 2. Nominatim fallback — suburb/neighbourhood level detail
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&addressdetails=1`,
+        { headers: { "User-Agent": "ZenveCRM/1.0" } }
+      );
+      if (res.ok) {
+        const data = await res.json();
+        const addr = data.address || {};
+        const neighbourhood = addr.quarter || addr.suburb || addr.neighbourhood || addr.road || "";
+        const city = addr.city || addr.town || addr.county || addr.city_district || "";
+        const state = addr.state || "";
+        const parts = [];
+        if (neighbourhood) parts.push(neighbourhood);
+        if (city && city !== neighbourhood) parts.push(city);
+        if (state && !parts.includes(state)) parts.push(state);
+        if (parts.length > 0) return parts.join(", ");
+      }
+    } catch (e) {}
+
+    return "";
+  };
+
+  // Live Auto-Generated GPS Locality (shown in the header area chip)
   const [liveLocality, setLiveLocality] = useState(() => {
     try {
       return localStorage.getItem("zenve_crm_last_live_locality") || "";
@@ -258,25 +317,16 @@ export default function AttendanceView({
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
         const { latitude, longitude } = pos.coords;
-        try {
-          const res = await fetch(
-            `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`
-          );
-          if (res.ok) {
-            const data = await res.json();
-            const parts = [data.locality || data.city, data.principalSubdivision].filter(Boolean);
-            if (parts.length) {
-              const loc = parts.join(", ");
-              setLiveLocality(loc);
-              try {
-                localStorage.setItem("zenve_crm_last_live_locality", loc);
-              } catch (e) {}
-            }
-          }
-        } catch (e) {}
+        const loc = await resolveAreaFromCoords(latitude, longitude);
+        if (loc) {
+          setLiveLocality(loc);
+          try {
+            localStorage.setItem("zenve_crm_last_live_locality", loc);
+          } catch (e) {}
+        }
       },
       () => {},
-      { enableHighAccuracy: true, timeout: 6000 }
+      { enableHighAccuracy: true, timeout: 8000 }
     );
   }, []);
 
@@ -469,12 +519,30 @@ export default function AttendanceView({
     setPunchModalOpen(true);
   };
 
-  // Action: Record Lunch Out (Timing only - no face auto generation modal)
+  // Helper: get current GPS position and resolve detailed area name
+  const fetchCurrentLocation = () =>
+    new Promise((resolve) => {
+      if (!navigator.geolocation) return resolve({ latitude: null, longitude: null, area: "" });
+      navigator.geolocation.getCurrentPosition(
+        async (pos) => {
+          const { latitude, longitude } = pos.coords;
+          const area = await resolveAreaFromCoords(latitude, longitude);
+          resolve({ latitude, longitude, area });
+        },
+        () => resolve({ latitude: null, longitude: null, area: "" }),
+        { enableHighAccuracy: true, timeout: 8000 }
+      );
+    });
+
+  // Action: Record Lunch Out (auto-fetches GPS location)
   const handleLunchOut = async () => {
     if (!isPunchedIn || isLunchOut || isPunchedOut) return;
     const now = new Date();
     const timeStr = formatTime(now);
     const isoNow = getLocalIsoString();
+
+    setToastMessage("📍 Fetching your location for Lunch Out…");
+    const { latitude, longitude, area } = await fetchCurrentLocation();
 
     const updated = {
       ...records,
@@ -486,6 +554,7 @@ export default function AttendanceView({
           date: todayIso,
         }),
         lunchOut: timeStr,
+        lunchOutLocation: { locality: area, coords: { latitude, longitude } },
       },
     };
     setRecords(updated);
@@ -494,7 +563,7 @@ export default function AttendanceView({
     } catch (e) {
       console.error(e);
     }
-    setToastMessage(`🍴 Lunch Out recorded at ${timeStr}! (Punched timing only)`);
+    setToastMessage(`🍴 Lunch Out recorded at ${timeStr}${area ? ` · 📍 ${area}` : ""}!`);
 
     try {
       await punchLunchAttendance({
@@ -502,24 +571,31 @@ export default function AttendanceView({
         attendance_date: todayRecord?.date || todayIso,
         action: "lunch_out",
         punch_time: isoNow,
+        latitude,
+        longitude,
+        area,
       });
     } catch (err) {
       console.error("Backend punchLunchAttendance lunch_out error:", err);
     }
   };
 
-  // Action: Record Lunch In (Timing only - no face auto generation modal)
+  // Action: Record Lunch In (auto-fetches GPS location)
   const handleLunchIn = async () => {
     if (!isLunchOut || isLunchIn || isPunchedOut) return;
     const now = new Date();
     const timeStr = formatTime(now);
     const isoNow = getLocalIsoString();
 
+    setToastMessage("📍 Fetching your location for Lunch In…");
+    const { latitude, longitude, area } = await fetchCurrentLocation();
+
     const updated = {
       ...records,
       [todayKey]: {
         ...todayRecord,
         lunchIn: timeStr,
+        lunchInLocation: { locality: area, coords: { latitude, longitude } },
       },
     };
     setRecords(updated);
@@ -528,7 +604,7 @@ export default function AttendanceView({
     } catch (e) {
       console.error(e);
     }
-    setToastMessage(`🍱 Lunch In recorded at ${timeStr}! (Punched timing only)`);
+    setToastMessage(`🍱 Lunch In recorded at ${timeStr}${area ? ` · 📍 ${area}` : ""}!`);
 
     try {
       await punchLunchAttendance({
@@ -536,6 +612,9 @@ export default function AttendanceView({
         attendance_date: todayRecord?.date || todayIso,
         action: "lunch_in",
         punch_time: isoNow,
+        latitude,
+        longitude,
+        area,
       });
     } catch (err) {
       console.error("Backend punchLunchAttendance lunch_in error:", err);
@@ -1123,8 +1202,10 @@ export default function AttendanceView({
                   </span>
                 )}
               </div>
-              <span className="attend-loc-sub timing-sub">
-                {todayRecord?.lunchOut ? "Punched Timing Only" : "Break Out"}
+              <span className="attend-loc-sub">
+                {todayRecord?.lunchOutLocation?.locality ? (
+                  <><MapPin size={10} /> {todayRecord.lunchOutLocation.locality}</>
+                ) : todayRecord?.lunchOut ? "GPS Fetched" : "Break Out"}
               </span>
             </div>
 
@@ -1141,8 +1222,10 @@ export default function AttendanceView({
                   </span>
                 )}
               </div>
-              <span className="attend-loc-sub timing-sub">
-                {todayRecord?.lunchIn ? "Punched Timing Only" : "Break In"}
+              <span className="attend-loc-sub">
+                {todayRecord?.lunchInLocation?.locality ? (
+                  <><MapPin size={10} /> {todayRecord.lunchInLocation.locality}</>
+                ) : todayRecord?.lunchIn ? "GPS Fetched" : "Break In"}
               </span>
             </div>
 
