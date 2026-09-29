@@ -96,6 +96,7 @@ export default function App() {
 
   const tableConfig = TABLE_CONFIG[currentKey];
   const columns = tableConfig.fields;
+  const tableColumns = columns.filter((field) => !field.formOnly);
   const searchConfig = SEARCH_CONFIG[currentKey];
 
   const loadRecords = useCallback(async () => {
@@ -184,6 +185,11 @@ export default function App() {
       const payload = {};
       columns.forEach((field) => {
         if (field.readOnly) return;
+        if (field.type === "password") {
+          const password = String(formValues[field.key] ?? "");
+          if (password) payload[field.key] = password;
+          return;
+        }
         payload[field.key] = coerceFieldValue(field, formValues[field.key]);
       });
       let savedItem = null;
@@ -253,7 +259,7 @@ export default function App() {
     }
   }
 
-  const columnLabels = columns.map((f) => f.label || f.key);
+  const columnLabels = tableColumns.map((f) => f.label || f.key);
 
   if (salesCrmView) {
     return (
@@ -328,7 +334,7 @@ export default function App() {
               <DataTable
                 columns={columnLabels}
                 pageItems={pageItems.map((record, index) => ({
-                  row: columns.map((field) => formatCell(field, record)),
+                  row: tableColumns.map((field) => formatCell(field, record)),
                   index,
                   record,
                 }))}
@@ -346,7 +352,7 @@ export default function App() {
 
       <RecordModal
         mode={modalMode}
-        columns={columns.map((f) => ({ key: f.key, label: f.label || f.key, type: f.type, readOnly: f.readOnly, required: f.required, options: f.options, default: f.default }))}
+        columns={columns.filter((f) => !f.tableOnly).map((f) => ({ key: f.key, label: f.label || f.key, type: f.type, readOnly: f.readOnly, required: f.required, options: f.options, default: f.default }))}
         values={formValues}
         onChange={handleFieldChange}
         onSave={saveModal}

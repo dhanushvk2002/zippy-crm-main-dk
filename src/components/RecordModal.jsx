@@ -1,7 +1,8 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 
 export default function RecordModal({ mode, columns, values, onChange, onSave, onCancel, saving }) {
+  const [showPassword, setShowPassword] = useState(false);
   useEffect(() => {
     if (!mode) return;
     const prevOverflow = document.body.style.overflow;
@@ -13,6 +14,10 @@ export default function RecordModal({ mode, columns, values, onChange, onSave, o
     };
   }, [mode]);
 
+  useEffect(() => {
+    setShowPassword(false);
+  }, [mode]);
+
   if (!mode) return null;
 
   function renderInput(field) {
@@ -21,6 +26,28 @@ export default function RecordModal({ mode, columns, values, onChange, onSave, o
 
     if (field.readOnly) {
       return <input id={id} value={value ?? ""} disabled />;
+    }
+
+    if (field.type === "password") {
+      const isEdit = mode === "edit";
+      return (
+        <div style={{ position: "relative" }}>
+          <input
+            id={id}
+            type={showPassword ? "text" : "password"}
+            value={value ?? ""}
+            required={field.required && !isEdit}
+            minLength={value ? 6 : undefined}
+            autoComplete="new-password"
+            placeholder={isEdit ? "Leave blank to keep current password" : "Min 6 characters"}
+            style={{ width: "100%", paddingRight: 64, boxSizing: "border-box" }}
+            onChange={(e) => onChange(field.key, e.target.value)}
+          />
+          <button type="button" onClick={() => setShowPassword((visible) => !visible)}>
+            {showPassword ? "Hide" : "Show"}
+          </button>
+        </div>
+      );
     }
 
     if (field.type === "bool") {
@@ -135,7 +162,7 @@ export default function RecordModal({ mode, columns, values, onChange, onSave, o
             <div className="zzc-field" key={field.key}>
               <label htmlFor={"field_" + field.key}>
                 {field.label}
-                {field.required ? " *" : ""}
+                {field.required && !(field.type === "password" && mode === "edit") ? " *" : ""}
               </label>
               {renderInput(field)}
             </div>
