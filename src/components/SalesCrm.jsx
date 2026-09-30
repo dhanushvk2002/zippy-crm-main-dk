@@ -11,7 +11,6 @@ import {
   Users,
   User,
   LogOut,
-  Sun,
   Calendar,
   UserCheck,
   Check,
@@ -4230,7 +4229,7 @@ const SECTION_TITLES = {
 };
 
 export default function SalesCrm({ role, initialUser, onSwitchRole, onExit }) {
-  const [theme, setTheme] = useTheme();
+  const [theme] = useTheme();
   const data = useSalesData();
   const [execId, setExecId] = useState(() => {
     if (initialUser?.id) return initialUser.id;
@@ -4572,17 +4571,6 @@ export default function SalesCrm({ role, initialUser, onSwitchRole, onExit }) {
               <span>Log Out</span>
             </button>
 
-            <div className="header-theme-toggle">
-              <button
-                type="button"
-                className={`theme-toggle-option ${theme !== "dark" ? "active" : ""}`}
-                onClick={() => setTheme("light")}
-                title="Switch to Light Theme"
-              >
-                <Sun size={12} />
-                <span>Light</span>
-              </button>
-            </div>
           </div>
         </header>
 

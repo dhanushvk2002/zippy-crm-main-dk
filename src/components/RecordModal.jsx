@@ -198,9 +198,11 @@ export default function RecordModal({ mode, tableKey, columns, values, onChange,
     return (
       <input
         id={id}
+        type={field.type === "email" ? "email" : "text"}
         value={value ?? ""}
         required={field.required}
         placeholder={placeholder}
+        autoComplete={field.type === "email" ? "email" : undefined}
         onChange={(e) => onChange(field.key, e.target.value)}
       />
     );

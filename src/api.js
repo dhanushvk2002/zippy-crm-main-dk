@@ -485,7 +485,7 @@ export const TABLE_CONFIG = {
       { key: "name", type: "text", required: true },
       { key: "code", type: "text", required: true },
       { key: "phone", type: "text" },
-      { key: "email", type: "text" },
+      { key: "email", type: "email" },
       { key: "password_display", type: "text", label: "Password", readOnly: true, tableOnly: true },
       // Set the dashboard login password when creating an executive.
       { key: "password", type: "password", label: "Password", required: true, formOnly: true },
