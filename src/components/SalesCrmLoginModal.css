@@ -1,5 +1,5 @@
-﻿/* ==========================================================================
-   SalesCrmLoginModal.css â€” Ultra-Professional Enterprise Login Modal
+/* ==========================================================================
+   SalesCrmLoginModal.css — Ultra-Professional Enterprise Login Modal
    ========================================================================== */
 
 .crm-login-overlay {
@@ -48,7 +48,7 @@
   }
 }
 
-/* â”€â”€ Top Color Accent Line â”€â”€ */
+/* ── Top Color Accent Line ── */
 .crm-login-top-accent {
   height: 4px;
   width: 100%;
@@ -56,7 +56,7 @@
   transition: background 0.3s ease;
 }
 
-/* â”€â”€ Close Button â”€â”€ */
+/* ── Close Button ── */
 .crm-login-close-btn {
   position: absolute;
   top: 16px;
@@ -82,7 +82,7 @@
   transform: rotate(90deg);
 }
 
-/* â”€â”€ Modal Header â”€â”€ */
+/* ── Modal Header ── */
 .crm-login-header {
   padding: 1.5rem 1.75rem 1rem;
   border-bottom: 1px solid rgba(241, 245, 249, 1);
@@ -148,7 +148,7 @@
   line-height: 1.3;
 }
 
-/* â”€â”€ Segmented Role Tabs â”€â”€ */
+/* ── Segmented Role Tabs ── */
 .crm-login-role-tabs {
   display: flex;
   background: #f1f5f9;
@@ -193,7 +193,7 @@
   color: currentColor;
 }
 
-/* â”€â”€ Active Role Banner â”€â”€ */
+/* ── Active Role Banner ── */
 .crm-role-banner {
   margin: 1rem 1.75rem 0.25rem;
   padding: 10px 14px;
@@ -256,7 +256,7 @@
   flex-shrink: 0;
 }
 
-/* â”€â”€ Form Body â”€â”€ */
+/* ── Form Body ── */
 .crm-login-body {
   padding: 1.25rem 1.75rem 1.75rem;
 }
@@ -316,7 +316,7 @@
   border: 1px solid #e2e8f0;
 }
 
-/* â”€â”€ Input Wrapper & Focus State (NO DOUBLE BORDERS) â”€â”€ */
+/* ── Input Wrapper & Focus State (NO DOUBLE BORDERS) ── */
 .crm-login-input-wrap {
   position: relative;
   display: flex;
@@ -382,7 +382,7 @@
   background: rgba(0, 0, 0, 0.05);
 }
 
-/* â”€â”€ Quick Profile Selection Pills â”€â”€ */
+/* ── Quick Profile Selection Pills ── */
 .crm-quick-users-wrap {
   margin-top: 8px;
   display: flex;
@@ -444,7 +444,7 @@
   font-size: 0.65rem;
 }
 
-/* â”€â”€ Modern Quick Credentials Box â”€â”€ */
+/* ── Modern Quick Credentials Box ── */
 .crm-demo-hint-box {
   background: linear-gradient(135deg, var(--role-bg, rgba(2, 132, 199, 0.06)) 0%, rgba(248, 250, 252, 0.8) 100%);
   border: 1px solid var(--role-border, rgba(2, 132, 199, 0.2));
@@ -519,7 +519,7 @@
   box-shadow: 0 4px 10px var(--role-ring, rgba(2, 132, 199, 0.35));
 }
 
-/* â”€â”€ Custom Styled Checkbox â”€â”€ */
+/* ── Custom Styled Checkbox ── */
 .crm-remember-row {
   display: inline-flex;
   align-items: center;
@@ -559,7 +559,7 @@
   font-weight: 500;
 }
 
-/* â”€â”€ Action Buttons â”€â”€ */
+/* ── Action Buttons ── */
 .crm-login-actions {
   display: flex;
   flex-direction: column;
@@ -629,7 +629,7 @@
   border-color: #cbd5e1;
 }
 
-/* â”€â”€ Spinner â”€â”€ */
+/* ── Spinner ── */
 .crm-login-spinner {
   width: 16px;
   height: 16px;
@@ -643,39 +643,178 @@
   to { transform: rotate(360deg); }
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+/* ══════════════════════════════════════════════════════════════
    DARK MODE
-   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+   ══════════════════════════════════════════════════════════════ */
+[data-theme="dark"] .crm-login-modal,
+.theme-dark .crm-login-modal {
+  background: #0f172a;
+  border-color: rgba(51, 65, 85, 0.8);
+  box-shadow:
+    0 25px 65px -15px rgba(0, 0, 0, 0.7),
+    0 0 0 1px rgba(255, 255, 255, 0.05),
+    0 10px 35px -5px var(--role-ring, rgba(2, 132, 199, 0.2));
+  color: #f1f5f9;
+}
 
+[data-theme="dark"] .crm-login-close-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #94a3b8;
+}
 
+[data-theme="dark"] .crm-login-close-btn:hover {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #f87171;
+}
 
+[data-theme="dark"] .crm-login-header {
+  border-bottom-color: rgba(51, 65, 85, 0.5);
+  background: linear-gradient(180deg, var(--role-bg, rgba(20, 184, 166, 0.08)) 0%, transparent 100%);
+}
 
+[data-theme="dark"] .crm-login-logo-box {
+  background: #1e293b;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
 
+[data-theme="dark"] .crm-login-brand-title {
+  color: #f8fafc;
+}
 
+[data-theme="dark"] .crm-login-brand-sub {
+  color: #94a3b8;
+}
 
+[data-theme="dark"] .crm-login-role-tabs {
+  background: #1e293b;
+  border-color: #334155;
+}
 
+[data-theme="dark"] .crm-role-tab-btn {
+  color: #94a3b8;
+}
 
+[data-theme="dark"] .crm-role-tab-btn:hover {
+  color: #f8fafc;
+  background: rgba(255, 255, 255, 0.05);
+}
 
+[data-theme="dark"] .crm-role-tab-btn.active {
+  background: #0f172a;
+  color: var(--role-accent, #2dd4bf);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
 
+[data-theme="dark"] .crm-role-banner {
+  background: var(--role-bg, rgba(20, 184, 166, 0.1));
+  border-color: var(--role-border, rgba(20, 184, 166, 0.25));
+}
 
+[data-theme="dark"] .crm-role-banner-title {
+  color: #f8fafc;
+}
 
+[data-theme="dark"] .crm-role-banner-desc {
+  color: #94a3b8;
+}
 
+[data-theme="dark"] .crm-role-pill-badge {
+  background: #1e293b;
+  border-color: var(--role-border, rgba(20, 184, 166, 0.3));
+  color: var(--role-accent, #2dd4bf);
+}
 
+[data-theme="dark"] .crm-login-label {
+  color: #cbd5e1;
+}
 
+[data-theme="dark"] .crm-password-hint {
+  color: #94a3b8;
+}
 
+[data-theme="dark"] .crm-password-hint code {
+  background: #1e293b;
+  border-color: #334155;
+  color: #e2e8f0;
+}
 
+[data-theme="dark"] .crm-login-input-wrap {
+  background: #1e293b;
+  border-color: #334155;
+}
 
+[data-theme="dark"] .crm-login-input-wrap:focus-within {
+  background: #0f172a;
+  border-color: var(--role-accent, #2dd4bf);
+  box-shadow: 0 0 0 3px var(--role-ring, rgba(45, 212, 191, 0.2));
+}
 
+[data-theme="dark"] .crm-login-input {
+  color: #f8fafc;
+}
 
+[data-theme="dark"] .crm-login-input::placeholder {
+  color: #64748b;
+}
 
+[data-theme="dark"] .crm-quick-user-label {
+  color: #94a3b8;
+}
 
+[data-theme="dark"] .crm-quick-user-pill {
+  background: #1e293b;
+  border-color: #334155;
+  color: #cbd5e1;
+}
 
+[data-theme="dark"] .crm-quick-user-pill:hover {
+  border-color: var(--role-accent, #2dd4bf);
+  color: var(--role-accent, #2dd4bf);
+  background: var(--role-bg, rgba(45, 212, 191, 0.1));
+}
 
+[data-theme="dark"] .crm-quick-user-pill.selected {
+  background: var(--role-accent, #2dd4bf);
+  border-color: var(--role-accent, #2dd4bf);
+  color: #0f172a;
+}
 
+[data-theme="dark"] .crm-demo-hint-box {
+  background: linear-gradient(135deg, var(--role-bg, rgba(20, 184, 166, 0.1)) 0%, rgba(15, 23, 42, 0.6) 100%);
+  border-color: var(--role-border, rgba(45, 212, 191, 0.25));
+}
 
+[data-theme="dark"] .crm-demo-hint-text {
+  color: #94a3b8;
+}
 
+[data-theme="dark"] .crm-demo-hint-text strong {
+  color: #f1f5f9;
+}
 
+[data-theme="dark"] .crm-demo-hint-text code {
+  background: rgba(255, 255, 255, 0.08);
+  color: #f8fafc;
+}
 
+[data-theme="dark"] .crm-custom-checkbox {
+  background: #1e293b;
+  border-color: #475569;
+}
 
+[data-theme="dark"] .crm-remember-label {
+  color: #94a3b8;
+}
 
+[data-theme="dark"] .crm-login-cancel-btn {
+  border-color: #334155;
+  color: #94a3b8;
+}
 
+[data-theme="dark"] .crm-login-cancel-btn:hover {
+  background: #1e293b;
+  color: #f1f5f9;
+  border-color: #475569;
+}

@@ -826,6 +826,15 @@ body.modal-open {
   gap: .75rem;
 }
 
+.zzc-modal-error {
+  padding: 8px 12px;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  background: #fef2f2;
+  color: #b91c1c;
+  font-size: .85rem;
+}
+
 .zzc-field label {
   display: block;
 
@@ -868,6 +877,294 @@ body.modal-open {
   justify-content: flex-end;
 
   gap: .5rem;
+}
+
+.zzc-exec-overlay {
+  padding: 12px;
+}
+
+.zzc-exec-modal {
+  width: min(1040px, 100%);
+  max-height: 94vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid #dce8eb;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 20px 60px rgba(24, 57, 67, .18);
+  color: #173b51;
+}
+
+.zzc-exec-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 15px 20px;
+  border-bottom: 1px solid #e5edef;
+}
+
+.zzc-exec-header-icon,
+.zzc-exec-illustration,
+.zzc-exec-benefit > svg {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  color: #078f88;
+  background: #e3f7f4;
+}
+
+.zzc-exec-header-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+}
+
+.zzc-exec-header h2 {
+  margin: 0;
+  color: #173b51;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.zzc-exec-header p {
+  margin: 3px 0 0;
+  color: #71859a;
+  font-size: .8rem;
+}
+
+.zzc-exec-close {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  margin-left: auto;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #71859a;
+  cursor: pointer;
+}
+
+.zzc-exec-close:hover {
+  background: #f0f6f7;
+  color: #173b51;
+}
+
+.zzc-exec-layout {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 215px minmax(0, 1fr);
+}
+
+.zzc-exec-aside {
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+  padding: 24px 18px;
+  background: linear-gradient(155deg, #eefaf8, #e3f7f4 75%, #daf3ef);
+}
+
+.zzc-exec-illustration {
+  width: 92px;
+  height: 92px;
+  align-self: center;
+  margin: 4px 0 2px;
+  border-radius: 28px;
+  background: #d8f3ee;
+}
+
+.zzc-exec-aside h3 {
+  margin: 0;
+  color: #14666c;
+  font-size: .97rem;
+  line-height: 1.3;
+}
+
+.zzc-exec-aside > p {
+  margin: -5px 0 5px;
+  color: #6e8794;
+  font-size: .78rem;
+  line-height: 1.45;
+}
+
+.zzc-exec-benefit {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 5px;
+}
+
+.zzc-exec-benefit > svg {
+  width: 30px;
+  height: 30px;
+  padding: 7px;
+  border-radius: 50%;
+}
+
+.zzc-exec-benefit span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.zzc-exec-benefit strong {
+  color: #226875;
+  font-size: .7rem;
+}
+
+.zzc-exec-benefit small {
+  color: #79909c;
+  font-size: .64rem;
+}
+
+.zzc-exec-form {
+  min-width: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px 16px;
+}
+
+.zzc-exec-section {
+  overflow: hidden;
+  border: 1px solid #e1ebee;
+  border-radius: 9px;
+  background: #fff;
+}
+
+.zzc-exec-section > h3 {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0;
+  padding: 9px 12px;
+  background: #edf9f7;
+  color: #236575;
+  font-size: .78rem;
+  font-weight: 700;
+}
+
+.zzc-exec-section > h3 svg {
+  color: #078f88;
+}
+
+.zzc-exec-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 16px;
+  padding: 10px 12px 12px;
+}
+
+.zzc-exec-fields-single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.zzc-exec-field {
+  min-width: 0;
+}
+
+.zzc-exec-field > label {
+  display: block;
+  margin: 0 0 5px;
+  color: #29465a;
+  font-size: .68rem;
+  font-weight: 650;
+}
+
+.zzc-exec-required {
+  color: #e15e68;
+}
+
+.zzc-exec-input-shell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: 38px;
+  border: 1px solid #d9e5eb;
+  border-radius: 8px;
+  background: #fff;
+  color: #375776;
+}
+
+.zzc-exec-input-shell:focus-within {
+  border-color: #0a9a91;
+  box-shadow: 0 0 0 2px rgba(10, 154, 145, .12);
+}
+
+.zzc-exec-input-shell > svg {
+  position: absolute;
+  left: 10px;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.zzc-exec-input-control {
+  width: 100%;
+  min-width: 0;
+}
+
+.zzc-exec-input-control input,
+.zzc-exec-input-control select {
+  width: 100%;
+  height: 36px;
+  padding: 0 10px 0 34px;
+  border: 0;
+  border-radius: 8px;
+  outline: 0;
+  background: transparent;
+  color: #25455d;
+  font: inherit;
+  font-size: .73rem;
+  box-sizing: border-box;
+}
+
+.zzc-exec-input-control input::placeholder {
+  color: #91a3b7;
+}
+
+.zzc-exec-input-control input:focus,
+.zzc-exec-input-control select:focus {
+  outline: 0;
+}
+
+.zzc-exec-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 11px 16px;
+  border-top: 1px solid #e5edef;
+  background: #fbfcfd;
+}
+
+.zzc-exec-footer .zzc-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+@media (max-width: 680px) {
+  .zzc-exec-overlay {
+    padding: 6px;
+  }
+
+  .zzc-exec-modal {
+    max-height: 96vh;
+  }
+
+  .zzc-exec-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .zzc-exec-aside {
+    display: none;
+  }
+
+  .zzc-exec-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .bulk-tools-page {

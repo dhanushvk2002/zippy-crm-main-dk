@@ -1,9 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import {
   Camera,
+  Coffee,
   MapPin,
-  Clock,
-  ShieldCheck,
   CheckCircle2,
   RefreshCw,
   AlertTriangle,
@@ -17,8 +16,37 @@ import docMale3 from "../assets/doctor-male-3.jpg";
 import docFemale1 from "../assets/doctor-female.jpg";
 import docFemale2 from "../assets/doctor-female-2.jpg";
 import docFemale3 from "../assets/doctor-female-3.jpg";
-import { getDoctorGender } from "../genderHelper.js";
+import { getFreshExecutiveLocation } from "../geoUtils.js";
 import "./FacePunchModal.css";
+
+const MAX_SELFIE_DATA_URL_LENGTH = 48 * 1024;
+
+function createCompactSelfie(sourceCanvas) {
+  const outputCanvas = document.createElement("canvas");
+  const context = outputCanvas.getContext("2d");
+  if (!context) return sourceCanvas.toDataURL("image/jpeg", 0.5);
+
+  const initialScale = Math.min(1, 440 / Math.max(sourceCanvas.width, sourceCanvas.height));
+  let width = Math.max(1, Math.round(sourceCanvas.width * initialScale));
+  let height = Math.max(1, Math.round(sourceCanvas.height * initialScale));
+  let lastDataUrl = "";
+
+  while (width >= 120 && height >= 120) {
+    outputCanvas.width = width;
+    outputCanvas.height = height;
+    context.drawImage(sourceCanvas, 0, 0, width, height);
+
+    for (const quality of [0.82, 0.72, 0.62, 0.52, 0.42]) {
+      lastDataUrl = outputCanvas.toDataURL("image/jpeg", quality);
+      if (lastDataUrl.length <= MAX_SELFIE_DATA_URL_LENGTH) return lastDataUrl;
+    }
+
+    width = Math.round(width * 0.8);
+    height = Math.round(height * 0.8);
+  }
+
+  return lastDataUrl;
+}
 
 export default function FacePunchModal({
   isOpen,
@@ -149,249 +177,40 @@ export default function FacePunchModal({
     }
   }, [stream, cameraStatus]);
 
-  // Reverse-geocode GPS coordinates to precise locality, city, and state.
-  // Tries 2 APIs in order so the most specific Indian area name is always returned.
-  const reverseGeocodeCoords = async (lat, lng, fallbackRegion) => {
-    // ── 1. BigDataCloud — fast, free, CORS-safe ─────────────────────────────
-    try {
-      const ctrl = new AbortController();
-      const tid = setTimeout(() => ctrl.abort(), 5000);
-      const res = await fetch(
-        `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`,
-        { signal: ctrl.signal }
-      );
-      clearTimeout(tid);
-      if (res.ok) {
-        const data = await res.json();
-        // Walk localityInfo.informative from MOST-specific → LEAST-specific.
-        // Skip continent, country, region, postcode — stop at the first real place name.
-        const informative = data.localityInfo?.informative || [];
-        const skipDesc = new Set([
-          "continent", "country", "country region", "region",
-          "postcode", "postal code", "zip code", "zip",
-        ]);
-        let finestArea = "";
-        for (let i = informative.length - 1; i >= 0; i--) {
-          const info = informative[i];
-          const desc = (info.description || "").toLowerCase();
-          if (info.name && info.name.trim() && !skipDesc.has(desc)) {
-            finestArea = info.name.trim();
-            break;
-          }
-        }
-        const locality = finestArea || data.locality || data.localityInfo?.administrative?.[3]?.name || "";
-        const city = data.city || data.principalSubdivision || "";
-        const state = data.principalSubdivision || "";
-        const parts = [];
-        if (locality && locality !== city) parts.push(locality);
-        if (city && !parts.includes(city)) parts.push(city);
-        if (state && !parts.includes(state) && !parts.includes(city)) parts.push(state);
-        if (parts.length > 0) return parts.join(", ");
-      }
-    } catch (e) {
-      console.warn("BigDataCloud reverse geocode error:", e);
-    }
-
-    // ── 2. OpenStreetMap Nominatim — suburb/village-level detail ────────────
-    try {
-      const ctrl = new AbortController();
-      const tid = setTimeout(() => ctrl.abort(), 5000);
-      const res = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1&zoom=16`,
-        { signal: ctrl.signal, headers: { "User-Agent": "ZenveCRM/1.0", "Accept-Language": "en" } }
-      );
-      clearTimeout(tid);
-      if (res.ok) {
-        const data = await res.json();
-        const addr = data.address || {};
-        // Indian addresses — most specific fields first
-        const sublocality =
-          addr.hamlet ||
-          addr.village ||
-          addr.residential ||
-          addr.neighbourhood ||
-          addr.suburb ||
-          addr.quarter ||
-          addr.road ||
-          "";
-        const city =
-          addr.city ||
-          addr.town ||
-          addr.state_district ||
-          addr.county ||
-          addr.city_district ||
-          "";
-        const state = addr.state || "";
-        const parts = [];
-        if (sublocality) parts.push(sublocality);
-        if (city && city !== sublocality) parts.push(city);
-        if (state && !parts.includes(state)) parts.push(state);
-        if (parts.length > 0) return parts.join(", ");
-      }
-    } catch (e) {
-      console.warn("Nominatim reverse geocode error:", e);
-    }
-
-    return fallbackRegion || "Current Location";
-  };
-
-  // IP-based fallback location when GPS is denied or unavailable.
-  // Tries ipapi.is first (more accurate), then ipapi.co.
-  const fetchIpFallbackLocation = async (fallbackRegion) => {
-    // ── ipapi.is (city-level, free, no key needed) ─────────────────────────
-    try {
-      const ctrl = new AbortController();
-      setTimeout(() => ctrl.abort(), 5000);
-      const res = await fetch("https://ipapi.is/json/", { signal: ctrl.signal });
-      if (res.ok) {
-        const d = await res.json();
-        const geo = d.location || {};
-        if (geo.latitude && geo.longitude) {
-          const lat = parseFloat(parseFloat(geo.latitude).toFixed(5));
-          const lng = parseFloat(parseFloat(geo.longitude).toFixed(5));
-          // Try to reverse-geocode the IP coords for better area name
-          const resolved = await reverseGeocodeCoords(lat, lng, null);
-          const locality = resolved || [geo.city, geo.state, geo.country].filter(Boolean).join(", ") || fallbackRegion;
-          return { lat, lng, accuracy: 2000, locality, isAutoGenerated: true, isFallback: true };
-        }
-      }
-    } catch (e) {}
-
-    // ── ipapi.co ────────────────────────────────────────────────────────────
-    try {
-      const ctrl = new AbortController();
-      setTimeout(() => ctrl.abort(), 5000);
-      const res = await fetch("https://ipapi.co/json/", { signal: ctrl.signal });
-      if (res.ok) {
-        const d = await res.json();
-        if (d.latitude && d.longitude) {
-          const lat = parseFloat(parseFloat(d.latitude).toFixed(5));
-          const lng = parseFloat(parseFloat(d.longitude).toFixed(5));
-          const resolved = await reverseGeocodeCoords(lat, lng, null);
-          const locality = resolved || [d.city, d.region, d.country_name].filter(Boolean).join(", ") || fallbackRegion;
-          return { lat, lng, accuracy: 2000, locality, isAutoGenerated: true, isFallback: true };
-        }
-      }
-    } catch (e) {}
-
-    return null;
-  };
-
-  // Resolve area name from an Indian pincode using India Post API (free, official)
-  const resolveAreaFromPincode = async (pincode) => {
-    if (!pincode || String(pincode).replace(/\D/g, "").length !== 6) return null;
-    try {
-      const ctrl = new AbortController();
-      setTimeout(() => ctrl.abort(), 6000);
-      const res = await fetch(
-        `https://api.postalpincode.in/pincode/${String(pincode).replace(/\D/g, "")}`,
-        { signal: ctrl.signal }
-      );
-      if (res.ok) {
-        const json = await res.json();
-        if (Array.isArray(json) && json[0]?.Status === "Success") {
-          const posts = json[0].PostOffice || [];
-          if (posts.length > 0) {
-            const p = posts[0];
-            const parts = [];
-            if (p.Name && p.Name.trim() !== p.District) parts.push(p.Name.trim());
-            if (p.District) parts.push(p.District);
-            if (p.State) parts.push(p.State);
-            return parts.join(", ");
-          }
-        }
-      }
-    } catch (e) {}
-    return null;
-  };
-
-  // ── Fetch Location & Auto-Generate Real Place Name ───────────────────────
-  // Priority: Pincode (India Post) → GPS (BigDataCloud/Nominatim) → IP fallback
+  // Fresh GPS Geolocation and Reverse Geocoding
+  const locationRequestRef = useRef(0);
+  const [locationError, setLocationError] = useState(null);
+  // Fresh GPS Geolocation and Reverse Geocoding
   const fetchLocation = useCallback(async () => {
+    const requestId = ++locationRequestRef.current;
     setLocationStatus("detecting");
-    const fallbackRegion = executive.region || executive.city || "Current Location";
+    setLocationError(null);
 
-    // ── Step 1: Executive's assigned pincode (fastest, most accurate) ────────
-    const execPincode =
-      executive.pincode ||
-      (executive.coverage || []).find?.(
-        (c) => String(c.executive_id) === String(executive.id)
-      )?.pincode ||
-      null;
+    try {
+      const loc = await getFreshExecutiveLocation();
+      if (requestId !== locationRequestRef.current) return;
 
-    if (execPincode) {
-      // Show "Detecting..." immediately while we fetch
-      setLocationData({
-        lat: null, lng: null, accuracy: null,
-        locality: "Looking up area from pincode…",
-        isFallback: false, isAutoGenerated: true,
-      });
-
-      const pincodeLocality = await resolveAreaFromPincode(execPincode);
-      if (pincodeLocality) {
-        setLocationData({
-          lat: null, lng: null, accuracy: null,
-          locality: pincodeLocality,
-          isFallback: false, isAutoGenerated: true,
-          pincode: execPincode,
-        });
-        setLocationStatus("locked");
-        return; // ✅ Done — no GPS required
-      }
-    }
-
-    // ── Step 2: GPS → reverse geocode ────────────────────────────────────────
-    if (!navigator.geolocation) {
-      const ipLoc = await fetchIpFallbackLocation(fallbackRegion);
-      if (ipLoc) {
-        setLocationData(ipLoc);
-        setLocationStatus("locked");
+      if (!loc || loc.status === "error" || !loc.latitude) {
+        setLocationStatus("error");
+        setLocationError(loc?.error || "Unable to get an accurate location. Please enable GPS/location services and try again.");
+        setLocationData(null);
       } else {
-        setLocationData({ lat: null, lng: null, accuracy: null, locality: fallbackRegion, isFallback: true, isAutoGenerated: false });
-        setLocationStatus("fallback");
-      }
-      return;
-    }
-
-    // Show "Detecting…" placeholder while GPS resolves
-    setLocationData({
-      lat: null, lng: null, accuracy: null,
-      locality: "Detecting current address…",
-      isFallback: false, isAutoGenerated: true,
-    });
-
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const { latitude, longitude, accuracy } = pos.coords;
-        const latVal = parseFloat(latitude.toFixed(5));
-        const lngVal = parseFloat(longitude.toFixed(5));
-        const accVal = Math.round(accuracy);
-
-        // Resolve human-readable area name from GPS coordinates
-        const resolvedLocality = await reverseGeocodeCoords(latitude, longitude, fallbackRegion);
-
-        setLocationData({
-          lat: latVal, lng: lngVal, accuracy: accVal,
-          locality: resolvedLocality,
-          isFallback: false, isAutoGenerated: true,
-        });
-        setLocationStatus("locked");
-      },
-      async (err) => {
-        console.warn("GPS error, attempting IP fallback:", err);
-        const ipLoc = await fetchIpFallbackLocation(fallbackRegion);
-        if (ipLoc) {
-          setLocationData(ipLoc);
-          setLocationStatus("locked");
+        setLocationData(loc);
+        if (loc.accuracyWarning) {
+          setLocationStatus("warning");
+          setLocationError(loc.accuracyWarning);
         } else {
-          setLocationData({ lat: null, lng: null, accuracy: null, locality: fallbackRegion, isFallback: true, isAutoGenerated: false });
-          setLocationStatus("fallback");
+          setLocationStatus("locked");
+          setLocationError(null);
         }
-      },
-      { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
-    );
-  }, [executive.id, executive.pincode, executive.region, executive.city, executive.coverage]);
-
+      }
+    } catch (err) {
+      if (requestId !== locationRequestRef.current) return;
+      setLocationStatus("error");
+      setLocationError("Unable to get an accurate location. Please enable GPS/location services and try again.");
+      setLocationData(null);
+    }
+  }, []);
 
   // Initialize on open
   useEffect(() => {
@@ -421,7 +240,7 @@ export default function FacePunchModal({
     ctx.scale(-1, 1);
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    const dataUrl = canvas.toDataURL("image/jpeg", 0.92);
+    const dataUrl = createCompactSelfie(canvas);
     setCapturedImage(dataUrl);
     stopCameraStream();
   };
@@ -524,7 +343,7 @@ export default function FacePunchModal({
         388
       );
 
-      const dataUrl = canvas.toDataURL("image/jpeg", 0.92);
+      const dataUrl = createCompactSelfie(canvas);
       setCapturedImage(dataUrl);
       stopCameraStream();
     };
@@ -536,6 +355,11 @@ export default function FacePunchModal({
 
   // Submit Punch Record
   const handleConfirmSubmit = () => {
+    if (locationStatus === "detecting") {
+      alert("Still detecting your high-accuracy GPS location. Please wait a moment.");
+      return;
+    }
+
     const timeStr = currentTime.toLocaleTimeString("en-US", {
       hour: "2-digit",
       minute: "2-digit",
@@ -549,10 +373,15 @@ export default function FacePunchModal({
     const dateStr = `${y}-${m}-${d}`;
 
     const finalLocation = locationData || {
-      lat: 12.9172,
-      lng: 77.6229,
-      accuracy: 20,
-      locality: executive.region || "Silk Board, Karnataka",
+      latitude: null,
+      longitude: null,
+      lat: null,
+      lng: null,
+      accuracy: null,
+      accuracyText: "Unavailable",
+      locality: "Location Unavailable",
+      displayAddress: "Location Unavailable",
+      formattedAddress: "Location Unavailable",
     };
 
     stopCameraStream();
@@ -571,7 +400,8 @@ export default function FacePunchModal({
   if (!isOpen) return null;
 
   const isPunchIn = actionType === "in";
-  const titleText = isPunchIn ? "Face & Location Punch In" : "Face & Location Punch Out";
+  const punchLabel = isPunchIn ? "Punch In" : "Punch Out";
+  const titleText = punchLabel;
 
   return (
     <div
@@ -601,14 +431,10 @@ export default function FacePunchModal({
         {/* Modal Header */}
         <div className="face-modal-header">
           <div className="face-modal-icon-badge">
-            <ShieldCheck size={24} />
+            <Coffee size={18} />
           </div>
           <div className="face-modal-title-wrap">
             <h3>{titleText}</h3>
-            <p>
-              {executive.name || "Sales Executive"} (
-              {executive.employee_code || `SE-00${executive.id || 1}`}) · Biometric Verification
-            </p>
           </div>
         </div>
 
@@ -651,6 +477,15 @@ export default function FacePunchModal({
                   <CheckCircle2 size={16} />
                   <span>Face Photo Verified</span>
                 </div>
+                <button
+                  type="button"
+                  className="face-retake-overlay-btn"
+                  onClick={handleRetake}
+                  aria-label="Retake face photo"
+                  title="Retake face photo"
+                >
+                  <RefreshCw size={15} />
+                </button>
               </>
             ) : cameraStatus === "active" ? (
               // Live Video Stream & Biometric Oval HUD
@@ -711,125 +546,64 @@ export default function FacePunchModal({
             )}
           </div>
 
-          {/* Camera Capture Action Bar */}
-          <div className="face-capture-actions-row">
-            {capturedImage ? (
+          <div className="face-location-card">
+            <div className="face-loc-card-header">
+              <div className="face-loc-title-wrap">
+                <span className="face-location-icon"><MapPin size={18} /></span>
+                <span className="face-location-heading">Current Location</span>
+                {locationStatus === "detecting" ? (
+                  <span className="face-loc-badge detecting">Detecting GPS…</span>
+                ) : locationStatus === "locked" && locationData?.isAccurate ? (
+                  <span className="face-loc-badge verified">GPS Verified</span>
+                ) : locationStatus === "warning" ? (
+                  <span className="face-loc-badge warning">Low Accuracy</span>
+                ) : (
+                  <span className="face-loc-badge error">GPS Error</span>
+                )}
+              </div>
               <button
                 type="button"
-                className="face-retake-btn"
-                onClick={handleRetake}
+                className="face-loc-refresh-btn"
+                onClick={fetchLocation}
+                disabled={locationStatus === "detecting"}
+                title="Refresh GPS Location"
               >
-                <RefreshCw size={15} />
-                <span>Retake Photo</span>
+                <RefreshCw size={13} className={locationStatus === "detecting" ? "spin" : ""} />
+                <span>Retry</span>
               </button>
-            ) : cameraStatus === "active" ? (
-              <button
-                type="button"
-                className="face-snap-btn"
-                onClick={handleCapturePhoto}
-              >
-                <Camera size={18} />
-                <span>Snap Face Photo</span>
-              </button>
-            ) : cameraStatus === "loading" ? (
-              <button
-                type="button"
-                className="face-snap-btn"
-                style={{ opacity: 0.7, cursor: "wait" }}
-                disabled
-              >
-                <RefreshCw size={16} className="spin" />
-                <span>Starting Camera...</span>
-              </button>
-            ) : (
-              <div style={{ display: "flex", gap: "10px", width: "100%" }}>
-                <button
-                  type="button"
-                  className="face-snap-btn"
-                  onClick={handleSimulateSelfie}
-                  style={{ flex: 1.4 }}
-                >
-                  <Sparkles size={17} />
-                  <span>Auto-Verify Face</span>
-                </button>
-                <button
-                  type="button"
-                  className="face-retake-btn"
-                  onClick={startCamera}
-                  style={{ flex: 1 }}
-                >
-                  <RefreshCw size={15} />
-                  <span>Retry Camera</span>
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Location & Timing Telemetry Cards */}
-          <div className="face-telemetry-grid">
-          {/* Location Card — shows area & city name only */}
-            <div className="face-telemetry-card">
-              <div className="face-telemetry-icon location">
-                <MapPin size={18} />
-              </div>
-              <div style={{ minWidth: 0, flex: 1 }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "6px" }}>
-                  <div className="face-telemetry-label">Current Location</div>
-                  <button
-                    type="button"
-                    className="face-auto-location-btn"
-                    onClick={fetchLocation}
-                    title="Re-detect current location"
-                  >
-                    <RefreshCw size={10} className={locationStatus === "detecting" ? "spinning" : ""} />
-                    <span>Refresh</span>
-                  </button>
-                </div>
-                <div className="face-telemetry-val" style={{ fontSize: "0.95rem", marginTop: "4px" }}>
-                  {locationStatus === "detecting" && !locationData?.locality ? (
-                    <span style={{ color: "#0284c7" }}>Detecting location…</span>
-                  ) : (
-                    <span>
-                      📍 {locationData?.locality || executive.region || "Detecting…"}
-                    </span>
-                  )}
-                </div>
-              </div>
             </div>
 
-            {/* Exact Timestamp Card */}
-            <div className="face-telemetry-card">
-              <div className="face-telemetry-icon time">
-                <Clock size={18} />
+            <div className="face-location-copy">
+              <div className="face-location-address">
+                📍 {locationStatus === "detecting"
+                  ? "Acquiring high-accuracy GPS coordinates…"
+                  : (locationData?.displayAddress || locationData?.locality || "Location unavailable")}
               </div>
-              <div style={{ minWidth: 0, flex: 1 }}>
-                <div className="face-telemetry-label">Verified Time</div>
-                <div className="face-telemetry-val">
-                  {currentTime.toLocaleTimeString("en-US", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    second: "2-digit",
-                    hour12: true,
-                  })}
+
+              {locationError && (
+                <div className="face-loc-error-msg">
+                  <AlertTriangle size={13} style={{ flexShrink: 0, marginTop: 1 }} />
+                  <span>{locationError}</span>
                 </div>
-                <div className="face-telemetry-sub">
-                  📅{" "}
-                  {currentTime.toLocaleDateString("en-US", {
-                    weekday: "short",
-                    month: "short",
-                    day: "numeric",
-                    year: "numeric",
-                  })}
+              )}
+
+              {locationData?.latitude && (
+                <div className="face-loc-coords-row">
+                  <span className="coord-chip"><strong>Lat:</strong> {locationData.latitude.toFixed(6)}</span>
+                  <span className="coord-chip"><strong>Lng:</strong> {locationData.longitude.toFixed(6)}</span>
+                  <span className={`coord-chip accuracy ${locationData.accuracy && locationData.accuracy <= 50 ? "high-acc" : ""}`}>
+                    <strong>Accuracy:</strong> {locationData.accuracyText || `±${locationData.accuracy}m`}
+                  </span>
                 </div>
-              </div>
+              )}
             </div>
           </div>
 
-          {/* Bottom Confirmation Button */}
           <div className="face-modal-footer">
             <button
               type="button"
               className="face-confirm-submit-btn"
+              disabled={cameraStatus === "loading" && !capturedImage}
               onClick={() => {
                 if (capturedImage) {
                   handleConfirmSubmit();
@@ -840,25 +614,16 @@ export default function FacePunchModal({
                 }
               }}
             >
-              <CheckCircle2 size={18} />
+              {capturedImage ? <CheckCircle2 size={18} /> : <Camera size={18} />}
               <span>
                 {capturedImage
-                  ? `Confirm & ${isPunchIn ? "Punch In" : "Punch Out"}`
+                  ? `Confirm & ${punchLabel}`
                   : cameraStatus === "active"
-                  ? "Snap Face & Confirm"
-                  : "Verify Face & Proceed"}
+                  ? `Capture & ${punchLabel}`
+                  : cameraStatus === "loading"
+                  ? "Starting Camera…"
+                  : `Verify & ${punchLabel}`}
               </span>
-            </button>
-
-            <button
-              type="button"
-              className="face-cancel-btn"
-              onClick={() => {
-                stopCameraStream();
-                onClose();
-              }}
-            >
-              Cancel
             </button>
           </div>
         </div>

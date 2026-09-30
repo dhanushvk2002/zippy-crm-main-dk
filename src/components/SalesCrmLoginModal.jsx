@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-import { fetchList } from "../api.js";
+import { fetchList, loginSalesExecutive } from "../api.js";
+import { getFreshExecutiveLocation } from "../geoUtils.js";
 import logo from "../assets/zenve-zippy-logo.png";
 import {
   Briefcase,
@@ -188,6 +189,31 @@ export default function SalesCrmLoginModal({
 
     setLoading(true);
 
+    // Sales Executive: password is verified by the server (hashed in the DB).
+    if (currentRole === "executive") {
+      try {
+        const execUser = await loginSalesExecutive(cleanUser, cleanPass);
+        try {
+          const onlineKey = "zippy_crm_online_users";
+          const saved = localStorage.getItem(onlineKey);
+          const map = saved ? JSON.parse(saved) : {};
+          map[`executive_${execUser.id}`] = true;
+          localStorage.setItem(onlineKey, JSON.stringify(map));
+          localStorage.setItem(
+            "zippy_crm_active_auth",
+            JSON.stringify({ role: "executive", user: execUser, loggedInAt: Date.now() })
+          );
+          localStorage.setItem("zippy_crm_preferred_exec_id", String(execUser.id));
+        } catch (err) {}
+        setLoading(false);
+        if (onLoginSuccess) onLoginSuccess({ role: "executive", user: execUser });
+      } catch (err) {
+        setError(err.message || "Login failed. Please try again.");
+        setLoading(false);
+      }
+      return;
+    }
+
     try {
       const cleanUserLower = cleanUser.toLowerCase();
 
@@ -297,6 +323,19 @@ export default function SalesCrmLoginModal({
           region: "Tamil Nadu",
           city: "Chennai",
         };
+
+      // Request fresh high-accuracy device GPS position on login for executive
+      if (currentRole === "executive") {
+        try {
+          const freshLoc = await Promise.race([
+            getFreshExecutiveLocation(),
+            new Promise((res) => setTimeout(() => res(null), 3000)),
+          ]);
+          if (freshLoc && freshLoc.latitude) {
+            userToLogin.lastGpsLocation = freshLoc;
+          }
+        } catch (e) {}
+      }
 
       try {
         const onlineKey = "zippy_crm_online_users";

@@ -485,8 +485,9 @@ export const TABLE_CONFIG = {
       { key: "name", type: "text", required: true },
       { key: "code", type: "text", required: true },
       { key: "phone", type: "text" },
-      { key: "email", type: "text" },
+      { key: "email", type: "email" },
       { key: "password_display", type: "text", label: "Password", readOnly: true, tableOnly: true },
+      // Set the dashboard login password when creating an executive.
       { key: "password", type: "password", label: "Password", required: true, formOnly: true },
       { key: "region", type: "text" },
       { key: "city", type: "text" },
@@ -494,7 +495,6 @@ export const TABLE_CONFIG = {
       { key: "is_active", type: "yesno", default: "Yes" },
     ],
   },
-  // Manager records share the sales-team password form and table behavior.
   regional_managers: {
     path: "/regional-managers",
     fields: [
@@ -629,6 +629,16 @@ export async function updateRecord(tableKey, id, payload) {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
+  });
+  return handleResponse(res);
+}
+
+// Sales executive dashboard login - the password is verified on the server.
+export async function loginSalesExecutive(identifier, password) {
+  const res = await fetch(`${API_BASE}/sales-executives/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ identifier, password }),
   });
   return handleResponse(res);
 }

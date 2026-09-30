@@ -1,5 +1,5 @@
-﻿/* ==========================================================================
-   HealthcareAppointmentsView.css â€” Professional Outpatient & Surgery Scheduling
+/* ==========================================================================
+   HealthcareAppointmentsView.css — Professional Outpatient & Surgery Scheduling
    ========================================================================== */
 
 .hc-appts-view {
@@ -72,7 +72,7 @@
   flex-wrap: wrap;
 }
 
-/* â”€â”€ Appointment Cards Grid â”€â”€ */
+/* ── Appointment Cards Grid ── */
 .hc-appts-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
@@ -345,10 +345,48 @@
   gap: 10px;
 }
 
-/* â”€â”€ Dark Mode â”€â”€ */
+/* ── Dark Mode ── */
+[data-theme="dark"] .hc-appts-toolbar,
+.theme-dark .hc-appts-toolbar,
+[data-theme="dark"] .hc-appt-card,
+.theme-dark .hc-appt-card,
+[data-theme="dark"] .hc-appt-detail-modal,
+.theme-dark .hc-appt-detail-modal {
+  background: #131d31;
+  border-color: rgba(51, 65, 85, 0.7);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+}
 
+[data-theme="dark"] .hc-status-tabs,
+.theme-dark .hc-status-tabs,
+[data-theme="dark"] .hc-appt-modal-pet,
+.theme-dark .hc-appt-modal-pet,
+[data-theme="dark"] .hc-appt-modal-clinical,
+.theme-dark .hc-appt-modal-clinical {
+  background: #0b1120;
+  border-color: rgba(51, 65, 85, 0.7);
+}
 
+[data-theme="dark"] .hc-status-tab.active,
+.theme-dark .hc-status-tab.active {
+  background: #1e293b;
+  color: #38bdf8;
+}
 
+[data-theme="dark"] .hc-modal-header,
+[data-theme="dark"] .hc-appt-modal-top,
+[data-theme="dark"] .hc-modal-footer {
+  border-color: rgba(51, 65, 85, 0.7);
+}
 
+[data-theme="dark"] .hc-modal-doc-block h4,
+[data-theme="dark"] .hc-appt-modal-pet h5,
+[data-theme="dark"] .hc-appt-modal-clinical h5 {
+  color: #f8fafc;
+}
 
+[data-theme="dark"] .hc-appt-modal-pet p,
+[data-theme="dark"] .hc-appt-modal-clinical p {
+  color: #cbd5e1;
+}
 

@@ -1,5 +1,5 @@
-﻿/* ==========================================================================
-   HealthcareDashboard.css â€” Modern Clinical Healthcare Operations Dashboard
+/* ==========================================================================
+   HealthcareDashboard.css — Modern Clinical Healthcare Operations Dashboard
    ========================================================================== */
 
 .hc-dashboard-container {
@@ -9,7 +9,7 @@
   width: 100%;
 }
 
-/* â”€â”€ Welcome Greeting Card â”€â”€ */
+/* ── Welcome Greeting Card ── */
 .hc-welcome-card {
   background: #ffffff;
   border-radius: var(--hc-radius-lg, 16px);
@@ -75,7 +75,7 @@
   color: var(--hc-charcoal, #1e293b);
 }
 
-/* â”€â”€ KPI Cards Grid â”€â”€ */
+/* ── KPI Cards Grid ── */
 .hc-kpi-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -180,7 +180,7 @@
   color: var(--hc-muted-light, #94a3b8);
 }
 
-/* â”€â”€ Two Column Layout â”€â”€ */
+/* ── Two Column Layout ── */
 .hc-dash-layout {
   display: grid;
   grid-template-columns: 1fr;
@@ -257,7 +257,7 @@
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
-/* â”€â”€ Appointment Cards List â”€â”€ */
+/* ── Appointment Cards List ── */
 .hc-appointment-cards-list {
   display: flex;
   flex-direction: column;
@@ -384,7 +384,7 @@
   border-color: #cbd5e1;
 }
 
-/* â”€â”€ Quick Doctors List â”€â”€ */
+/* ── Quick Doctors List ── */
 .hc-quick-docs-list {
   display: flex;
   flex-direction: column;
@@ -443,7 +443,7 @@
   text-decoration: underline;
 }
 
-/* â”€â”€ Promo Box â”€â”€ */
+/* ── Promo Box ── */
 .hc-promo-box {
   background: linear-gradient(135deg, rgba(2, 132, 199, 0.08) 0%, rgba(3, 105, 161, 0.08) 100%);
   border-color: rgba(2, 132, 199, 0.25);
@@ -497,8 +497,39 @@
   transform: translateX(2px);
 }
 
-/* â”€â”€ Dark Mode â”€â”€ */
+/* ── Dark Mode ── */
+[data-theme="dark"] .hc-welcome-card,
+.theme-dark .hc-welcome-card,
+[data-theme="dark"] .hc-kpi-card,
+.theme-dark .hc-kpi-card,
+[data-theme="dark"] .hc-card,
+.theme-dark .hc-card {
+  background: #131d31;
+  border-color: rgba(51, 65, 85, 0.7);
+}
 
+[data-theme="dark"] .hc-welcome-title,
+[data-theme="dark"] .hc-kpi-val,
+[data-theme="dark"] .hc-card-title,
+[data-theme="dark"] .hc-apt-doc-name,
+[data-theme="dark"] .hc-quick-doc-name,
+[data-theme="dark"] .hc-promo-title {
+  color: #f8fafc;
+}
 
+[data-theme="dark"] .hc-date-pill,
+[data-theme="dark"] .hc-filter-tabs,
+[data-theme="dark"] .hc-appointment-item-card,
+[data-theme="dark"] .hc-quick-doc-row {
+  background: #0b1120;
+  border-color: rgba(51, 65, 85, 0.7);
+}
 
+[data-theme="dark"] .hc-apt-parent-text {
+  color: #cbd5e1;
+}
 
+[data-theme="dark"] .hc-filter-tab-btn.active {
+  background: #1e293b;
+  color: #38bdf8;
+}

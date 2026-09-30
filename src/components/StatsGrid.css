@@ -1,5 +1,5 @@
-﻿/* ==========================================================================
-   StatsGrid.css â€” Modern Enterprise KPI Card Grid for Admin CRM
+/* ==========================================================================
+   StatsGrid.css — Modern Enterprise KPI Card Grid for Admin CRM
    ========================================================================== */
 
 .admin-stats-container {
@@ -109,7 +109,24 @@
   text-overflow: ellipsis;
 }
 
-/* â”€â”€ Dark Mode â”€â”€ */
+/* ── Dark Mode ── */
+[data-theme="dark"] .admin-stat-card,
+.theme-dark .admin-stat-card {
+  background: #1e293b;
+  border-color: rgba(51, 65, 85, 0.7);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
 
+[data-theme="dark"] .admin-stat-card:hover {
+  background: #1e293b;
+  border-color: var(--stat-color, #2dd4bf);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+}
 
+[data-theme="dark"] .admin-stat-val {
+  color: #f8fafc;
+}
 
+[data-theme="dark"] .admin-stat-lbl {
+  color: #94a3b8;
+}

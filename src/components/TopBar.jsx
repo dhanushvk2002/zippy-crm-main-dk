@@ -14,7 +14,6 @@ export default function TopBar({
   onTabChange,
   onOpenSalesCRM,
 }) {
-
   // State to handle opening and closing the dropdown list panel
   const [salesMenuOpen, setSalesMenuOpen] = useState(false);
   const dropdownRef = useRef(null);
@@ -100,8 +99,6 @@ export default function TopBar({
           )}
         </div>
         
-
-
         <a href="#" className="zzc-btn-link">Console</a>
       </div>
     </header>

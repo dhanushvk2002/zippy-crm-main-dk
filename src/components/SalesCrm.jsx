@@ -266,7 +266,7 @@ function useSalesData() {
 ───────────────────────────────────────────────────────── */
 function ProfileModal({ tableKey, record, onClose, onSaved }) {
   const config = TABLE_CONFIG[tableKey];
-  const fields = config.fields;
+  const fields = config.fields.filter((f) => !f.formOnly); // password is set by admin only
   const [values, setValues] = useState(() => {
     const init = {};
     fields.forEach((f) => { init[f.key] = displayFieldValue(f, record); });
@@ -4400,14 +4400,6 @@ export default function SalesCrm({ role, initialUser, onSwitchRole, onExit }) {
     onSwitchRole(newRole);
   }
 
-  function handleRequestSwitchRole(targetRole) {
-    if (targetRole === role) return;
-    setLoginModal({
-      isOpen: true,
-      role: targetRole,
-    });
-  }
-
   function handleLoginModalSuccess({ role: targetRole, user }) {
     setLoginModal({ isOpen: false, role: targetRole });
     handleSelectSection(targetRole === ROLES.EXECUTIVE ? "attendance" : "dashboard");
@@ -4511,15 +4503,6 @@ export default function SalesCrm({ role, initialUser, onSwitchRole, onExit }) {
           </div>
 
           <div className="header-right">
-            <div className="role-switch">
-              <label>VIEW AS</label>
-              <select value={role} onChange={(e) => handleRequestSwitchRole(e.target.value)}>
-                <option value={ROLES.REGIONAL}>Regional Manager</option>
-                <option value={ROLES.MANAGER}>Sales Manager</option>
-                <option value={ROLES.EXECUTIVE}>Sales Executive</option>
-              </select>
-            </div>
-
             {role === ROLES.MANAGER && data.salesManagers.length > 0 && (
               <div className="role-switch">
                 <label>MANAGER</label>
@@ -4586,7 +4569,6 @@ export default function SalesCrm({ role, initialUser, onSwitchRole, onExit }) {
               <LogOut size={13} />
               <span>Log Out</span>
             </button>
-
 
           </div>
         </header>

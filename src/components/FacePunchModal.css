@@ -1,4 +1,4 @@
-﻿/* ==========================================================================
+/* ==========================================================================
    FacePunchModal.css â€” Biometric Face Scanning & GPS Geolocation Capture
    ========================================================================== */
 
@@ -23,9 +23,9 @@
 
 .face-punch-modal {
   width: 100%;
-  max-width: 520px;
+  max-width: 400px;
   background: #ffffff;
-  border-radius: 24px;
+  border-radius: 16px;
   border: 1px solid rgba(226, 232, 240, 0.9);
   box-shadow:
     0 25px 50px -12px rgba(15, 23, 42, 0.35),
@@ -75,9 +75,9 @@
 
 /* Header */
 .face-modal-header {
-  padding: 1.5rem 1.5rem 1rem;
+  padding: 16px 18px;
   border-bottom: 1px solid rgba(226, 232, 240, 0.8);
-  background: linear-gradient(180deg, rgba(16, 185, 129, 0.06) 0%, transparent 100%);
+  background: #ffffff;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -85,21 +85,21 @@
 
 
 .face-modal-icon-badge {
-  width: 44px;
-  height: 44px;
-  border-radius: 14px;
-  background: linear-gradient(135deg, #059669 0%, #10b981 100%);
-  color: #ffffff;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: #fff1e7;
+  color: #f97316;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  box-shadow: 0 6px 16px rgba(16, 185, 129, 0.35);
+  box-shadow: none;
 }
 
 .face-modal-title-wrap h3 {
   margin: 0;
-  font-size: 1.12rem;
+  font-size: 1rem;
   font-weight: 700;
   color: #0f172a;
   letter-spacing: -0.01em;
@@ -115,22 +115,23 @@
 
 /* Modal Body */
 .face-modal-body {
-  padding: 1.25rem 1.5rem 1.5rem;
+  padding: 14px 20px 20px;
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 14px;
 }
 
 /* Camera Scanner Container */
 .face-camera-container {
   position: relative;
-  width: 100%;
-  height: 250px;
+  width: min(100%, 196px);
+  height: 196px;
+  margin: 0 auto;
   background: #020617;
-  border-radius: 18px;
+  border-radius: 50%;
   overflow: hidden;
-  border: 2px solid rgba(16, 185, 129, 0.4);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25), inset 0 0 20px rgba(0, 0, 0, 0.5);
+  border: 3px solid #ffffff;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.16);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -161,8 +162,8 @@
 }
 
 .face-oval-guide {
-  width: 170px;
-  height: 200px;
+  width: 126px;
+  height: 144px;
   border: 2px dashed rgba(52, 211, 153, 0.85);
   border-radius: 50%;
   position: relative;
@@ -257,20 +258,40 @@
 /* Captured Verified Badge */
 .face-verified-badge {
   position: absolute;
-  top: 14px;
-  left: 14px;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
   background: rgba(16, 185, 129, 0.9);
   backdrop-filter: blur(6px);
   color: #ffffff;
-  padding: 5px 12px;
+  padding: 4px 8px;
   border-radius: 9999px;
-  font-size: 0.76rem;
+  font-size: 0.62rem;
   font-weight: 700;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
   animation: popIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.face-retake-overlay-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, .75);
+  border-radius: 50%;
+  background: rgba(15, 23, 42, .6);
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.face-retake-overlay-btn:hover {
+  background: rgba(15, 23, 42, .85);
 }
 
 @keyframes popIn {
@@ -286,7 +307,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 1.25rem 1.5rem;
+  padding: 16px;
   text-align: center;
   background: #090d16;
   color: #94a3b8;
@@ -323,9 +344,9 @@
 }
 
 .face-fallback-sub {
-  font-size: 0.76rem;
+  font-size: 0.62rem;
   margin-top: 4px;
-  max-width: 340px;
+  max-width: 155px;
   line-height: 1.4;
 }
 
@@ -333,18 +354,18 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  margin-top: 14px;
+  gap: 5px;
+  margin-top: 8px;
   flex-wrap: wrap;
 }
 
 .face-fallback-primary-btn {
-  padding: 8px 16px;
+  padding: 5px 8px;
   background: linear-gradient(135deg, #0369a1 0%, #10b981 100%);
   color: #ffffff;
   border: none;
-  border-radius: 10px;
-  font-size: 0.8rem;
+  border-radius: 8px;
+  font-size: 0.62rem;
   font-weight: 700;
   cursor: pointer;
   display: inline-flex;
@@ -432,29 +453,89 @@
 }
 
 
+/* Compact location status row */
+.face-location-card {
+  min-height: 68px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+.face-location-icon {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(16, 185, 129, .1);
+  color: #059669;
+}
+
+.face-location-copy {
+  min-width: 0;
+}
+
+.face-location-label {
+  color: #64748b;
+  font-size: .65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.face-location-value {
+  margin-top: 3px;
+  color: #1e293b;
+  font-size: .82rem;
+  font-weight: 650;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+[data-theme="dark"] .face-location-card {
+  border-color: #334155;
+  background: #1e293b;
+}
+
+[data-theme="dark"] .face-location-label {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .face-location-value {
+  color: #f1f5f9;
+}
+
 /* Location & Timing Telemetry Cards */
 .face-telemetry-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
 }
 
 .face-telemetry-card {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 14px;
-  padding: 10px 12px;
+  min-height: 158px;
+  box-sizing: border-box;
+  background: #ffffff;
+  border: 1px solid #dce6ef;
+  border-radius: 12px;
+  padding: 20px;
   display: flex;
-  align-items: flex-start;
-  gap: 10px;
+  align-items: center;
+  gap: 18px;
   transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
 }
 
 
 .face-telemetry-icon {
-  width: 32px;
-  height: 32px;
-  border-radius: 10px;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -462,20 +543,20 @@
 }
 
 .face-telemetry-icon.location {
-  background: rgba(14, 165, 233, 0.12);
-  color: #0284c7;
+  background: rgba(13, 148, 136, 0.12);
+  color: #0d9488;
 }
 
 .face-telemetry-icon.time {
-  background: rgba(16, 185, 129, 0.12);
-  color: #059669;
+  background: rgba(13, 148, 136, 0.12);
+  color: #0d9488;
 }
 
 
 
 .face-telemetry-label {
-  font-size: 0.68rem;
-  font-weight: 600;
+  font-size: 0.85rem;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: #64748b;
@@ -483,19 +564,39 @@
 
 
 .face-telemetry-val {
-  font-size: 0.82rem;
+  font-size: 1.55rem;
   font-weight: 700;
-  color: #0f172a;
-  margin-top: 1px;
+  color: #173b5b;
+  margin-top: 4px;
   line-height: 1.25;
 }
 
+.face-telemetry-location-value {
+  font-size: 1.28rem;
+}
+
+.face-telemetry-location-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.face-telemetry-location-line svg {
+  flex: 0 0 auto;
+  margin-top: 3px;
+}
+
+[data-theme="dark"] .face-telemetry-val {
+  color: #f1f5f9;
+}
 
 .face-telemetry-sub {
-  font-size: 0.7rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1rem;
   color: #64748b;
-  margin-top: 2px;
-  word-break: break-all;
+  margin-top: 8px;
 }
 
 
@@ -503,23 +604,23 @@
 .face-auto-location-btn {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
-  background: rgba(14, 165, 233, 0.1);
-  color: #0284c7;
-  border: 1px solid rgba(14, 165, 233, 0.3);
-  border-radius: 999px;
-  padding: 1px 6px;
-  font-size: 0.62rem;
+  gap: 6px;
+  background: #ffffff;
+  color: #0d9488;
+  border: 1px solid rgba(13, 148, 136, 0.4);
+  border-radius: 10px;
+  padding: 7px 12px;
+  font-size: 0.8rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s ease;
-  line-height: 1.2;
+  line-height: 1.25;
 }
 
 .face-auto-location-btn:hover {
-  background: #0284c7;
+  background: #0d9488;
   color: #ffffff;
-  border-color: #0284c7;
+  border-color: #0d9488;
 }
 
 
@@ -537,6 +638,86 @@
   }
 }
 
+
+@media (max-width: 680px) {
+  .face-punch-modal {
+    max-width: 400px;
+  }
+
+  .face-camera-container {
+    width: 176px;
+    height: 176px;
+  }
+
+  .face-oval-guide {
+    width: 112px;
+    height: 130px;
+  }
+
+  .face-modal-body {
+    padding: 12px 16px 16px;
+    gap: 12px;
+  }
+
+  .face-telemetry-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .face-telemetry-card {
+    min-height: 120px;
+    padding: 12px;
+    gap: 10px;
+    border-radius: 16px;
+  }
+
+  .face-telemetry-icon {
+    width: 42px;
+    height: 42px;
+  }
+
+  .face-telemetry-icon svg {
+    width: 24px;
+    height: 24px;
+  }
+
+  .face-telemetry-val {
+    font-size: 1.05rem;
+  }
+
+  .face-telemetry-location-value {
+    font-size: .95rem;
+  }
+
+  .face-telemetry-sub {
+    gap: 6px;
+    margin-top: 5px;
+    font-size: .75rem;
+  }
+
+  .face-auto-location-btn {
+    gap: 4px;
+    padding: 5px 8px;
+    font-size: .7rem;
+  }
+
+  .face-auto-location-btn svg {
+    width: 13px;
+    height: 13px;
+  }
+}
+
+@media (max-width: 440px) {
+  .face-telemetry-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .face-telemetry-card {
+    min-height: 92px;
+    gap: 12px;
+    border-radius: 10px;
+  }
+}
 .face-auto-loc-badge {
   display: inline-flex;
   align-items: center;
@@ -561,25 +742,26 @@
 
 .face-confirm-submit-btn {
   width: 100%;
+  min-height: 48px;
   padding: 12px;
-  background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+  background: #f97316;
   color: #ffffff;
   border: none;
-  border-radius: 14px;
-  font-size: 0.94rem;
+  border-radius: 10px;
+  font-size: 0.86rem;
   font-weight: 700;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.4);
-  transition: all 0.22s ease;
+  box-shadow: 0 4px 12px rgba(249, 115, 22, 0.24);
+  transition: background 0.18s ease, transform 0.18s ease;
 }
 
 .face-confirm-submit-btn:hover:not(:disabled) {
-  transform: translateY(-2px);
-  filter: brightness(1.05);
+  transform: translateY(-1px);
+  background: #ea580c;
 }
 
 .face-confirm-submit-btn:disabled {
@@ -874,6 +1056,161 @@
   font-size: 0.7rem;
   color: #059669;
   font-weight: 600;
+}
+
+/* ==========================================================================
+   Face Punch Modal - High-Accuracy Location Card Styles
+   ========================================================================== */
+.face-location-card {
+  margin: 14px 0 6px;
+  padding: 14px 16px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+}
+
+.face-loc-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.face-loc-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.face-location-icon {
+  color: #0284c7;
+  display: flex;
+  align-items: center;
+}
+
+.face-location-heading {
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #334155;
+}
+
+.face-loc-badge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.face-loc-badge.verified {
+  background: #dcfce7;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+}
+
+.face-loc-badge.detecting {
+  background: #e0f2fe;
+  color: #0369a1;
+  border: 1px solid #bae6fd;
+}
+
+.face-loc-badge.warning {
+  background: #fef3c7;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.face-loc-badge.error {
+  background: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+.face-loc-refresh-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.face-loc-refresh-btn:hover:not(:disabled) {
+  background: #f1f5f9;
+  color: #0284c7;
+  border-color: #0284c7;
+}
+
+.face-loc-refresh-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.face-loc-refresh-btn .spin {
+  animation: faceSpin 1s linear infinite;
+}
+
+@keyframes faceSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.face-location-address {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #0f172a;
+  line-height: 1.4;
+  margin-bottom: 8px;
+}
+
+.face-loc-error-msg {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 8px 10px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  color: #dc2626;
+  font-size: 0.78rem;
+  font-weight: 500;
+  line-height: 1.35;
+  margin-bottom: 8px;
+}
+
+.face-loc-coords-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.coord-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 0.74rem;
+  color: #475569;
+}
+
+.coord-chip.accuracy.high-acc {
+  background: #f0fdf4;
+  border-color: #86efac;
+  color: #166534;
 }
 
 

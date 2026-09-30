@@ -93,10 +93,9 @@ export default function App() {
   const [editingRecord, setEditingRecord] = useState(null);
   const [formValues, setFormValues] = useState({});
   const [saving, setSaving] = useState(false);
-
   const tableConfig = TABLE_CONFIG[currentKey];
   const columns = tableConfig.fields;
-  const tableColumns = columns.filter((field) => !field.formOnly);
+  const tableColumns = columns.filter((f) => !f.formOnly); // e.g. password is never shown in the table
   const searchConfig = SEARCH_CONFIG[currentKey];
 
   const loadRecords = useCallback(async () => {
@@ -152,6 +151,7 @@ export default function App() {
     columns.forEach((field) => {
       initial[field.key] = field.type === "bool" ? false : field.default ?? "";
     });
+    setError(null);
     setFormValues(initial);
     setEditingRecord(null);
     setModalMode("new");
@@ -162,6 +162,7 @@ export default function App() {
     columns.forEach((field) => {
       initial[field.key] = displayFieldValue(field, record);
     });
+    setError(null);
     setFormValues(initial);
     setEditingRecord(record);
     setModalMode("edit");
@@ -186,8 +187,8 @@ export default function App() {
       columns.forEach((field) => {
         if (field.readOnly) return;
         if (field.type === "password") {
-          const password = String(formValues[field.key] ?? "");
-          if (password) payload[field.key] = password;
+          const pw = String(formValues[field.key] ?? "");
+          if (pw) payload[field.key] = pw; // blank on edit = keep current password
           return;
         }
         payload[field.key] = coerceFieldValue(field, formValues[field.key]);
@@ -199,19 +200,10 @@ export default function App() {
         savedItem = await createRecord(currentKey, payload);
       }
 
-      if (currentKey === "sales_executives" && savedItem) {
-        const fullSaved = { ...payload, ...savedItem };
-        setActiveSalesUser(fullSaved);
+      if (currentKey === "sales_executives" && savedItem && !editingRecord) {
+        // Saving an executive must NOT sign anyone in - executives log in with
+        // their password. Only reset any stale demo attendance for the new record.
         try {
-          localStorage.setItem("zippy_crm_active_auth", JSON.stringify({
-            role: "executive",
-            user: fullSaved,
-            loggedInAt: Date.now(),
-          }));
-          localStorage.setItem("zippy_crm_preferred_exec_id", String(fullSaved.id));
-          localStorage.setItem("zippy_crm_latest_added_executive", JSON.stringify(fullSaved));
-
-          // Ensure any prior mock punch for this new executive is wiped clean so they start 100% unpunched
           const attendKey = "zenve_crm_attendance_records";
           const raw = localStorage.getItem(attendKey);
           if (raw) {
@@ -219,18 +211,14 @@ export default function App() {
             let changed = false;
             Object.keys(parsed).forEach((k) => {
               if (
-                k.startsWith(`${fullSaved.id}_`) ||
-                parsed[k]?.execId === fullSaved.id ||
-                String(parsed[k]?.execId) === String(fullSaved.id) ||
-                (parsed[k]?.execName && fullSaved.name && parsed[k]?.execName.toLowerCase() === fullSaved.name.toLowerCase())
+                k.startsWith(`${savedItem.id}_`) ||
+                String(parsed[k]?.execId) === String(savedItem.id)
               ) {
                 delete parsed[k];
                 changed = true;
               }
             });
-            if (changed) {
-              localStorage.setItem(attendKey, JSON.stringify(parsed));
-            }
+            if (changed) localStorage.setItem(attendKey, JSON.stringify(parsed));
           }
         } catch (e) {}
       }
@@ -352,6 +340,8 @@ export default function App() {
 
       <RecordModal
         mode={modalMode}
+        tableKey={currentKey}
+        saveError={error}
         columns={columns.filter((f) => !f.tableOnly).map((f) => ({ key: f.key, label: f.label || f.key, type: f.type, readOnly: f.readOnly, required: f.required, options: f.options, default: f.default }))}
         values={formValues}
         onChange={handleFieldChange}

@@ -1,7 +1,11 @@
 import os
 import shutil
 import hashlib
+import hmac
 import secrets
+import json
+import urllib.request
+import time as _time
 from typing import Optional
 from datetime import datetime, date, time, timezone, timedelta
 from zoneinfo import ZoneInfo
@@ -74,7 +78,9 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 os.makedirs("uploads", exist_ok=True)
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
-
+# ---------------------------------------------------------
+# PASSWORD HELPERS (PBKDF2-SHA256, stdlib only - no new pip install)
+# ---------------------------------------------------------
 PASSWORD_MIN_LENGTH = 6
 _PBKDF2_ITERATIONS = 200_000
 
@@ -84,6 +90,20 @@ def hash_password(password: str) -> str:
         "sha256", password.encode("utf-8"), bytes.fromhex(salt), _PBKDF2_ITERATIONS
     ).hex()
     return f"pbkdf2_sha256${_PBKDF2_ITERATIONS}${salt}${digest}"
+
+def verify_password(password: str, stored) -> bool:
+    if not stored:
+        return False
+    try:
+        algo, iterations, salt, digest = stored.split("$")
+        if algo != "pbkdf2_sha256":
+            return False
+        check = hashlib.pbkdf2_hmac(
+            "sha256", password.encode("utf-8"), bytes.fromhex(salt), int(iterations)
+        ).hex()
+        return hmac.compare_digest(check, digest)
+    except Exception:
+        return False
 
 def validate_new_password(password: Optional[str]) -> str:
     if not password or len(password) < PASSWORD_MIN_LENGTH:
@@ -116,7 +136,7 @@ def model_response(obj):
     data = {
         key: value
         for key, value in obj.__dict__.items()
-        if key not in ("_sa_instance_state", "password_hash", "password_value") and not isinstance(value, (bytes, bytearray))
+        if key not in ("_sa_instance_state", "password_hash") and not isinstance(value, (bytes, bytearray))
     }
     if getattr(obj, "__tablename__", None) in ("sales_executives", "regional_managers", "sales_managers"):
         password_value = getattr(obj, "password_value", None)
@@ -541,7 +561,7 @@ class SalesExecutive(Base):
     city = Column(String(150))
     monthly_target = Column(Float, default=0)
     is_active = Column(Boolean, default=True)
-    password_hash = Column(String(255), nullable=True)
+    password_hash = Column(String(255), nullable=True)  # used for executive dashboard login
     password_value = Column(Text, nullable=True)
 class PincodeCoverage(Base):
     __tablename__ = "pincode_coverages"
@@ -929,7 +949,10 @@ class SalesExecutiveCreate(BaseModel):
     city: Optional[str] = None
     monthly_target: Optional[float] = 0
     is_active: str = "Yes"
-    password: Optional[str] = None
+    password: Optional[str] = None  # required on create; blank on edit = keep current
+class ExecutiveLogin(BaseModel):
+    identifier: str
+    password: str
 class PincodeCoverageCreate(BaseModel):
     executive_id: int
     pincode: str
@@ -1090,9 +1113,13 @@ async def upload_doctor_document(
 @app.get("/documents/{document_id}/file")
 def get_document_file(document_id: int, db: Session = Depends(get_db)):
     doc = db.query(DoctorDocument).filter(DoctorDocument.id == document_id).first()
-    if not doc or not doc.file_data:
+    if doc is None:
         raise HTTPException(status_code=404, detail="Document file not found")
-    return Response(content=doc.file_data, media_type=doc.content_type or "application/octet-stream")
+    file_data = getattr(doc, "file_data", None)
+    if file_data is None:
+        raise HTTPException(status_code=404, detail="Document file not found")
+    content_type = getattr(doc, "content_type", None) or "application/octet-stream"
+    return Response(content=file_data, media_type=content_type)
 @app.post("/pet-parents")
 def create_pet_parent(
     data: PetParentCreate,
@@ -3581,8 +3608,19 @@ def delete_sales_manager(manager_id: int,db: Session = Depends(get_db)):
         "message": "Sales manager deleted successfully",
         "id": manager_id
     }
+def _ensure_unique_sales_executive_code(db: Session, code: str, exclude_id: Optional[int] = None):
+    query = db.query(SalesExecutive).filter(SalesExecutive.code == code)
+    if exclude_id is not None:
+        query = query.filter(SalesExecutive.id != exclude_id)
+    if query.first():
+        raise HTTPException(
+            status_code=409,
+            detail=f"Sales executive code '{code}' already exists. Please use a unique code.",
+        )
+
 @app.post("/sales-executives")
 def create_sales_executive(data: SalesExecutiveCreate,db: Session = Depends(get_db)):
+    _ensure_unique_sales_executive_code(db, data.code)
     password = validate_new_password(data.password)
     executive = SalesExecutive(
         password_hash=hash_password(password),
@@ -3617,9 +3655,10 @@ def update_sales_executive(executive_id: int,data: SalesExecutiveCreate,db: Sess
     executive = db.query(SalesExecutive).filter(SalesExecutive.id == executive_id).first()
     if not executive:
         raise HTTPException( status_code=404, detail="Sales executive not found")
+    _ensure_unique_sales_executive_code(db, data.code, exclude_id=executive_id)
     update_data = data.model_dump(exclude_unset=True)
     new_password = update_data.pop("password", None)
-    if new_password:
+    if new_password:  # blank/None means "keep the current password"
         validate_new_password(new_password)
         setattr(executive, "password_hash", hash_password(new_password))
         setattr(executive, "password_value", new_password)
@@ -3632,6 +3671,112 @@ def update_sales_executive(executive_id: int,data: SalesExecutiveCreate,db: Sess
     db.commit()
     db.refresh(executive)
     return model_response(executive)
+
+# Simple in-memory brute-force guard: 5 failed attempts / 5 minutes per identifier
+_LOGIN_FAILS = {}
+_LOGIN_MAX_FAILS = 5
+_LOGIN_WINDOW_SECONDS = 300
+
+@app.post("/sales-executives/login")
+def login_sales_executive(data: ExecutiveLogin, db: Session = Depends(get_db)):
+    ident = data.identifier.strip().lower()
+    if not ident or not data.password:
+        raise HTTPException(status_code=422, detail="Enter your username and password")
+
+    now = _time.time()
+    fails = [t for t in _LOGIN_FAILS.get(ident, []) if now - t < _LOGIN_WINDOW_SECONDS]
+    _LOGIN_FAILS[ident] = fails
+    if len(fails) >= _LOGIN_MAX_FAILS:
+        raise HTTPException(status_code=429, detail="Too many failed attempts. Try again in a few minutes.")
+
+    # Username can be name, employee code, email, email prefix, or phone.
+    # (Phones/names are not unique in the data, so check every candidate.)
+    candidates = [
+        e for e in db.query(SalesExecutive).all()
+        if ident in (
+            (e.name or "").strip().lower(),
+            (e.code or "").strip().lower(),
+            (e.email or "").strip().lower(),
+            (e.email or "").split("@")[0].strip().lower(),
+            str(e.phone or "").strip().lower(),
+        )
+    ]
+
+    if candidates and not any(c.password_hash for c in candidates):
+        raise HTTPException(
+            status_code=403,
+            detail="No password is set for this executive yet. Ask your admin to edit the executive and set one.",
+        )
+
+    for candidate in candidates:
+        if verify_password(data.password, candidate.password_hash):
+            if candidate.is_active is False:
+                raise HTTPException(status_code=403, detail="This executive account is inactive")
+            _LOGIN_FAILS.pop(ident, None)
+            return model_response(candidate)
+
+    _LOGIN_FAILS[ident].append(now)
+    raise HTTPException(status_code=401, detail="Incorrect username or password")
+
+@app.get("/reverse-geocode")
+def reverse_geocode_api(lat: float, lng: float):
+    # Try BigDataCloud
+    try:
+        url = f"https://api.bigdatacloud.net/data/reverse-geocode-client?latitude={lat}&longitude={lng}&localityLanguage=en"
+        req = urllib.request.Request(url, headers={"User-Agent": "ZenveCRM/1.0"})
+        with urllib.request.urlopen(req, timeout=5) as response:
+            if response.status == 200:
+                data = json.loads(response.read().decode())
+                area = data.get("locality") or ""
+                city = data.get("city") or ""
+                state = data.get("principalSubdivision") or ""
+                pincode = data.get("postcode") or ""
+                country = data.get("countryName") or "India"
+                return {
+                    "area": area,
+                    "city": city,
+                    "district": "",
+                    "state": state,
+                    "pincode": pincode,
+                    "country": country,
+                }
+    except Exception:
+        pass
+
+    # Try OpenStreetMap Nominatim
+    try:
+        url = f"https://nominatim.openstreetmap.org/reverse?lat={lat}&lon={lng}&format=jsonv2&zoom=18&addressdetails=1&accept-language=en"
+        req = urllib.request.Request(url, headers={"User-Agent": "ZenveCRM/1.0"})
+        with urllib.request.urlopen(req, timeout=5) as response:
+            if response.status == 200:
+                data = json.loads(response.read().decode())
+                addr = data.get("address", {})
+                area = addr.get("neighbourhood") or addr.get("suburb") or addr.get("locality") or addr.get("village") or addr.get("quarter") or addr.get("hamlet") or addr.get("residential") or addr.get("road") or ""
+                city = addr.get("city") or addr.get("town") or addr.get("municipality") or addr.get("city_district") or ""
+                district = addr.get("district") or addr.get("state_district") or addr.get("county") or ""
+                state = addr.get("state") or ""
+                pincode = addr.get("postcode") or ""
+                country = addr.get("country") or "India"
+                return {
+                    "area": area,
+                    "city": city,
+                    "district": district,
+                    "state": state,
+                    "pincode": pincode,
+                    "country": country,
+                }
+    except Exception:
+        pass
+
+    return {
+        "area": "",
+        "city": "",
+        "district": "",
+        "state": "",
+        "pincode": "",
+        "country": "",
+    }
+
 @app.delete("/sales-executives/{executive_id}")
 def delete_sales_executive(executive_id: int,db: Session = Depends(get_db)):
     executive = db.query(SalesExecutive).filter(SalesExecutive.id == executive_id).first()
@@ -3911,7 +4056,7 @@ def approve_monthly_plan(plan_id: int,approved_by: Optional[str] = "Manager",db:
         raise HTTPException(status_code=404, detail="Monthly plan not found")
     setattr(plan, "status", "Approved")
     setattr(plan, "approved_at", datetime.now(ZoneInfo("Asia/Kolkata")).replace(tzinfo=None))
-    setattr(plan, "approved_by", _normalize_approvers(plan.approved_by, approved_by))
+    setattr(plan, "approved_by", _normalize_approvers(getattr(plan, "approved_by", None), approved_by))
     setattr(plan, "rejection_reason", None)
     db.commit()
     db.refresh(plan)
@@ -4008,7 +4153,7 @@ def delete_plan_visit(visit_id: int, db: Session = Depends(get_db)):
 @app.post("/visit-reports")
 def create_visit_report(data: VisitReportCreate, db: Session = Depends(get_db)):
     report = VisitReport(**data.model_dump())
-    if data.status == "Submitted" and not report.submitted_at:
+    if data.status == "Submitted" and getattr(report, "submitted_at", None) is None:
         setattr(report, "submitted_at", datetime.now(ZoneInfo("Asia/Kolkata")).replace(tzinfo=None))
     db.add(report)
     try:
@@ -4050,7 +4195,7 @@ def update_visit_report(report_id: int, data: VisitReportUpdate, db: Session = D
     if not report:
         raise HTTPException(status_code=404, detail="Visit report not found")
     updates = data.model_dump(exclude_unset=True)
-    if updates.get("status") == "Submitted" and not report.submitted_at:
+    if updates.get("status") == "Submitted" and getattr(report, "submitted_at", None) is None:
         updates["submitted_at"] = datetime.now(ZoneInfo("Asia/Kolkata")).replace(tzinfo=None)
     for field, value in updates.items():
         setattr(report, field, value)
@@ -4084,10 +4229,11 @@ def get_plan_stats(executive_id: int,month_key: Optional[str] = None,db: Session
         return {"has_plan": False, "total_doctors": 0, "completed": 0, "pending": 0, "completion_pct": 0, "plan_status": None}
     visits = db.query(PlanVisit).filter(PlanVisit.plan_id == plan.id).all()
     total = len(visits)
-    completed = sum(1 for v in visits if v.status == "Completed")
+    completed = sum(1 for v in visits if getattr(v, "status", None) == "Completed")
     pending = total - completed
     pct = round((completed / total * 100)) if total > 0 else 0
-    total_docs = plan.total_doctors if (plan.total_doctors and plan.total_doctors > 0) else total
+    plan_total_doctors = getattr(plan, "total_doctors", None)
+    total_docs = plan_total_doctors if plan_total_doctors is not None and plan_total_doctors > 0 else total
     return {
         "has_plan": True,
         "plan_id": plan.id,
@@ -4334,20 +4480,23 @@ class Attendance(Base):
 
 Base.metadata.create_all(bind=engine)
 
-def _ensure_sales_team_password_columns():
+# create_all() never alters existing tables, so ensure password columns exist
+# for executives and managers on already-created databases.
+def _ensure_executive_password_column():
     from sqlalchemy import inspect as sa_inspect
-    for table_name in ("sales_executives", "regional_managers", "sales_managers"):
-        try:
-            columns = {column["name"] for column in sa_inspect(engine).get_columns(table_name)}
-            with engine.begin() as connection:
-                if "password_hash" not in columns:
-                    connection.execute(text(f"ALTER TABLE {table_name} ADD COLUMN password_hash VARCHAR(255) NULL"))
-                if "password_value" not in columns:
-                    connection.execute(text(f"ALTER TABLE {table_name} ADD COLUMN password_value TEXT NULL"))
-        except Exception as exc:
-            print(f"WARNING: could not ensure password columns for {table_name}: {exc}")
+    try:
+        inspector = sa_inspect(engine)
+        for table_name in ("sales_executives", "regional_managers", "sales_managers"):
+            cols = {c["name"] for c in inspector.get_columns(table_name)}
+            with engine.begin() as conn:
+                if "password_hash" not in cols:
+                    conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN password_hash VARCHAR(255) NULL"))
+                if "password_value" not in cols:
+                    conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN password_value TEXT NULL"))
+    except Exception as exc:
+        print("WARNING: could not add a manager password_hash column:", exc)
 
-_ensure_sales_team_password_columns()
+_ensure_executive_password_column()
 
 class AttendancePunchIn(BaseModel):
     executive_id: int
@@ -4534,8 +4683,8 @@ def attendance_punch_out(payload: AttendancePunchOut, db: Session = Depends(get_
             setattr(record, "logout_selfie_url", payload.logout_selfie_url)
         if payload.total_working_minutes is not None:
             setattr(record, "total_working_minutes", payload.total_working_minutes)
-        elif record.login_time:
-            diff = (logout_dt - record.login_time).total_seconds()
+        elif getattr(record, "login_time", None) is not None:
+            diff = (logout_dt - getattr(record, "login_time")).total_seconds()
             setattr(record, "total_working_minutes", max(0, int(diff / 60)))
         setattr(record, "status", payload.status or "Completed")
         setattr(record, "updated_at", now_ts)
@@ -4562,8 +4711,8 @@ def attendance_punch_out(payload: AttendancePunchOut, db: Session = Depends(get_
                 setattr(record, "logout_selfie_url", payload.logout_selfie_url)
             if payload.total_working_minutes is not None:
                 setattr(record, "total_working_minutes", payload.total_working_minutes)
-            elif record.login_time:
-                diff = (logout_dt - record.login_time).total_seconds()
+            elif getattr(record, "login_time", None) is not None:
+                diff = (logout_dt - getattr(record, "login_time")).total_seconds()
                 setattr(record, "total_working_minutes", max(0, int(diff / 60)))
             setattr(record, "status", payload.status or "Completed")
             setattr(record, "updated_at", now_ts)
@@ -4752,8 +4901,8 @@ def create_attendance_record(payload: AttendanceCreate, db: Session = Depends(ge
             setattr(rec, "logout_selfie_url", payload.logout_selfie_url)
         if payload.total_working_minutes is not None:
             setattr(rec, "total_working_minutes", payload.total_working_minutes)
-        elif rec.login_time and rec.logout_time:
-            diff = (rec.logout_time - rec.login_time).total_seconds()
+        elif getattr(rec, "login_time", None) is not None and getattr(rec, "logout_time", None) is not None:
+            diff = (getattr(rec, "logout_time") - getattr(rec, "login_time")).total_seconds()
             setattr(rec, "total_working_minutes", max(0, int(diff / 60)))
         if payload.status:
             setattr(rec, "status", payload.status)

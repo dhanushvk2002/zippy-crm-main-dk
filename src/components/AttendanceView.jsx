@@ -17,10 +17,12 @@ import {
   UserCheck,
   Utensils,
   Coffee,
+  RefreshCw,
 } from "lucide-react";
 import DoctorAvatar from "./DoctorAvatar.jsx";
 import ModernDatePicker from "./ModernDatePicker.jsx";
 import FacePunchModal from "./FacePunchModal.jsx";
+import { getFreshExecutiveLocation, reverseGeocodeCoordinates } from "../geoUtils.js";
 import defaultFacePhoto from "../assets/doctor-male.jpg";
 import {
   fetchList,
@@ -244,208 +246,47 @@ export default function AttendanceView({
     return () => clearInterval(timer);
   }, []);
 
-  // Shared helper: rich reverse-geocode to get specific area name.
-  // Uses BigDataCloud first (fast, free), falls back to OpenStreetMap Nominatim.
-  const resolveAreaFromCoords = async (latitude, longitude) => {
-    // ── 1. BigDataCloud — fast, free, CORS-safe ─────────────────────────────
+  // ── High-Accuracy Device GPS & Reverse Geocoded Location ──
+  const [currentLocation, setCurrentLocation] = useState(null);
+  const [locationDetecting, setLocationDetecting] = useState(true);
+  const [locationError, setLocationError] = useState(null);
+
+  // Fresh GPS Geolocation and Reverse Geocoding
+  const refreshLiveLocation = useCallback(async () => {
+    setLocationDetecting(true);
+    setLocationError(null);
     try {
-      const ctrl = new AbortController();
-      setTimeout(() => ctrl.abort(), 5000);
-      const res = await fetch(
-        `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`,
-        { signal: ctrl.signal }
-      );
-      if (res.ok) {
-        const data = await res.json();
-        // Walk localityInfo.informative from MOST-specific → LEAST-specific.
-        // Skip continent, country, region, postcode — stop at the first real place name.
-        let finestArea = "";
-        const informative = data.localityInfo?.informative || [];
-        const skipDesc = new Set([
-          "continent", "country", "country region", "region",
-          "postcode", "postal code", "zip code", "zip",
-        ]);
-        for (let i = informative.length - 1; i >= 0; i--) {
-          const info = informative[i];
-          const desc = (info.description || "").toLowerCase();
-          if (info.name && info.name.trim() && !skipDesc.has(desc)) {
-            finestArea = info.name.trim();
-            break;
-          }
-        }
-        const locality = finestArea || data.locality || data.localityInfo?.administrative?.[3]?.name || "";
-        const city = data.city || data.principalSubdivision || "";
-        const state = data.principalSubdivision || "";
-        const parts = [];
-        if (locality && locality !== city) parts.push(locality);
-        if (city && !parts.includes(city)) parts.push(city);
-        if (state && !parts.includes(state) && !parts.includes(city)) parts.push(state);
-        if (parts.length > 0) return parts.join(", ");
-      }
-    } catch (e) {}
-
-    // ── 2. Nominatim — suburb/village-level detail for India ────────────────
-    try {
-      const ctrl = new AbortController();
-      setTimeout(() => ctrl.abort(), 5000);
-      const res = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&addressdetails=1&zoom=16`,
-        { signal: ctrl.signal, headers: { "User-Agent": "ZenveCRM/1.0", "Accept-Language": "en" } }
-      );
-      if (res.ok) {
-        const data = await res.json();
-        const addr = data.address || {};
-        // Indian addresses — most specific fields first
-        const sublocality =
-          addr.hamlet ||
-          addr.village ||
-          addr.residential ||
-          addr.neighbourhood ||
-          addr.suburb ||
-          addr.quarter ||
-          addr.road ||
-          "";
-        const city =
-          addr.city ||
-          addr.town ||
-          addr.state_district ||
-          addr.county ||
-          addr.city_district ||
-          "";
-        const state = addr.state || "";
-        const parts = [];
-        if (sublocality) parts.push(sublocality);
-        if (city && city !== sublocality) parts.push(city);
-        if (state && !parts.includes(state)) parts.push(state);
-        if (parts.length > 0) return parts.join(", ");
-      }
-    } catch (e) {}
-
-    return "";
-  };
-
-  // ── Pincode-first location ──────────────────────────────────────────────────
-  // 1. Fetch the executive's pincode from PincodeCoverage table via backend
-  // 2. Resolve area name using India Post API (official, free, no key)
-  // 3. Fall back to GPS → BigDataCloud → Nominatim if no pincode assigned
-  const [liveLocality, setLiveLocality] = useState("");
-  const [liveLocalityDetecting, setLiveLocalityDetecting] = useState(true);
-
-  // Lookup area name from an Indian pincode using India Post API
-  const resolveAreaFromPincode = async (pincode) => {
-    if (!pincode || String(pincode).length !== 6) return null;
-    try {
-      const ctrl = new AbortController();
-      setTimeout(() => ctrl.abort(), 6000);
-      const res = await fetch(
-        `https://api.postalpincode.in/pincode/${pincode}`,
-        { signal: ctrl.signal }
-      );
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data) && data[0]?.Status === "Success") {
-          const posts = data[0].PostOffice || [];
-          if (posts.length > 0) {
-            const p = posts[0];
-            // Build: "Area Name, District, State"
-            const parts = [];
-            if (p.Name && p.Name !== p.District) parts.push(p.Name);
-            if (p.District) parts.push(p.District);
-            if (p.State) parts.push(p.State);
-            return parts.join(", ");
-          }
+      const loc = await getFreshExecutiveLocation();
+      if (!loc || loc.status === "error" || !loc.latitude) {
+        setLocationError(
+          loc?.error ||
+          "Unable to get an accurate location. Please enable GPS/location services and try again."
+        );
+        setCurrentLocation(null);
+      } else {
+        setCurrentLocation(loc);
+        if (loc.accuracyWarning) {
+          setLocationError(loc.accuracyWarning);
+        } else {
+          setLocationError(null);
         }
       }
-    } catch (e) {}
-    return null;
-  };
+    } catch {
+      setLocationError("Unable to get an accurate location. Please enable GPS/location services and try again.");
+      setCurrentLocation(null);
+    } finally {
+      setLocationDetecting(false);
+    }
+  }, []);
 
+  // Request fresh location on component mount or executive switch
   useEffect(() => {
-    // Clear any stale cached locality
-    try { localStorage.removeItem("zenve_crm_last_live_locality"); } catch (e) {}
+    refreshLiveLocation();
+  }, [refreshLiveLocation, activeExecutive?.id]);
 
-    let cancelled = false;
-
-    const runPincodeFirst = async () => {
-      setLiveLocalityDetecting(true);
-
-      // ── Step 1: Executive's pincode from PincodeCoverage ─────────────────
-      const execPincode =
-        activeExecutive?.pincode ||
-        (data?.coverage || []).find(
-          (c) => String(c.executive_id) === String(activeExecutive?.id)
-        )?.pincode ||
-        null;
-
-      if (execPincode) {
-        const pincodeArea = await resolveAreaFromPincode(execPincode);
-        if (pincodeArea && !cancelled) {
-          setLiveLocality(pincodeArea);
-          setLiveLocalityDetecting(false);
-          try { localStorage.setItem("zenve_crm_last_live_locality", pincodeArea); } catch (e) {}
-          return; // Done — no GPS needed
-        }
-      }
-
-      // ── Step 2: GPS → reverse geocode ────────────────────────────────────
-      if (!navigator.geolocation) {
-        // No GPS support — try IP fallback
-        try {
-          const ctrl = new AbortController();
-          setTimeout(() => ctrl.abort(), 5000);
-          const res = await fetch("https://ipapi.is/json/", { signal: ctrl.signal });
-          if (res.ok) {
-            const d = await res.json();
-            const geo = d.location || {};
-            if (geo.latitude && geo.longitude) {
-              const loc = await resolveAreaFromCoords(
-                parseFloat(geo.latitude), parseFloat(geo.longitude)
-              );
-              if (loc && !cancelled) setLiveLocality(loc);
-            }
-          }
-        } catch (e) {}
-        if (!cancelled) setLiveLocalityDetecting(false);
-        return;
-      }
-
-      navigator.geolocation.getCurrentPosition(
-        async (pos) => {
-          if (cancelled) return;
-          const { latitude, longitude } = pos.coords;
-          const loc = await resolveAreaFromCoords(latitude, longitude);
-          if (!cancelled) {
-            setLiveLocality(loc || activeExecutive?.region || activeExecutive?.city || "");
-            setLiveLocalityDetecting(false);
-            if (loc) try { localStorage.setItem("zenve_crm_last_live_locality", loc); } catch (e) {}
-          }
-        },
-        async () => {
-          // GPS denied — IP fallback
-          try {
-            const ctrl = new AbortController();
-            setTimeout(() => ctrl.abort(), 5000);
-            const res = await fetch("https://ipapi.is/json/", { signal: ctrl.signal });
-            if (res.ok) {
-              const d = await res.json();
-              const geo = d.location || {};
-              if (geo.latitude && geo.longitude) {
-                const loc = await resolveAreaFromCoords(
-                  parseFloat(geo.latitude), parseFloat(geo.longitude)
-                );
-                if (loc && !cancelled) setLiveLocality(loc);
-              }
-            }
-          } catch (e) {}
-          if (!cancelled) setLiveLocalityDetecting(false);
-        },
-        { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
-      );
-    };
-
-    runPincodeFirst();
-    return () => { cancelled = true; };
-  }, [activeExecutive?.id, activeExecutive?.pincode]);
+  // Backward compatibility alias for any remaining sub-render references
+  const liveLocality = currentLocation?.displayAddress || "";
+  const liveLocalityDetecting = locationDetecting;
 
   const todayIso = getTodayIso();
 
@@ -583,6 +424,11 @@ export default function AttendanceView({
 
   // Success alert toast state
   const [toastMessage, setToastMessage] = useState("");
+  const [toastType, setToastType] = useState("success");
+  function showToast(message, type = "success") {
+    setToastType(type);
+    setToastMessage(message);
+  }
   useEffect(() => {
     if (!toastMessage) return;
     const t = setTimeout(() => setToastMessage(""), 4000);
@@ -636,20 +482,24 @@ export default function AttendanceView({
     setPunchModalOpen(true);
   };
 
-  // Helper: get current GPS position and resolve detailed area name
-  const fetchCurrentLocation = () =>
-    new Promise((resolve) => {
-      if (!navigator.geolocation) return resolve({ latitude: null, longitude: null, area: "" });
-      navigator.geolocation.getCurrentPosition(
-        async (pos) => {
-          const { latitude, longitude } = pos.coords;
-          const area = await resolveAreaFromCoords(latitude, longitude);
-          resolve({ latitude, longitude, area });
-        },
-        () => resolve({ latitude: null, longitude: null, area: "" }),
-        { enableHighAccuracy: true, timeout: 8000 }
-      );
-    });
+  // Helper: get fresh high-accuracy device GPS position and reverse-geocoded address
+  const fetchCurrentLocation = async () => {
+    try {
+      const loc = await getFreshExecutiveLocation();
+      if (loc && loc.latitude) {
+        return {
+          latitude: loc.latitude,
+          longitude: loc.longitude,
+          area: loc.displayAddress || loc.formattedAddress || "",
+          locality: loc.displayAddress || loc.formattedAddress || "",
+          locationObj: loc,
+        };
+      }
+    } catch (e) {
+      console.warn("fetchCurrentLocation error:", e);
+    }
+    return { latitude: null, longitude: null, area: "", locality: "" };
+  };
 
   // Action: Record Lunch Out (auto-fetches GPS location)
   const handleLunchOut = async () => {
@@ -658,7 +508,7 @@ export default function AttendanceView({
     const timeStr = formatTime(now);
     const isoNow = getLocalIsoString();
 
-    setToastMessage("📍 Fetching your location for Lunch Out…");
+    showToast("📍 Fetching your location for Lunch Out…");
     const { latitude, longitude, area } = await fetchCurrentLocation();
 
     const updated = {
@@ -680,7 +530,7 @@ export default function AttendanceView({
     } catch (e) {
       console.error(e);
     }
-    setToastMessage(`🍴 Lunch Out recorded at ${timeStr}${area ? ` · 📍 ${area}` : ""}!`);
+    showToast(`🍴 Lunch Out recorded at ${timeStr}${area ? ` · 📍 ${area}` : ""}!`);
 
     try {
       await punchLunchAttendance({
@@ -704,7 +554,7 @@ export default function AttendanceView({
     const timeStr = formatTime(now);
     const isoNow = getLocalIsoString();
 
-    setToastMessage("📍 Fetching your location for Lunch In…");
+    showToast("📍 Fetching your location for Lunch In…");
     const { latitude, longitude, area } = await fetchCurrentLocation();
 
     const updated = {
@@ -721,7 +571,7 @@ export default function AttendanceView({
     } catch (e) {
       console.error(e);
     }
-    setToastMessage(`🍱 Lunch In recorded at ${timeStr}${area ? ` · 📍 ${area}` : ""}!`);
+    showToast(`🍱 Lunch In recorded at ${timeStr}${area ? ` · 📍 ${area}` : ""}!`);
 
     try {
       await punchLunchAttendance({
@@ -771,9 +621,7 @@ export default function AttendanceView({
       } catch (e) {
         console.error(e);
       }
-      setToastMessage(
-        `🟢 Punched In successfully at ${punchTime}! Face verified & saved to database.`
-      );
+      showToast("Punch in recorded on this device. Syncing with server…");
 
       // Save to MySQL backend
       try {
@@ -803,8 +651,10 @@ export default function AttendanceView({
             return next;
           });
         }
+        showToast(`🟢 Punched In successfully at ${punchTime}! Face verified and saved to database.`);
       } catch (err) {
         console.error("Backend punchInAttendance error:", err);
+        showToast(`Punch in saved on this device, but database sync failed: ${err.message || "Unknown error"}`, "error");
       }
     } else {
       // Punch Out
@@ -840,9 +690,7 @@ export default function AttendanceView({
       } catch (e) {
         console.error(e);
       }
-      setToastMessage(
-        `🔴 Punched Out successfully at ${punchTime} (Total: ${finalDuration}). Face verified & saved to database!`
-      );
+      showToast("Punch out recorded on this device. Syncing with server…");
 
       // Save to MySQL backend
       try {
@@ -873,8 +721,10 @@ export default function AttendanceView({
             return next;
           });
         }
+        showToast(`🔴 Punched Out successfully at ${punchTime} (Total: ${finalDuration}). Face verified and saved to database.`);
       } catch (err) {
         console.error("Backend punchOutAttendance error:", err);
+        showToast(`Punch out saved on this device, but database sync failed: ${err.message || "Unknown error"}`, "error");
       }
     }
   };
@@ -995,7 +845,7 @@ export default function AttendanceView({
     <div className="attend-wrapper">
       {/* Toast Alert */}
       {toastMessage && (
-        <div className="attend-toast" role="alert">
+        <div className={`attend-toast ${toastType === "error" ? "error" : ""}`} role="alert">
           <span>{toastMessage}</span>
           <button type="button" onClick={() => setToastMessage("")}>✕</button>
         </div>
@@ -1047,14 +897,107 @@ export default function AttendanceView({
           )}
 
           <div className="attend-header-geo-chip" title="Live Auto-Generated GPS Location">
-            <span className={`attend-geo-dot${liveLocalityDetecting ? " detecting" : ""}`}></span>
+            <span className={`attend-geo-dot${locationDetecting ? " detecting" : ""}`}></span>
             <span>
-              {liveLocalityDetecting
-                ? "📡 Detecting location…"
-                : liveLocality
-                ? `📍 ${liveLocality}`
+              {locationDetecting
+                ? "📡 Detecting GPS location…"
+                : currentLocation?.displayAddress
+                ? `📍 ${currentLocation.displayAddress}`
                 : "GPS Live Synced"}
             </span>
+          </div>
+        </div>
+      </div>
+
+      {/* ── High-Accuracy Live Current Location Panel ── */}
+      <div className="attend-location-panel">
+        <div className="attend-loc-panel-top">
+          <div className="attend-loc-title-group">
+            <span className="attend-loc-pin-icon">
+              <MapPin size={18} />
+            </span>
+            <div className="attend-loc-title-text">
+              <h3>Current Location</h3>
+              <p>Device GPS & Verified Territory Address</p>
+            </div>
+            {locationDetecting ? (
+              <span className="attend-loc-pill detecting">
+                <span className="attend-loc-dot detecting"></span> Detecting GPS…
+              </span>
+            ) : currentLocation?.isAccurate ? (
+              <span className="attend-loc-pill verified">
+                <span className="attend-loc-dot verified"></span> GPS Verified
+              </span>
+            ) : locationError ? (
+              <span className="attend-loc-pill warning">
+                <span className="attend-loc-dot warning"></span> Check GPS
+              </span>
+            ) : (
+              <span className="attend-loc-pill verified">
+                <span className="attend-loc-dot verified"></span> Active
+              </span>
+            )}
+          </div>
+
+          <button
+            type="button"
+            className="attend-loc-refresh-btn"
+            onClick={refreshLiveLocation}
+            disabled={locationDetecting}
+            title="Refresh GPS Location"
+          >
+            <RefreshCw size={13} className={locationDetecting ? "spin" : ""} />
+            <span>{locationDetecting ? "Detecting…" : "Refresh Location"}</span>
+          </button>
+        </div>
+
+        {locationError && (
+          <div className="attend-loc-error-banner">
+            <AlertCircle size={15} style={{ flexShrink: 0, marginTop: 1 }} />
+            <div className="attend-loc-error-copy">
+              <span>{locationError}</span>
+            </div>
+            <button type="button" onClick={refreshLiveLocation} className="attend-loc-retry-btn">
+              Retry GPS
+            </button>
+          </div>
+        )}
+
+        <div className="attend-loc-grid">
+          <div className="attend-loc-address-col">
+            <div className="attend-loc-address-text">
+              📍 {locationDetecting
+                ? "Acquiring high-accuracy GPS coordinates…"
+                : (currentLocation?.displayAddress || "Location Unavailable")}
+            </div>
+            {currentLocation?.district && (
+              <div className="attend-loc-sub-meta">
+                District: <strong>{currentLocation.district}</strong>
+                {currentLocation.state ? `, State: ${currentLocation.state}` : ""}
+                {currentLocation.country ? `, ${currentLocation.country}` : ""}
+              </div>
+            )}
+          </div>
+
+          <div className="attend-loc-coords-col">
+            <div className="attend-coord-badge">
+              <span className="coord-label">Latitude:</span>
+              <span className="coord-value">
+                {currentLocation?.latitude ? currentLocation.latitude.toFixed(6) : "—"}
+              </span>
+            </div>
+            <div className="attend-coord-badge">
+              <span className="coord-label">Longitude:</span>
+              <span className="coord-value">
+                {currentLocation?.longitude ? currentLocation.longitude.toFixed(6) : "—"}
+              </span>
+            </div>
+            <div className={`attend-coord-badge ${currentLocation?.accuracy && currentLocation.accuracy <= 50 ? "high-acc" : ""}`}>
+              <span className="coord-label">Accuracy:</span>
+              <span className="coord-value">
+                {currentLocation?.accuracyText ? currentLocation.accuracyText : "—"}
+              </span>
+            </div>
           </div>
         </div>
       </div>

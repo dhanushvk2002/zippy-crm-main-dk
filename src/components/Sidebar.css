@@ -1,6 +1,6 @@
-﻿/* ==========================================================================
-   Sidebar.css â€” Healthcare CRM Professional Sidebar
-   Clean, Healthcare-focused, Collapsible, 10â€“12px container radius
+/* ==========================================================================
+   Sidebar.css — Healthcare CRM Professional Sidebar
+   Clean, Healthcare-focused, Collapsible, 10–12px container radius
    ========================================================================== */
 
 .hc-sidebar {
@@ -21,7 +21,7 @@
   width: 5.25rem;
 }
 
-/* â”€â”€ Header â”€â”€ */
+/* ── Header ── */
 .hc-sidebar-header {
   height: 70px;
   padding: 0 1.15rem;
@@ -121,7 +121,7 @@
   color: #0f172a;
 }
 
-/* â”€â”€ Nav Scroll Area â”€â”€ */
+/* ── Nav Scroll Area ── */
 .hc-sidebar-nav {
   flex: 1;
   overflow-y: auto;
@@ -139,7 +139,7 @@
   border-radius: 9999px;
 }
 
-/* â”€â”€ Navigation Groups â”€â”€ */
+/* ── Navigation Groups ── */
 .hc-nav-group {
   margin-bottom: 0.9rem;
 }
@@ -186,7 +186,7 @@
   margin-top: 3px;
 }
 
-/* â”€â”€ Nav Items â”€â”€ */
+/* ── Nav Items ── */
 .hc-nav-item {
   position: relative;
   width: 100%;
@@ -227,7 +227,7 @@
   text-overflow: ellipsis;
 }
 
-/* Active navigation item: Soft blue background, Blue icon, Blue text, Rounded 10â€“12px container */
+/* Active navigation item: Soft blue background, Blue icon, Blue text, Rounded 10–12px container */
 .hc-nav-item.active {
   background: #e0f2fe;
   color: #0284c7;
@@ -256,7 +256,7 @@
   margin: 0 auto;
 }
 
-/* â”€â”€ Footer â”€â”€ */
+/* ── Footer ── */
 .hc-sidebar-footer {
   padding: 0.85rem 0.75rem;
   border-top: 1px solid rgba(226, 232, 240, 0.85);
@@ -329,12 +329,57 @@
   font-weight: 500;
 }
 
-/* â”€â”€ Dark Mode â”€â”€ */
+/* ── Dark Mode ── */
+[data-theme="dark"] .hc-sidebar,
+.theme-dark .hc-sidebar {
+  background: #0f172a;
+  border-color: rgba(51, 65, 85, 0.7);
+}
 
+[data-theme="dark"] .hc-sidebar-header,
+.theme-dark .hc-sidebar-header,
+[data-theme="dark"] .hc-sidebar-footer,
+.theme-dark .hc-sidebar-footer {
+  background: #0f172a;
+  border-color: rgba(51, 65, 85, 0.7);
+}
 
+[data-theme="dark"] .hc-brand-title,
+.theme-dark .hc-brand-title {
+  color: #f8fafc;
+}
 
+[data-theme="dark"] .hc-nav-item,
+.theme-dark .hc-nav-item {
+  color: #94a3b8;
+}
 
+[data-theme="dark"] .hc-nav-item:hover,
+.theme-dark .hc-nav-item:hover {
+  background: rgba(51, 65, 85, 0.5);
+  color: #f8fafc;
+}
 
+[data-theme="dark"] .hc-nav-item.active,
+.theme-dark .hc-nav-item.active {
+  background: rgba(2, 132, 199, 0.2);
+  color: #38bdf8;
+}
 
+[data-theme="dark"] .hc-nav-item.active .hc-nav-item-icon,
+.theme-dark .hc-nav-item.active .hc-nav-item-icon {
+  color: #38bdf8;
+}
 
+[data-theme="dark"] .hc-user-card,
+.theme-dark .hc-user-card,
+[data-theme="dark"] .hc-switch-sales-btn,
+.theme-dark .hc-switch-sales-btn {
+  background: #1e293b;
+  border-color: rgba(51, 65, 85, 0.8);
+}
 
+[data-theme="dark"] .hc-user-name,
+.theme-dark .hc-user-name {
+  color: #f8fafc;
+}

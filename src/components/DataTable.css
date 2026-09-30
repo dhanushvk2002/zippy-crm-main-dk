@@ -1,5 +1,5 @@
-﻿/* ==========================================================================
-   DataTable.css â€” Modern Enterprise Data Table for Admin CRM
+/* ==========================================================================
+   DataTable.css — Modern Enterprise Data Table for Admin CRM
    ========================================================================== */
 
 .admin-table-container {
@@ -62,7 +62,7 @@
   white-space: nowrap;
 }
 
-/* â”€â”€ Name Cell â”€â”€ */
+/* ── Name Cell ── */
 .admin-cell-name-wrap {
   display: flex;
   align-items: center;
@@ -74,7 +74,7 @@
   color: #0f172a;
 }
 
-/* â”€â”€ Cell Types â”€â”€ */
+/* ── Cell Types ── */
 .admin-cell-empty {
   color: #cbd5e1;
 }
@@ -95,7 +95,7 @@
   font-size: 0.82rem;
 }
 
-/* â”€â”€ Status Pill â”€â”€ */
+/* ── Status Pill ── */
 .admin-table-pill {
   display: inline-flex;
   align-items: center;
@@ -143,7 +143,7 @@
   background: #94a3b8;
 }
 
-/* â”€â”€ Action Buttons â”€â”€ */
+/* ── Action Buttons ── */
 .admin-td-actions {
   text-align: right;
   padding-right: 20px;
@@ -192,7 +192,7 @@
   border-color: #dc2626;
 }
 
-/* â”€â”€ Empty State â”€â”€ */
+/* ── Empty State ── */
 .admin-empty-state {
   padding: 3rem 1.5rem;
   text-align: center;
@@ -225,7 +225,7 @@
   color: #64748b;
 }
 
-/* â”€â”€ Pagination Footer â”€â”€ */
+/* ── Pagination Footer ── */
 .admin-pagination-footer {
   display: flex;
   align-items: center;
@@ -292,20 +292,86 @@
   font-weight: 700;
 }
 
-/* â”€â”€ Dark Mode â”€â”€ */
+/* ── Dark Mode ── */
+[data-theme="dark"] .admin-table-card,
+.theme-dark .admin-table-card {
+  background: #1e293b;
+  border-color: rgba(51, 65, 85, 0.7);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.25);
+}
 
+[data-theme="dark"] .admin-data-table thead {
+  background: #0f172a;
+  border-bottom-color: #334155;
+}
 
+[data-theme="dark"] .admin-data-table th {
+  color: #94a3b8;
+}
 
+[data-theme="dark"] .admin-table-row {
+  border-bottom-color: #334155;
+}
 
+[data-theme="dark"] .admin-table-row:hover {
+  background: rgba(15, 23, 42, 0.5);
+}
 
+[data-theme="dark"] .admin-data-table td {
+  color: #cbd5e1;
+}
 
+[data-theme="dark"] .admin-cell-name-text {
+  color: #f8fafc;
+}
 
+[data-theme="dark"] .admin-cell-date,
+[data-theme="dark"] .admin-cell-email,
+[data-theme="dark"] .admin-cell-phone,
+[data-theme="dark"] .admin-cell-location {
+  color: #94a3b8;
+}
 
+[data-theme="dark"] .admin-pagination-footer {
+  background: #1e293b;
+  border-top-color: #334155;
+}
 
+[data-theme="dark"] .admin-page-count {
+  color: #94a3b8;
+}
 
+[data-theme="dark"] .admin-page-count strong {
+  color: #f8fafc;
+}
 
+[data-theme="dark"] .admin-page-nav-btn {
+  background: #0f172a;
+  border-color: #334155;
+  color: #cbd5e1;
+}
 
+[data-theme="dark"] .admin-page-nav-btn:hover:not(:disabled) {
+  background: #334155;
+  color: #ffffff;
+}
 
+[data-theme="dark"] .admin-action-btn.edit {
+  background: #0f172a;
+  border-color: #2dd4bf;
+  color: #2dd4bf;
+}
 
+[data-theme="dark"] .admin-action-btn.edit:hover {
+  background: rgba(45, 212, 191, 0.15);
+}
 
+[data-theme="dark"] .admin-action-btn.delete {
+  background: #0f172a;
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #f87171;
+}
 
+[data-theme="dark"] .admin-action-btn.delete:hover {
+  background: rgba(239, 68, 68, 0.15);
+}
