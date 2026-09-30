@@ -1,9 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import {
   Camera,
+  Coffee,
   MapPin,
-  Clock,
-  ShieldCheck,
   CheckCircle2,
   RefreshCw,
   AlertTriangle,
@@ -552,7 +551,8 @@ export default function FacePunchModal({
   if (!isOpen) return null;
 
   const isPunchIn = actionType === "in";
-  const titleText = isPunchIn ? "Face & Location Punch In" : "Face & Location Punch Out";
+  const punchLabel = isPunchIn ? "Punch In" : "Punch Out";
+  const titleText = punchLabel;
 
   return (
     <div
@@ -582,14 +582,10 @@ export default function FacePunchModal({
         {/* Modal Header */}
         <div className="face-modal-header">
           <div className="face-modal-icon-badge">
-            <ShieldCheck size={24} />
+            <Coffee size={18} />
           </div>
           <div className="face-modal-title-wrap">
             <h3>{titleText}</h3>
-            <p>
-              {executive.name || "Sales Executive"} (
-              {executive.employee_code || `SE-00${executive.id || 1}`}) · Biometric Verification
-            </p>
           </div>
         </div>
 
@@ -632,6 +628,15 @@ export default function FacePunchModal({
                   <CheckCircle2 size={16} />
                   <span>Face Photo Verified</span>
                 </div>
+                <button
+                  type="button"
+                  className="face-retake-overlay-btn"
+                  onClick={handleRetake}
+                  aria-label="Retake face photo"
+                  title="Retake face photo"
+                >
+                  <RefreshCw size={15} />
+                </button>
               </>
             ) : cameraStatus === "active" ? (
               // Live Video Stream & Biometric Oval HUD
@@ -692,125 +697,23 @@ export default function FacePunchModal({
             )}
           </div>
 
-          {/* Camera Capture Action Bar */}
-          <div className="face-capture-actions-row">
-            {capturedImage ? (
-              <button
-                type="button"
-                className="face-retake-btn"
-                onClick={handleRetake}
-              >
-                <RefreshCw size={15} />
-                <span>Retake Photo</span>
-              </button>
-            ) : cameraStatus === "active" ? (
-              <button
-                type="button"
-                className="face-snap-btn"
-                onClick={handleCapturePhoto}
-              >
-                <Camera size={18} />
-                <span>Snap Face Photo</span>
-              </button>
-            ) : cameraStatus === "loading" ? (
-              <button
-                type="button"
-                className="face-snap-btn"
-                style={{ opacity: 0.7, cursor: "wait" }}
-                disabled
-              >
-                <RefreshCw size={16} className="spin" />
-                <span>Starting Camera...</span>
-              </button>
-            ) : (
-              <div style={{ display: "flex", gap: "10px", width: "100%" }}>
-                <button
-                  type="button"
-                  className="face-snap-btn"
-                  onClick={handleSimulateSelfie}
-                  style={{ flex: 1.4 }}
-                >
-                  <Sparkles size={17} />
-                  <span>Auto-Verify Face</span>
-                </button>
-                <button
-                  type="button"
-                  className="face-retake-btn"
-                  onClick={startCamera}
-                  style={{ flex: 1 }}
-                >
-                  <RefreshCw size={15} />
-                  <span>Retry Camera</span>
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Location & Timing Telemetry Cards */}
-          <div className="face-telemetry-grid">
-          {/* Location Card — shows area & city name only */}
-            <div className="face-telemetry-card">
-              <div className="face-telemetry-icon location">
-                <MapPin size={18} />
-              </div>
-              <div style={{ minWidth: 0, flex: 1 }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "6px" }}>
-                  <div className="face-telemetry-label">Current Location</div>
-                  <button
-                    type="button"
-                    className="face-auto-location-btn"
-                    onClick={fetchLocation}
-                    title="Re-detect current location"
-                  >
-                    <RefreshCw size={10} className={locationStatus === "detecting" ? "spinning" : ""} />
-                    <span>Refresh</span>
-                  </button>
-                </div>
-                <div className="face-telemetry-val" style={{ fontSize: "0.95rem", marginTop: "4px" }}>
-                  {locationStatus === "detecting" && !locationData?.locality ? (
-                    <span style={{ color: "#0284c7" }}>Detecting location…</span>
-                  ) : (
-                    <span>
-                      📍 {locationData?.locality || executive.region || "Detecting…"}
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Exact Timestamp Card */}
-            <div className="face-telemetry-card">
-              <div className="face-telemetry-icon time">
-                <Clock size={18} />
-              </div>
-              <div style={{ minWidth: 0, flex: 1 }}>
-                <div className="face-telemetry-label">Verified Time</div>
-                <div className="face-telemetry-val">
-                  {currentTime.toLocaleTimeString("en-US", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    second: "2-digit",
-                    hour12: true,
-                  })}
-                </div>
-                <div className="face-telemetry-sub">
-                  📅{" "}
-                  {currentTime.toLocaleDateString("en-US", {
-                    weekday: "short",
-                    month: "short",
-                    day: "numeric",
-                    year: "numeric",
-                  })}
-                </div>
+          <div className="face-location-card">
+            <span className="face-location-icon"><MapPin size={19} /></span>
+            <div className="face-location-copy">
+              <div className="face-location-label">Location Status</div>
+              <div className="face-location-value" aria-live="polite">
+                {locationStatus === "detecting" && !locationData?.locality
+                  ? "Getting your location…"
+                  : locationData?.locality || executive.region || "Location unavailable"}
               </div>
             </div>
           </div>
 
-          {/* Bottom Confirmation Button */}
           <div className="face-modal-footer">
             <button
               type="button"
               className="face-confirm-submit-btn"
+              disabled={cameraStatus === "loading" && !capturedImage}
               onClick={() => {
                 if (capturedImage) {
                   handleConfirmSubmit();
@@ -821,25 +724,16 @@ export default function FacePunchModal({
                 }
               }}
             >
-              <CheckCircle2 size={18} />
+              {capturedImage ? <CheckCircle2 size={18} /> : <Camera size={18} />}
               <span>
                 {capturedImage
-                  ? `Confirm & ${isPunchIn ? "Punch In" : "Punch Out"}`
+                  ? `Confirm & ${punchLabel}`
                   : cameraStatus === "active"
-                  ? "Snap Face & Confirm"
-                  : "Verify Face & Proceed"}
+                  ? `Capture & ${punchLabel}`
+                  : cameraStatus === "loading"
+                  ? "Starting Camera…"
+                  : `Verify & ${punchLabel}`}
               </span>
-            </button>
-
-            <button
-              type="button"
-              className="face-cancel-btn"
-              onClick={() => {
-                stopCameraStream();
-                onClose();
-              }}
-            >
-              Cancel
             </button>
           </div>
         </div>
