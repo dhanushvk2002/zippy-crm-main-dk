@@ -466,6 +466,11 @@ export default function AttendanceView({
 
   // Success alert toast state
   const [toastMessage, setToastMessage] = useState("");
+  const [toastType, setToastType] = useState("success");
+  function showToast(message, type = "success") {
+    setToastType(type);
+    setToastMessage(message);
+  }
   useEffect(() => {
     if (!toastMessage) return;
     const t = setTimeout(() => setToastMessage(""), 4000);
@@ -654,9 +659,7 @@ export default function AttendanceView({
       } catch (e) {
         console.error(e);
       }
-      setToastMessage(
-        `🟢 Punched In successfully at ${punchTime}! Face verified & saved to database.`
-      );
+      showToast("Punch in recorded on this device. Syncing with server…");
 
       // Save to MySQL backend
       try {
@@ -686,8 +689,10 @@ export default function AttendanceView({
             return next;
           });
         }
+        showToast(`🟢 Punched In successfully at ${punchTime}! Face verified and saved to database.`);
       } catch (err) {
         console.error("Backend punchInAttendance error:", err);
+        showToast(`Punch in saved on this device, but database sync failed: ${err.message || "Unknown error"}`, "error");
       }
     } else {
       // Punch Out
@@ -723,9 +728,7 @@ export default function AttendanceView({
       } catch (e) {
         console.error(e);
       }
-      setToastMessage(
-        `🔴 Punched Out successfully at ${punchTime} (Total: ${finalDuration}). Face verified & saved to database!`
-      );
+      showToast("Punch out recorded on this device. Syncing with server…");
 
       // Save to MySQL backend
       try {
@@ -756,8 +759,10 @@ export default function AttendanceView({
             return next;
           });
         }
+        showToast(`🔴 Punched Out successfully at ${punchTime} (Total: ${finalDuration}). Face verified and saved to database.`);
       } catch (err) {
         console.error("Backend punchOutAttendance error:", err);
+        showToast(`Punch out saved on this device, but database sync failed: ${err.message || "Unknown error"}`, "error");
       }
     }
   };
@@ -878,7 +883,7 @@ export default function AttendanceView({
     <div className="attend-wrapper">
       {/* Toast Alert */}
       {toastMessage && (
-        <div className="attend-toast" role="alert">
+        <div className={`attend-toast ${toastType === "error" ? "error" : ""}`} role="alert">
           <span>{toastMessage}</span>
           <button type="button" onClick={() => setToastMessage("")}>✕</button>
         </div>

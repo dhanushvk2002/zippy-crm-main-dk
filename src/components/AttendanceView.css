@@ -30,6 +30,11 @@
   animation: slideDown 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+.attend-toast.error {
+  background: #b42318;
+  box-shadow: 0 8px 20px -4px rgba(180, 35, 24, 0.3);
+}
+
 @keyframes slideDown {
   from { transform: translateY(-10px); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }
