@@ -1,4 +1,4 @@
-﻿/* ==========================================================================
+/* ==========================================================================
    ZENVE ZIPPY â€” HEALTHCARE CRM DESIGN SYSTEM
    Professional Modern Doctors & Veterinary Healthcare SaaS Tokens
    ========================================================================== */
@@ -60,9 +60,29 @@
   --hc-font-display: 'Outfit', 'Inter', -apple-system, sans-serif;
 }
 
+/* ── Dark Mode Overrides ── */
+[data-theme="dark"],
+.dark,
+.theme-dark {
+  --hc-bg: #0b1120;
+  --hc-card: #131d31;
+  --hc-card-border: rgba(51, 65, 85, 0.7);
+  --hc-card-border-hover: rgba(56, 189, 248, 0.4);
 
+  --hc-navy: #f8fafc;
+  --hc-charcoal: #e2e8f0;
+  --hc-muted: #94a3b8;
+  --hc-muted-light: #64748b;
 
-/* â”€â”€ Common Healthcare Layout Containers â”€â”€ */
+  --hc-primary-light: rgba(2, 132, 199, 0.15);
+  --hc-teal-light: rgba(3, 105, 161, 0.15);
+  --hc-success-bg: rgba(16, 185, 129, 0.15);
+  --hc-warning-bg: rgba(245, 158, 11, 0.15);
+  --hc-danger-bg: rgba(239, 68, 68, 0.15);
+
+  --hc-shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.35);
+  --hc-shadow-md: 0 6px 18px rgba(0, 0, 0, 0.45);
+}
 .zzc-app {
   display: flex;
   width: 100%;

@@ -1,4 +1,4 @@
-﻿/* ==========================================================================
+/* ==========================================================================
    TopBar.css â€” Healthcare CRM Modern Header
    Clean, Compact, Healthcare SaaS Palette (#0284c7 / #0369a1)
    ========================================================================== */
@@ -396,14 +396,116 @@
   color: #94a3b8;
 }
 
-/* â”€â”€ Dark Mode â”€â”€ */
+/* ── Responsive TopBar ── */
+@media (max-width: 900px) {
+  .hc-topbar-center {
+    max-width: 320px;
+  }
+}
 
+@media (max-width: 768px) {
+  .hc-topbar {
+    padding: 0.75rem 1rem;
+    height: auto;
+    min-height: 56px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
 
+  .hc-topbar-center {
+    order: 3;
+    max-width: 100%;
+    width: 100%;
+  }
 
+  .hc-search-input {
+    height: 38px;
+  }
 
+  .hc-profile-name,
+  .hc-profile-role {
+    display: none;
+  }
+}
 
+/* ── Dark Mode ── */
+[data-theme="dark"] .hc-topbar,
+.dark .hc-topbar,
+.theme-dark .hc-topbar {
+  background: #0f172a;
+  border-color: rgba(51, 65, 85, 0.7);
+}
 
+[data-theme="dark"] .hc-topbar-title,
+.dark .hc-topbar-title,
+.theme-dark .hc-topbar-title {
+  color: #f8fafc;
+}
 
+[data-theme="dark"] .hc-search-input,
+.dark .hc-search-input,
+.theme-dark .hc-search-input {
+  background: #1e293b;
+  border-color: rgba(51, 65, 85, 0.8);
+  color: #f8fafc;
+}
 
+[data-theme="dark"] .hc-search-kbd,
+.dark .hc-search-kbd,
+.theme-dark .hc-search-kbd {
+  background: #334155;
+  border-color: rgba(71, 85, 105, 0.8);
+  color: #cbd5e1;
+}
 
+[data-theme="dark"] .hc-icon-btn,
+.dark .hc-icon-btn,
+.theme-dark .hc-icon-btn,
+[data-theme="dark"] .hc-profile-trigger,
+.dark .hc-profile-trigger,
+.theme-dark .hc-profile-trigger {
+  background: #1e293b;
+  border-color: rgba(51, 65, 85, 0.8);
+  color: #cbd5e1;
+}
 
+[data-theme="dark"] .hc-profile-name,
+.dark .hc-profile-name,
+.theme-dark .hc-profile-name {
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .hc-dropdown-menu,
+.dark .hc-dropdown-menu,
+.theme-dark .hc-dropdown-menu {
+  background: #1e293b;
+  border-color: rgba(51, 65, 85, 0.8);
+}
+
+[data-theme="dark"] .hc-profile-head-name,
+.dark .hc-profile-head-name,
+.theme-dark .hc-profile-head-name,
+[data-theme="dark"] .hc-menu-title,
+.dark .hc-menu-title,
+.theme-dark .hc-menu-title {
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .hc-menu-item,
+.dark .hc-menu-item,
+.theme-dark .hc-menu-item {
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .hc-menu-item:hover,
+.dark .hc-menu-item:hover,
+.theme-dark .hc-menu-item:hover {
+  background: #334155;
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .hc-notif-item,
+.dark .hc-notif-item,
+.theme-dark .hc-notif-item {
+  background: #0f172a;
+}

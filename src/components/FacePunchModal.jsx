@@ -499,7 +499,7 @@ export default function FacePunchModal({
                 </div>
                 <div className="face-scanner-hud">
                   <span className="face-pulse-dot"></span>
-                  <span>Align face within oval & snap</span>
+                  <span>Align face within oval</span>
                 </div>
               </div>
             ) : cameraStatus === "loading" ? (
@@ -549,7 +549,7 @@ export default function FacePunchModal({
           <div className="face-location-card">
             <div className="face-loc-card-header">
               <div className="face-loc-title-wrap">
-                <span className="face-location-icon"><MapPin size={18} /></span>
+                <span className="face-location-icon"><MapPin size={16} /></span>
                 <span className="face-location-heading">Current Location</span>
                 {locationStatus === "detecting" ? (
                   <span className="face-loc-badge detecting">Detecting GPS…</span>
@@ -575,9 +575,12 @@ export default function FacePunchModal({
 
             <div className="face-location-copy">
               <div className="face-location-address">
-                📍 {locationStatus === "detecting"
-                  ? "Acquiring high-accuracy GPS coordinates…"
-                  : (locationData?.displayAddress || locationData?.locality || "Location unavailable")}
+                <MapPin size={15} className="face-loc-pin-icon" />
+                <span className="face-loc-address-text">
+                  {locationStatus === "detecting"
+                    ? "Acquiring high-accuracy GPS coordinates…"
+                    : (locationData?.displayAddress || locationData?.locality || "Location unavailable")}
+                </span>
               </div>
 
               {locationError && (
@@ -588,12 +591,23 @@ export default function FacePunchModal({
               )}
 
               {locationData?.latitude && (
-                <div className="face-loc-coords-row">
-                  <span className="coord-chip"><strong>Lat:</strong> {locationData.latitude.toFixed(6)}</span>
-                  <span className="coord-chip"><strong>Lng:</strong> {locationData.longitude.toFixed(6)}</span>
-                  <span className={`coord-chip accuracy ${locationData.accuracy && locationData.accuracy <= 50 ? "high-acc" : ""}`}>
-                    <strong>Accuracy:</strong> {locationData.accuracyText || `±${locationData.accuracy}m`}
-                  </span>
+                <div className="face-loc-coords-grid">
+                  <div className="face-coord-cell">
+                    <span className="face-coord-label">Latitude</span>
+                    <span className="face-coord-val">{locationData.latitude.toFixed(6)}</span>
+                  </div>
+                  <div className="face-coord-cell">
+                    <span className="face-coord-label">Longitude</span>
+                    <span className="face-coord-val">{locationData.longitude.toFixed(6)}</span>
+                  </div>
+                  <div className={`face-coord-cell ${locationData.accuracy && locationData.accuracy <= 50 ? "high-acc" : ""}`}>
+                    <span className="face-coord-label">Accuracy</span>
+                    <span className="face-coord-val">
+                      {locationData.accuracyText
+                        ? locationData.accuracyText.replace(/\s*meters/i, "m")
+                        : (locationData.accuracy ? `±${locationData.accuracy}m` : "—")}
+                    </span>
+                  </div>
                 </div>
               )}
             </div>
