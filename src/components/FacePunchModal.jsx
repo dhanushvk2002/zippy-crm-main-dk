@@ -149,149 +149,216 @@ export default function FacePunchModal({
     }
   }, [stream, cameraStatus]);
 
-  // Reverse-geocode GPS coordinates to real locality, city, and state
+  // Reverse-geocode GPS coordinates to precise locality, city, and state.
+  // Tries 2 APIs in order so the most specific Indian area name is always returned.
   const reverseGeocodeCoords = async (lat, lng, fallbackRegion) => {
-    // 1. Try BigDataCloud Client-side Reverse Geocoding (fast, free, CORS-friendly)
+    // ── 1. BigDataCloud — fast, free, CORS-safe ─────────────────────────────
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 4000);
+      const ctrl = new AbortController();
+      const tid = setTimeout(() => ctrl.abort(), 5000);
       const res = await fetch(
         `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`,
-        { signal: controller.signal }
+        { signal: ctrl.signal }
       );
-      clearTimeout(timeoutId);
+      clearTimeout(tid);
       if (res.ok) {
         const data = await res.json();
-
-        // localityInfo.informative is ordered general→specific (continent first, neighbourhood last)
-        // Iterate in REVERSE to get the most specific area, skip continent/country level
-        let finestArea = "";
+        // Walk localityInfo.informative from MOST-specific → LEAST-specific.
+        // Skip continent, country, region, postcode — stop at the first real place name.
         const informative = data.localityInfo?.informative || [];
-        const skipDescriptions = new Set(["continent", "country", "country region", "region", "postcode", "postal code", "zip code", "zip"]);
+        const skipDesc = new Set([
+          "continent", "country", "country region", "region",
+          "postcode", "postal code", "zip code", "zip",
+        ]);
+        let finestArea = "";
         for (let i = informative.length - 1; i >= 0; i--) {
           const info = informative[i];
           const desc = (info.description || "").toLowerCase();
-          if (info.name && info.name.trim() && !skipDescriptions.has(desc)) {
+          if (info.name && info.name.trim() && !skipDesc.has(desc)) {
             finestArea = info.name.trim();
             break;
           }
         }
-
-        const locality = finestArea || data.locality || "";
+        const locality = finestArea || data.locality || data.localityInfo?.administrative?.[3]?.name || "";
         const city = data.city || data.principalSubdivision || "";
         const state = data.principalSubdivision || "";
-
         const parts = [];
         if (locality && locality !== city) parts.push(locality);
         if (city && !parts.includes(city)) parts.push(city);
-        if (state && !parts.includes(state)) parts.push(state);
-
-        if (parts.length > 0) {
-          return parts.join(", ");
-        }
+        if (state && !parts.includes(state) && !parts.includes(city)) parts.push(state);
+        if (parts.length > 0) return parts.join(", ");
       }
     } catch (e) {
       console.warn("BigDataCloud reverse geocode error:", e);
     }
 
-    // 2. Try OpenStreetMap Nominatim
+    // ── 2. OpenStreetMap Nominatim — suburb/village-level detail ────────────
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 4000);
+      const ctrl = new AbortController();
+      const tid = setTimeout(() => ctrl.abort(), 5000);
       const res = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1`,
-        {
-          signal: controller.signal,
-          headers: { "User-Agent": "ZenveCRM/1.0" },
-        }
+        `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1&zoom=16`,
+        { signal: ctrl.signal, headers: { "User-Agent": "ZenveCRM/1.0", "Accept-Language": "en" } }
       );
-      clearTimeout(timeoutId);
+      clearTimeout(tid);
       if (res.ok) {
         const data = await res.json();
         const addr = data.address || {};
-        const neighbourhood = addr.quarter || addr.suburb || addr.neighbourhood || addr.road || "";
-        const city = addr.city || addr.town || addr.county || addr.city_district || "";
+        // Indian addresses — most specific fields first
+        const sublocality =
+          addr.hamlet ||
+          addr.village ||
+          addr.residential ||
+          addr.neighbourhood ||
+          addr.suburb ||
+          addr.quarter ||
+          addr.road ||
+          "";
+        const city =
+          addr.city ||
+          addr.town ||
+          addr.state_district ||
+          addr.county ||
+          addr.city_district ||
+          "";
         const state = addr.state || "";
-
         const parts = [];
-        if (neighbourhood) parts.push(neighbourhood);
-        if (city && city !== neighbourhood) parts.push(city);
+        if (sublocality) parts.push(sublocality);
+        if (city && city !== sublocality) parts.push(city);
         if (state && !parts.includes(state)) parts.push(state);
-
-        if (parts.length > 0) {
-          return parts.join(", ");
-        }
+        if (parts.length > 0) return parts.join(", ");
       }
     } catch (e) {
       console.warn("Nominatim reverse geocode error:", e);
     }
 
-    // 3. Fallback coordinates heuristic for major Indian tech cities
-    if (lat >= 12.8 && lat <= 13.2 && lng >= 77.4 && lng <= 77.8) {
-      return "Bengaluru, Karnataka";
-    }
-    if (lat >= 12.9 && lat <= 13.25 && lng >= 80.1 && lng <= 80.35) {
-      return "Chennai, Tamil Nadu";
-    }
-    if (lat >= 17.3 && lat <= 17.55 && lng >= 78.3 && lng <= 78.6) {
-      return "Hyderabad, Telangana";
-    }
-    if (lat >= 18.9 && lat <= 19.3 && lng >= 72.75 && lng <= 73.0) {
-      return "Mumbai, Maharashtra";
-    }
-    if (lat >= 28.4 && lat <= 28.8 && lng >= 76.9 && lng <= 77.4) {
-      return "Delhi NCR";
-    }
-
     return fallbackRegion || "Current Location";
   };
 
-  // Fetch location via IP as fallback if GPS is denied or timeout
+  // IP-based fallback location when GPS is denied or unavailable.
+  // Tries ipapi.is first (more accurate), then ipapi.co.
   const fetchIpFallbackLocation = async (fallbackRegion) => {
+    // ── ipapi.is (city-level, free, no key needed) ─────────────────────────
     try {
-      const res = await fetch("https://ipapi.co/json/");
+      const ctrl = new AbortController();
+      setTimeout(() => ctrl.abort(), 5000);
+      const res = await fetch("https://ipapi.is/json/", { signal: ctrl.signal });
+      if (res.ok) {
+        const d = await res.json();
+        const geo = d.location || {};
+        if (geo.latitude && geo.longitude) {
+          const lat = parseFloat(parseFloat(geo.latitude).toFixed(5));
+          const lng = parseFloat(parseFloat(geo.longitude).toFixed(5));
+          // Try to reverse-geocode the IP coords for better area name
+          const resolved = await reverseGeocodeCoords(lat, lng, null);
+          const locality = resolved || [geo.city, geo.state, geo.country].filter(Boolean).join(", ") || fallbackRegion;
+          return { lat, lng, accuracy: 2000, locality, isAutoGenerated: true, isFallback: true };
+        }
+      }
+    } catch (e) {}
+
+    // ── ipapi.co ────────────────────────────────────────────────────────────
+    try {
+      const ctrl = new AbortController();
+      setTimeout(() => ctrl.abort(), 5000);
+      const res = await fetch("https://ipapi.co/json/", { signal: ctrl.signal });
       if (res.ok) {
         const d = await res.json();
         if (d.latitude && d.longitude) {
-          const locParts = [d.city, d.region, d.country_name].filter(Boolean);
-          return {
-            lat: parseFloat(d.latitude.toFixed(5)),
-            lng: parseFloat(d.longitude.toFixed(5)),
-            accuracy: 50,
-            locality: locParts.length ? locParts.join(", ") : fallbackRegion,
-            isAutoGenerated: true,
-            isFallback: false,
-          };
+          const lat = parseFloat(parseFloat(d.latitude).toFixed(5));
+          const lng = parseFloat(parseFloat(d.longitude).toFixed(5));
+          const resolved = await reverseGeocodeCoords(lat, lng, null);
+          const locality = resolved || [d.city, d.region, d.country_name].filter(Boolean).join(", ") || fallbackRegion;
+          return { lat, lng, accuracy: 2000, locality, isAutoGenerated: true, isFallback: true };
+        }
+      }
+    } catch (e) {}
+
+    return null;
+  };
+
+  // Resolve area name from an Indian pincode using India Post API (free, official)
+  const resolveAreaFromPincode = async (pincode) => {
+    if (!pincode || String(pincode).replace(/\D/g, "").length !== 6) return null;
+    try {
+      const ctrl = new AbortController();
+      setTimeout(() => ctrl.abort(), 6000);
+      const res = await fetch(
+        `https://api.postalpincode.in/pincode/${String(pincode).replace(/\D/g, "")}`,
+        { signal: ctrl.signal }
+      );
+      if (res.ok) {
+        const json = await res.json();
+        if (Array.isArray(json) && json[0]?.Status === "Success") {
+          const posts = json[0].PostOffice || [];
+          if (posts.length > 0) {
+            const p = posts[0];
+            const parts = [];
+            if (p.Name && p.Name.trim() !== p.District) parts.push(p.Name.trim());
+            if (p.District) parts.push(p.District);
+            if (p.State) parts.push(p.State);
+            return parts.join(", ");
+          }
         }
       }
     } catch (e) {}
     return null;
   };
 
-  // Fetch Location & Auto-Generate Real Place Name
+  // ── Fetch Location & Auto-Generate Real Place Name ───────────────────────
+  // Priority: Pincode (India Post) → GPS (BigDataCloud/Nominatim) → IP fallback
   const fetchLocation = useCallback(async () => {
     setLocationStatus("detecting");
-    const fallbackRegion =
-      executive.region || executive.city || "Current Location";
+    const fallbackRegion = executive.region || executive.city || "Current Location";
 
+    // ── Step 1: Executive's assigned pincode (fastest, most accurate) ────────
+    const execPincode =
+      executive.pincode ||
+      (executive.coverage || []).find?.(
+        (c) => String(c.executive_id) === String(executive.id)
+      )?.pincode ||
+      null;
+
+    if (execPincode) {
+      // Show "Detecting..." immediately while we fetch
+      setLocationData({
+        lat: null, lng: null, accuracy: null,
+        locality: "Looking up area from pincode…",
+        isFallback: false, isAutoGenerated: true,
+      });
+
+      const pincodeLocality = await resolveAreaFromPincode(execPincode);
+      if (pincodeLocality) {
+        setLocationData({
+          lat: null, lng: null, accuracy: null,
+          locality: pincodeLocality,
+          isFallback: false, isAutoGenerated: true,
+          pincode: execPincode,
+        });
+        setLocationStatus("locked");
+        return; // ✅ Done — no GPS required
+      }
+    }
+
+    // ── Step 2: GPS → reverse geocode ────────────────────────────────────────
     if (!navigator.geolocation) {
       const ipLoc = await fetchIpFallbackLocation(fallbackRegion);
       if (ipLoc) {
         setLocationData(ipLoc);
         setLocationStatus("locked");
       } else {
-        setLocationData({
-          lat: 12.9172,
-          lng: 77.6229,
-          accuracy: 25,
-          locality: fallbackRegion,
-          isFallback: true,
-          isAutoGenerated: false,
-        });
+        setLocationData({ lat: null, lng: null, accuracy: null, locality: fallbackRegion, isFallback: true, isAutoGenerated: false });
         setLocationStatus("fallback");
       }
       return;
     }
+
+    // Show "Detecting…" placeholder while GPS resolves
+    setLocationData({
+      lat: null, lng: null, accuracy: null,
+      locality: "Detecting current address…",
+      isFallback: false, isAutoGenerated: true,
+    });
 
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
@@ -300,50 +367,31 @@ export default function FacePunchModal({
         const lngVal = parseFloat(longitude.toFixed(5));
         const accVal = Math.round(accuracy);
 
-        // Immediate feedback with coordinates while reverse-geocoding
-        setLocationData({
-          lat: latVal,
-          lng: lngVal,
-          accuracy: accVal,
-          locality: "Detecting current address...",
-          isFallback: false,
-          isAutoGenerated: true,
-        });
-
-        // Auto-generate current place name from coordinates
+        // Resolve human-readable area name from GPS coordinates
         const resolvedLocality = await reverseGeocodeCoords(latitude, longitude, fallbackRegion);
 
         setLocationData({
-          lat: latVal,
-          lng: lngVal,
-          accuracy: accVal,
+          lat: latVal, lng: lngVal, accuracy: accVal,
           locality: resolvedLocality,
-          isFallback: false,
-          isAutoGenerated: true,
+          isFallback: false, isAutoGenerated: true,
         });
         setLocationStatus("locked");
       },
       async (err) => {
-        console.warn("GPS Geolocation error, attempting IP fallback:", err);
+        console.warn("GPS error, attempting IP fallback:", err);
         const ipLoc = await fetchIpFallbackLocation(fallbackRegion);
         if (ipLoc) {
           setLocationData(ipLoc);
           setLocationStatus("locked");
         } else {
-          setLocationData({
-            lat: 12.9172,
-            lng: 77.6229,
-            accuracy: 30,
-            locality: fallbackRegion,
-            isFallback: true,
-            isAutoGenerated: false,
-          });
+          setLocationData({ lat: null, lng: null, accuracy: null, locality: fallbackRegion, isFallback: true, isAutoGenerated: false });
           setLocationStatus("fallback");
         }
       },
-      { enableHighAccuracy: true, timeout: 8000, maximumAge: 10000 }
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
     );
-  }, [executive.region, executive.city]);
+  }, [executive.id, executive.pincode, executive.region, executive.city, executive.coverage]);
+
 
   // Initialize on open
   useEffect(() => {

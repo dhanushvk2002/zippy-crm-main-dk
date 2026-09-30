@@ -1,4 +1,4 @@
-/* AttendanceReportView.css — Sales Executive Attendance Report */
+﻿/* AttendanceReportView.css â€” Sales Executive Attendance Report */
 
 .att-rep-wrap {
   display: flex;
@@ -489,57 +489,3 @@
   font-size: 0.92rem;
 }
 
-/* =========================================================
-   ATTENDANCE REPORT DARK THEME OVERRIDES
-========================================================= */
-[data-theme="dark"] .att-rep-header,
-.dark .att-rep-header {
-  background: linear-gradient(135deg, rgba(19, 29, 49, 0.95) 0%, rgba(13, 148, 136, 0.1) 100%) !important;
-  border-color: rgba(51, 65, 85, 0.7) !important;
-  color: #f8fafc !important;
-}
-
-[data-theme="dark"] .att-rep-filters,
-.dark .att-rep-filters {
-  background: #131d31 !important;
-  border-color: rgba(51, 65, 85, 0.7) !important;
-}
-
-[data-theme="dark"] .att-rep-filters input,
-.dark .att-rep-filters input,
-[data-theme="dark"] .att-rep-filters select,
-.dark .att-rep-filters select {
-  background: #0b1120 !important;
-  border-color: rgba(51, 65, 85, 0.8) !important;
-  color: #f8fafc !important;
-}
-
-[data-theme="dark"] .att-rep-stat-card,
-.dark .att-rep-stat-card {
-  background: #131d31 !important;
-  border-color: rgba(51, 65, 85, 0.7) !important;
-  color: #f8fafc !important;
-}
-
-[data-theme="dark"] .att-rep-table-wrap,
-.dark .att-rep-table-wrap {
-  background: #131d31 !important;
-  border-color: rgba(51, 65, 85, 0.7) !important;
-}
-
-[data-theme="dark"] .att-rep-table th,
-.dark .att-rep-table th {
-  background: #0d1527 !important;
-  color: #94a3b8 !important;
-  border-color: rgba(51, 65, 85, 0.6) !important;
-}
-
-[data-theme="dark"] .att-rep-table td,
-.dark .att-rep-table td {
-  border-color: rgba(51, 65, 85, 0.4) !important;
-}
-
-[data-theme="dark"] .att-rep-table tr:hover td,
-.dark .att-rep-table tr:hover td {
-  background: rgba(30, 41, 59, 0.6) !important;
-}

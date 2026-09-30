@@ -1,5 +1,5 @@
 /* ==========================================================================
-   AttendanceView.css — High-End Modern Enterprise Attendance & Shift Punch
+   AttendanceView.css â€” High-End Modern Enterprise Attendance & Shift Punch
    ========================================================================== */
 
 .attend-wrapper {
@@ -55,7 +55,7 @@
 }
 
 /* ==========================================================================
-   1. Header Card — Command Profile Bar
+   1. Header Card â€” Command Profile Bar
    ========================================================================== */
 .attend-header-card {
   display: flex;
@@ -192,6 +192,19 @@
   height: 6px;
   border-radius: 50%;
   background: #0284c7;
+  flex-shrink: 0;
+  transition: background 0.3s;
+}
+
+/* Pulsing orange while GPS is being resolved */
+.attend-geo-dot.detecting {
+  background: #f59e0b;
+  animation: geo-pulse 1.1s ease-in-out infinite;
+}
+
+@keyframes geo-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.4; transform: scale(1.5); }
 }
 
 .attend-exec-switcher {
@@ -805,7 +818,7 @@
 }
 
 /* ==========================================================================
-   3. KPI Stats Row — Executive Metrics
+   3. KPI Stats Row â€” Executive Metrics
    ========================================================================== */
 .attend-stats-grid {
   display: grid;
@@ -1339,186 +1352,27 @@
 /* ==========================================================================
    6. Comprehensive Dark Mode Overrides
    ========================================================================== */
-[data-theme="dark"] .attend-header-card,
-.dark .attend-header-card,
-[data-theme="dark"] .attend-actions-card,
-.dark .attend-actions-card,
-[data-theme="dark"] .attend-table-card,
-.dark .attend-table-card,
-[data-theme="dark"] .attend-stat-card,
-.dark .attend-stat-card,
-[data-theme="dark"] .attend-clock-card,
-.dark .attend-clock-card {
-  background: #111827;
-  border-color: rgba(51, 65, 85, 0.7);
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.25);
-}
 
-[data-theme="dark"] .attend-user-title h2,
-.dark .attend-user-title h2,
-[data-theme="dark"] .attend-actions-title h3,
-.dark .attend-actions-title h3,
-[data-theme="dark"] .attend-digital-clock,
-.dark .attend-digital-clock,
-[data-theme="dark"] .attend-stat-value,
-.dark .attend-stat-value,
-[data-theme="dark"] .attend-table-header h3,
-.dark .attend-table-header h3,
-[data-theme="dark"] .attend-date-text,
-.dark .attend-date-text,
-[data-theme="dark"] .attend-exec-cell,
-.dark .attend-exec-cell,
-[data-theme="dark"] .attend-duration-text,
-.dark .attend-duration-text,
-[data-theme="dark"] .attend-bar-item .bar-val,
-.dark .attend-bar-item .bar-val,
-[data-theme="dark"] .attend-meta-v,
-.dark .attend-meta-v {
-  color: #f8fafc;
-}
 
-[data-theme="dark"] .attend-user-sub,
-.dark .attend-user-sub,
-[data-theme="dark"] .attend-actions-title p,
-.dark .attend-actions-title p,
-[data-theme="dark"] .attend-stat-label,
-.dark .attend-stat-label,
-[data-theme="dark"] .attend-stat-sub,
-.dark .attend-stat-sub,
-[data-theme="dark"] .attend-table-header p,
-.dark .attend-table-header p,
-[data-theme="dark"] .attend-remarks-text,
-.dark .attend-remarks-text,
-[data-theme="dark"] .attend-day-text,
-.dark .attend-day-text {
-  color: #94a3b8;
-}
 
-[data-theme="dark"] .attend-digital-clock-container,
-.dark .attend-digital-clock-container,
-[data-theme="dark"] .attend-shift-status-box,
-.dark .attend-shift-status-box,
-[data-theme="dark"] .attend-summary-bar,
-.dark .attend-summary-bar,
-[data-theme="dark"] .attend-header-geo-chip,
-.dark .attend-header-geo-chip,
-[data-theme="dark"] .attend-date-badge,
-.dark .attend-date-badge {
-  background: #1e293b;
-  border-color: rgba(51, 65, 85, 0.7);
-  color: #cbd5e1;
-}
 
-[data-theme="dark"] .attend-code-badge,
-.dark .attend-code-badge {
-  background: #1e293b;
-  border-color: rgba(51, 65, 85, 0.7);
-  color: #cbd5e1;
-}
 
-[data-theme="dark"] .attend-bar-divider,
-.dark .attend-bar-divider {
-  background: rgba(51, 65, 85, 0.7);
-}
 
-[data-theme="dark"] .attend-reset-btn,
-.dark .attend-reset-btn {
-  background: #1e293b;
-  border-color: rgba(51, 65, 85, 0.8);
-  color: #cbd5e1;
-}
 
-[data-theme="dark"] .punch-in-btn.punched,
-.dark .punch-in-btn.punched {
-  background: rgba(16, 185, 129, 0.15);
-  border-color: #059669;
-  color: #34d399;
-}
 
-[data-theme="dark"] .punch-out-btn.disabled,
-.dark .punch-out-btn.disabled {
-  background: #1e293b;
-  border-color: rgba(51, 65, 85, 0.6);
-  color: #64748b;
-}
 
-[data-theme="dark"] .punch-out-btn.punched,
-.dark .punch-out-btn.punched {
-  background: rgba(244, 63, 94, 0.15);
-  border-color: #e11d48;
-  color: #fb7185;
-}
 
-[data-theme="dark"] .punch-in-btn.punched .attend-btn-icon-wrap,
-.dark .punch-in-btn.punched .attend-btn-icon-wrap {
-  background: rgba(16, 185, 129, 0.25);
-  color: #34d399;
-}
 
-[data-theme="dark"] .punch-out-btn.punched .attend-btn-icon-wrap,
-.dark .punch-out-btn.punched .attend-btn-icon-wrap {
-  background: rgba(244, 63, 94, 0.25);
-  color: #fb7185;
-}
 
-[data-theme="dark"] .punch-out-btn.disabled .attend-btn-icon-wrap,
-.dark .punch-out-btn.disabled .attend-btn-icon-wrap {
-  background: #1e293b;
-  color: #64748b;
-}
 
-[data-theme="dark"] .attend-table thead th,
-.dark .attend-table thead th {
-  background: #0f172a;
-  border-color: rgba(51, 65, 85, 0.7);
-  color: #94a3b8;
-}
 
-[data-theme="dark"] .attend-table-responsive,
-.dark .attend-table-responsive {
-  border-color: rgba(51, 65, 85, 0.7);
-}
 
-[data-theme="dark"] .attend-table tbody td,
-.dark .attend-table tbody td {
-  border-color: rgba(51, 65, 85, 0.5);
-  color: #cbd5e1;
-}
 
-[data-theme="dark"] .attend-table tbody tr:hover td,
-.dark .attend-table tbody tr:hover td {
-  background: rgba(13, 148, 136, 0.1);
-}
 
-[data-theme="dark"] .attend-table-badge,
-.dark .attend-table-badge {
-  background: #1e293b;
-  border-color: rgba(51, 65, 85, 0.7);
-  color: #cbd5e1;
-}
 
-[data-theme="dark"] .attend-lightbox-card,
-.dark .attend-lightbox-card {
-  background: #111827;
-  border-color: rgba(51, 65, 85, 0.7);
-}
 
-[data-theme="dark"] .attend-lightbox-header,
-.dark .attend-lightbox-header {
-  background: #0f172a;
-  border-color: rgba(51, 65, 85, 0.7);
-}
 
-[data-theme="dark"] .attend-lightbox-title,
-.dark .attend-lightbox-title {
-  color: #f8fafc;
-}
 
-[data-theme="dark"] .attend-lightbox-meta,
-.dark .attend-lightbox-meta {
-  background: #1e293b;
-  border-color: rgba(51, 65, 85, 0.7);
-}
 
 /* ==========================================================================
    6. Weekly Order Wise Layout & Banners
@@ -1800,70 +1654,14 @@
 }
 
 /* Dark mode adjustments for Weekly Order Wise */
-[data-theme="dark"] .attend-week-card,
-.dark .attend-week-card {
-  background: #0f172a;
-  border-color: rgba(51, 65, 85, 0.7);
-}
 
-[data-theme="dark"] .attend-week-card-banner,
-.dark .attend-week-card-banner {
-  background: #1e293b;
-  border-color: rgba(51, 65, 85, 0.7);
-}
 
-[data-theme="dark"] .attend-week-card-banner.current-week,
-.dark .attend-week-card-banner.current-week {
-  background: linear-gradient(90deg, rgba(13, 148, 136, 0.15) 0%, #1e293b 100%);
-  border-left-color: #14b8a6;
-}
 
-[data-theme="dark"] .attend-week-banner-title,
-.dark .attend-week-banner-title {
-  color: #f8fafc;
-}
 
-[data-theme="dark"] .attend-weeks-filter-bar,
-.dark .attend-weeks-filter-bar {
-  background: #1e293b;
-  border-color: rgba(51, 65, 85, 0.7);
-}
 
-[data-theme="dark"] .attend-week-pill-btn,
-.dark .attend-week-pill-btn {
-  background: #0f172a;
-  border-color: rgba(51, 65, 85, 0.7);
-  color: #94a3b8;
-}
 
-[data-theme="dark"] .attend-week-pill-btn.active,
-.dark .attend-week-pill-btn.active {
-  background: #0d9488;
-  color: #ffffff;
-  border-color: #0d9488;
-}
 
-[data-theme="dark"] .attend-view-mode-toggle,
-.dark .attend-view-mode-toggle {
-  background: #0f172a;
-  border-color: rgba(51, 65, 85, 0.7);
-}
 
-[data-theme="dark"] .attend-mode-btn.active,
-.dark .attend-mode-btn.active {
-  background: #1e293b;
-  color: #f8fafc;
-}
 
-[data-theme="dark"] .attend-order-select,
-.dark .attend-order-select {
-  background: #1e293b;
-  border-color: rgba(51, 65, 85, 0.7);
-  color: #f8fafc;
-}
 
-[data-theme="dark"] .attend-row-weekly-off td,
-.dark .attend-row-weekly-off td {
-  background: rgba(15, 23, 42, 0.4);
-}
 

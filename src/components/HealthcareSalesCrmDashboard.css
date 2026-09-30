@@ -1,5 +1,5 @@
-/* ==========================================================================
-   HealthcareSalesCrmDashboard.css — Healthcare CRM & Deal Pipeline
+﻿/* ==========================================================================
+   HealthcareSalesCrmDashboard.css â€” Healthcare CRM & Deal Pipeline
    Clean, Professional, Subtle Colors, Modern Kanban Board
    ========================================================================== */
 
@@ -55,7 +55,7 @@
   color: #0284c7;
 }
 
-/* ── Kanban Board Grid ── */
+/* â”€â”€ Kanban Board Grid â”€â”€ */
 .hc-kanban-board {
   display: grid;
   grid-template-columns: repeat(5, minmax(250px, 1fr));
@@ -206,7 +206,7 @@
   color: #94a3b8;
 }
 
-/* ── Alternate CRM Panel ── */
+/* â”€â”€ Alternate CRM Panel â”€â”€ */
 .hc-crm-alt-panel {
   background: #ffffff;
   border-radius: 16px;

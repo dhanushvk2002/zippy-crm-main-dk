@@ -11,8 +11,6 @@ import {
   Users,
   User,
   LogOut,
-  Sun,
-  Moon,
   Calendar,
   UserCheck,
   Check,
@@ -45,7 +43,7 @@ import AttendanceView from "./AttendanceView.jsx";
 import AttendanceReportView from "./AttendanceReportView.jsx";
 import DoctorAvatar from "./DoctorAvatar.jsx";
 import StylizedEyeIcon from "./StylizedEyeIcon.jsx";
-import useTheme from "../useTheme.js";
+
 import {
   usePlanStats,
   PLAN_MONTH_KEY,
@@ -4231,7 +4229,6 @@ const SECTION_TITLES = {
 };
 
 export default function SalesCrm({ role, initialUser, onSwitchRole, onExit }) {
-  const [theme, setTheme] = useTheme();
   const data = useSalesData();
   const [execId, setExecId] = useState(() => {
     if (initialUser?.id) return initialUser.id;
@@ -4427,7 +4424,7 @@ export default function SalesCrm({ role, initialUser, onSwitchRole, onExit }) {
   const pageTitle = `${ROLE_TITLES[role]} — ${SECTION_TITLES[activeSection] ?? "Dashboard"}`;
 
   return (
-    <div className={`app ${theme}`}>
+    <div className="app">
       <aside className="sidebar">
         <div className="brand">
           <div className="brand-logo"><img src={logo} alt="Zenve Zippy" /></div>
@@ -4590,26 +4587,7 @@ export default function SalesCrm({ role, initialUser, onSwitchRole, onExit }) {
               <span>Log Out</span>
             </button>
 
-            <div className="header-theme-toggle">
-              <button
-                type="button"
-                className={`theme-toggle-option ${theme !== "dark" ? "active" : ""}`}
-                onClick={() => setTheme("light")}
-                title="Switch to Light Theme"
-              >
-                <Sun size={12} />
-                <span>Light</span>
-              </button>
-              <button
-                type="button"
-                className={`theme-toggle-option ${theme === "dark" ? "active" : ""}`}
-                onClick={() => setTheme("dark")}
-                title="Switch to Dark Theme"
-              >
-                <Moon size={12} />
-                <span>Dark</span>
-              </button>
-            </div>
+
           </div>
         </header>
 

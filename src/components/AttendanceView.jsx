@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   Clock,
   LogIn,
@@ -244,22 +244,27 @@ export default function AttendanceView({
     return () => clearInterval(timer);
   }, []);
 
-  // Shared helper: rich reverse-geocode to get specific area name
-  // Uses BigDataCloud first, falls back to OpenStreetMap Nominatim
+  // Shared helper: rich reverse-geocode to get specific area name.
+  // Uses BigDataCloud first (fast, free), falls back to OpenStreetMap Nominatim.
   const resolveAreaFromCoords = async (latitude, longitude) => {
-    // 1. BigDataCloud — fast, free, CORS-safe
+    // ── 1. BigDataCloud — fast, free, CORS-safe ─────────────────────────────
     try {
+      const ctrl = new AbortController();
+      setTimeout(() => ctrl.abort(), 5000);
       const res = await fetch(
-        `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`
+        `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`,
+        { signal: ctrl.signal }
       );
       if (res.ok) {
         const data = await res.json();
-
-        // localityInfo.informative is ordered general→specific (continent first, neighbourhood last)
-        // Iterate in REVERSE to get the most specific area, skip continent/country
+        // Walk localityInfo.informative from MOST-specific → LEAST-specific.
+        // Skip continent, country, region, postcode — stop at the first real place name.
         let finestArea = "";
         const informative = data.localityInfo?.informative || [];
-        const skipDesc = new Set(["continent", "country", "country region", "region", "postcode", "postal code", "zip code", "zip"]);
+        const skipDesc = new Set([
+          "continent", "country", "country region", "region",
+          "postcode", "postal code", "zip code", "zip",
+        ]);
         for (let i = informative.length - 1; i >= 0; i--) {
           const info = informative[i];
           const desc = (info.description || "").toLowerCase();
@@ -268,33 +273,49 @@ export default function AttendanceView({
             break;
           }
         }
-
-        const locality = finestArea || data.locality || "";
+        const locality = finestArea || data.locality || data.localityInfo?.administrative?.[3]?.name || "";
         const city = data.city || data.principalSubdivision || "";
         const state = data.principalSubdivision || "";
         const parts = [];
         if (locality && locality !== city) parts.push(locality);
         if (city && !parts.includes(city)) parts.push(city);
-        if (state && !parts.includes(state)) parts.push(state);
+        if (state && !parts.includes(state) && !parts.includes(city)) parts.push(state);
         if (parts.length > 0) return parts.join(", ");
       }
     } catch (e) {}
 
-    // 2. Nominatim fallback — suburb/neighbourhood level detail
+    // ── 2. Nominatim — suburb/village-level detail for India ────────────────
     try {
+      const ctrl = new AbortController();
+      setTimeout(() => ctrl.abort(), 5000);
       const res = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&addressdetails=1`,
-        { headers: { "User-Agent": "ZenveCRM/1.0" } }
+        `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&addressdetails=1&zoom=16`,
+        { signal: ctrl.signal, headers: { "User-Agent": "ZenveCRM/1.0", "Accept-Language": "en" } }
       );
       if (res.ok) {
         const data = await res.json();
         const addr = data.address || {};
-        const neighbourhood = addr.quarter || addr.suburb || addr.neighbourhood || addr.road || "";
-        const city = addr.city || addr.town || addr.county || addr.city_district || "";
+        // Indian addresses — most specific fields first
+        const sublocality =
+          addr.hamlet ||
+          addr.village ||
+          addr.residential ||
+          addr.neighbourhood ||
+          addr.suburb ||
+          addr.quarter ||
+          addr.road ||
+          "";
+        const city =
+          addr.city ||
+          addr.town ||
+          addr.state_district ||
+          addr.county ||
+          addr.city_district ||
+          "";
         const state = addr.state || "";
         const parts = [];
-        if (neighbourhood) parts.push(neighbourhood);
-        if (city && city !== neighbourhood) parts.push(city);
+        if (sublocality) parts.push(sublocality);
+        if (city && city !== sublocality) parts.push(city);
         if (state && !parts.includes(state)) parts.push(state);
         if (parts.length > 0) return parts.join(", ");
       }
@@ -303,32 +324,128 @@ export default function AttendanceView({
     return "";
   };
 
-  // Live Auto-Generated GPS Locality (shown in the header area chip)
-  const [liveLocality, setLiveLocality] = useState(() => {
+  // ── Pincode-first location ──────────────────────────────────────────────────
+  // 1. Fetch the executive's pincode from PincodeCoverage table via backend
+  // 2. Resolve area name using India Post API (official, free, no key)
+  // 3. Fall back to GPS → BigDataCloud → Nominatim if no pincode assigned
+  const [liveLocality, setLiveLocality] = useState("");
+  const [liveLocalityDetecting, setLiveLocalityDetecting] = useState(true);
+
+  // Lookup area name from an Indian pincode using India Post API
+  const resolveAreaFromPincode = async (pincode) => {
+    if (!pincode || String(pincode).length !== 6) return null;
     try {
-      return localStorage.getItem("zenve_crm_last_live_locality") || "";
-    } catch (e) {
-      return "";
-    }
-  });
+      const ctrl = new AbortController();
+      setTimeout(() => ctrl.abort(), 6000);
+      const res = await fetch(
+        `https://api.postalpincode.in/pincode/${pincode}`,
+        { signal: ctrl.signal }
+      );
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data) && data[0]?.Status === "Success") {
+          const posts = data[0].PostOffice || [];
+          if (posts.length > 0) {
+            const p = posts[0];
+            // Build: "Area Name, District, State"
+            const parts = [];
+            if (p.Name && p.Name !== p.District) parts.push(p.Name);
+            if (p.District) parts.push(p.District);
+            if (p.State) parts.push(p.State);
+            return parts.join(", ");
+          }
+        }
+      }
+    } catch (e) {}
+    return null;
+  };
 
   useEffect(() => {
-    if (!navigator.geolocation) return;
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const { latitude, longitude } = pos.coords;
-        const loc = await resolveAreaFromCoords(latitude, longitude);
-        if (loc) {
-          setLiveLocality(loc);
-          try {
-            localStorage.setItem("zenve_crm_last_live_locality", loc);
-          } catch (e) {}
+    // Clear any stale cached locality
+    try { localStorage.removeItem("zenve_crm_last_live_locality"); } catch (e) {}
+
+    let cancelled = false;
+
+    const runPincodeFirst = async () => {
+      setLiveLocalityDetecting(true);
+
+      // ── Step 1: Executive's pincode from PincodeCoverage ─────────────────
+      const execPincode =
+        activeExecutive?.pincode ||
+        (data?.coverage || []).find(
+          (c) => String(c.executive_id) === String(activeExecutive?.id)
+        )?.pincode ||
+        null;
+
+      if (execPincode) {
+        const pincodeArea = await resolveAreaFromPincode(execPincode);
+        if (pincodeArea && !cancelled) {
+          setLiveLocality(pincodeArea);
+          setLiveLocalityDetecting(false);
+          try { localStorage.setItem("zenve_crm_last_live_locality", pincodeArea); } catch (e) {}
+          return; // Done — no GPS needed
         }
-      },
-      () => {},
-      { enableHighAccuracy: true, timeout: 8000 }
-    );
-  }, []);
+      }
+
+      // ── Step 2: GPS → reverse geocode ────────────────────────────────────
+      if (!navigator.geolocation) {
+        // No GPS support — try IP fallback
+        try {
+          const ctrl = new AbortController();
+          setTimeout(() => ctrl.abort(), 5000);
+          const res = await fetch("https://ipapi.is/json/", { signal: ctrl.signal });
+          if (res.ok) {
+            const d = await res.json();
+            const geo = d.location || {};
+            if (geo.latitude && geo.longitude) {
+              const loc = await resolveAreaFromCoords(
+                parseFloat(geo.latitude), parseFloat(geo.longitude)
+              );
+              if (loc && !cancelled) setLiveLocality(loc);
+            }
+          }
+        } catch (e) {}
+        if (!cancelled) setLiveLocalityDetecting(false);
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        async (pos) => {
+          if (cancelled) return;
+          const { latitude, longitude } = pos.coords;
+          const loc = await resolveAreaFromCoords(latitude, longitude);
+          if (!cancelled) {
+            setLiveLocality(loc || activeExecutive?.region || activeExecutive?.city || "");
+            setLiveLocalityDetecting(false);
+            if (loc) try { localStorage.setItem("zenve_crm_last_live_locality", loc); } catch (e) {}
+          }
+        },
+        async () => {
+          // GPS denied — IP fallback
+          try {
+            const ctrl = new AbortController();
+            setTimeout(() => ctrl.abort(), 5000);
+            const res = await fetch("https://ipapi.is/json/", { signal: ctrl.signal });
+            if (res.ok) {
+              const d = await res.json();
+              const geo = d.location || {};
+              if (geo.latitude && geo.longitude) {
+                const loc = await resolveAreaFromCoords(
+                  parseFloat(geo.latitude), parseFloat(geo.longitude)
+                );
+                if (loc && !cancelled) setLiveLocality(loc);
+              }
+            }
+          } catch (e) {}
+          if (!cancelled) setLiveLocalityDetecting(false);
+        },
+        { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
+      );
+    };
+
+    runPincodeFirst();
+    return () => { cancelled = true; };
+  }, [activeExecutive?.id, activeExecutive?.pincode]);
 
   const todayIso = getTodayIso();
 
@@ -930,8 +1047,14 @@ export default function AttendanceView({
           )}
 
           <div className="attend-header-geo-chip" title="Live Auto-Generated GPS Location">
-            <span className="attend-geo-dot"></span>
-            <span>{liveLocality ? `📍 ${liveLocality}` : "GPS Live Synced"}</span>
+            <span className={`attend-geo-dot${liveLocalityDetecting ? " detecting" : ""}`}></span>
+            <span>
+              {liveLocalityDetecting
+                ? "📡 Detecting location…"
+                : liveLocality
+                ? `📍 ${liveLocality}`
+                : "GPS Live Synced"}
+            </span>
           </div>
         </div>
       </div>
@@ -1584,7 +1707,18 @@ export default function AttendanceView({
         onClose={() => setPunchModalOpen(false)}
         onConfirm={handleConfirmPunch}
         actionType={punchActionType}
-        executive={activeExecutive}
+        executive={{
+          ...activeExecutive,
+          // Attach the executive's first pincode from PincodeCoverage so the modal
+          // can resolve their area instantly via India Post API without needing GPS
+          pincode:
+            activeExecutive?.pincode ||
+            (data?.coverage || []).find(
+              (c) => String(c.executive_id) === String(activeExecutive?.id)
+            )?.pincode ||
+            null,
+          coverage: data?.coverage || [],
+        }}
       />
 
       {/* Lightbox / Modal for Viewing Captured Face Photo & Biometric Details */}

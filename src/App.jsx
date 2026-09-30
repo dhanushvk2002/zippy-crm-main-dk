@@ -20,12 +20,12 @@ import Dashboard from "./components/Dashboard.jsx";
 import BulkTools from "./components/BulkTools.jsx";
 import SalesCrmClone from "./components/SalesCrm.jsx";
 import SalesCrmLoginModal from "./components/SalesCrmLoginModal.jsx";
-import useTheme from "./useTheme.js";
+
 
 const PAGE_SIZE = 10;
 
 export default function App() {
-  const [theme] = useTheme();
+
   const [salesLoginModal, setSalesLoginModal] = useState({ isOpen: false, role: "executive" });
   const [salesCrmView, setSalesCrmView] = useState(() => {
     try {
@@ -277,7 +277,7 @@ export default function App() {
   }
 
   return (
-    <div className={`zzc-app ${theme}`}>
+    <div className="zzc-app">
       <Sidebar currentKey={currentKey} onSelect={selectTable}/>
 
       <main className="zzc-main">

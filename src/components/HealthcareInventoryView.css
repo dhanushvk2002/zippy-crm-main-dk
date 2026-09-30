@@ -1,5 +1,5 @@
-/* ==========================================================================
-   HealthcareInventoryView.css — Inventory Dashboard & Audit Table
+﻿/* ==========================================================================
+   HealthcareInventoryView.css â€” Inventory Dashboard & Audit Table
    ========================================================================== */
 
 .hc-inv-view {
@@ -16,7 +16,7 @@
   flex-wrap: wrap;
 }
 
-/* ── Top KPIs Grid ── */
+/* â”€â”€ Top KPIs Grid â”€â”€ */
 .hc-inv-kpis {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -74,7 +74,7 @@
 
 .text-amber { color: #d97706 !important; }
 
-/* ── Toolbar ── */
+/* â”€â”€ Toolbar â”€â”€ */
 .hc-inv-toolbar {
   display: flex;
   align-items: center;

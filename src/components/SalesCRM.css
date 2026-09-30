@@ -1,5 +1,5 @@
-/* =========================================================
-   ZENVE ZIPPY — SALES CRM
+﻿/* =========================================================
+   ZENVE ZIPPY â€” SALES CRM
    Design tokens + full Sales CRM stylesheet
    All rpt-* and doc-* components included
 ========================================================= */
@@ -45,260 +45,42 @@
    DARK THEME TOKENS FOR SALES CRM
    Activated by [data-theme="dark"], .dark, or .theme-dark
 ========================================================= */
-[data-theme="dark"],
-.dark,
-.theme-dark {
-  --background: #0b1120;
-  --foreground: #f8fafc;
-  --card: #131d31;
-  --card-foreground: #f8fafc;
-  --primary: #0d9488;
-  --primary-foreground: #ffffff;
-  --secondary: #1e293b;
-  --secondary-foreground: #e2e8f0;
-  --muted: #1e293b;
-  --muted-foreground: #94a3b8;
-  --accent: rgba(13, 148, 136, 0.18);
-  --accent-foreground: #5eead4;
-  --destructive: #ef4444;
-  --destructive-foreground: #ffffff;
-  --border: rgba(51, 65, 85, 0.7);
-  --input: rgba(51, 65, 85, 0.8);
-  --ring: #0d9488;
-  --chart-1: #0d9488;
-  --chart-2: #f59e0b;
-  --sidebar: #090e1a;
-  --sidebar-primary: #0d9488;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: rgba(13, 148, 136, 0.15);
-  --sidebar-border: rgba(51, 65, 85, 0.5);
-  --shadow-soft: 0 10px 30px -12px rgba(0, 0, 0, 0.6);
-  --gradient-hero: linear-gradient(135deg, #0d9488 0%, #0369a1 55%, #f59e0b 100%);
-}
 
 /* Dark mode explicit overrides for Sales CRM shell & components */
-[data-theme="dark"] .app,
-.dark .app,
-[data-theme="dark"] .main,
-.dark .main {
-  background: #0b1120 !important;
-  color: #f8fafc !important;
-}
 
-[data-theme="dark"] .sidebar,
-.dark .sidebar {
-  background: #090e1a !important;
-  border-right-color: rgba(51, 65, 85, 0.7) !important;
-}
 
-[data-theme="dark"] .header,
-.dark .header {
-  background: #090e1a !important;
-  border-bottom-color: rgba(51, 65, 85, 0.7) !important;
-}
 
-[data-theme="dark"] .nav-item,
-.dark .nav-item {
-  color: #94a3b8;
-}
 
-[data-theme="dark"] .nav-item:hover,
-.dark .nav-item:hover {
-  background: rgba(13, 148, 136, 0.14) !important;
-  color: #2dd4bf !important;
-}
 
-[data-theme="dark"] .nav-item.active,
-.dark .nav-item.active {
-  background: #0d9488 !important;
-  color: #ffffff !important;
-}
 
-[data-theme="dark"] .header-theme-toggle,
-.dark .header-theme-toggle {
-  background: #131d31 !important;
-  border-color: rgba(51, 65, 85, 0.8) !important;
-}
 
-[data-theme="dark"] .header-logout-btn,
-.dark .header-logout-btn {
-  background: #131d31 !important;
-  border-color: rgba(51, 65, 85, 0.8) !important;
-  color: #f8fafc !important;
-}
 
-[data-theme="dark"] .role-switch,
-.dark .role-switch,
-[data-theme="dark"] .header-user-status-pill,
-.dark .header-user-status-pill {
-  background: #131d31 !important;
-  border-color: rgba(51, 65, 85, 0.8) !important;
-}
 
-[data-theme="dark"] .header-user-name,
-.dark .header-user-name {
-  color: #f8fafc !important;
-}
 
-[data-theme="dark"] .role-switch select,
-.dark .role-switch select {
-  background: transparent !important;
-  color: #f8fafc !important;
-  border: none !important;
-}
 
-[data-theme="dark"] .role-switch label,
-.dark .role-switch label {
-  color: #94a3b8 !important;
-}
 
-[data-theme="dark"] .stat-card,
-.dark .stat-card,
-[data-theme="dark"] .panel,
-.dark .panel {
-  background: #131d31 !important;
-  border-color: rgba(51, 65, 85, 0.7) !important;
-  color: #f8fafc !important;
-}
 
-[data-theme="dark"] .stat-icon.blue,
-.dark .stat-icon.blue {
-  background: rgba(13, 148, 136, 0.2) !important;
-  color: #2dd4bf !important;
-}
 
-[data-theme="dark"] .stat-icon.green,
-.dark .stat-icon.green {
-  background: rgba(16, 185, 129, 0.2) !important;
-  color: #34d399 !important;
-}
 
-[data-theme="dark"] .stat-icon.orange,
-.dark .stat-icon.orange {
-  background: rgba(245, 158, 11, 0.2) !important;
-  color: #fbbf24 !important;
-}
 
-[data-theme="dark"] .stat-icon.red,
-.dark .stat-icon.red {
-  background: rgba(239, 68, 68, 0.2) !important;
-  color: #f87171 !important;
-}
 
-[data-theme="dark"] .doc-stat-card,
-.dark .doc-stat-card {
-  background: #131d31 !important;
-  border-color: rgba(51, 65, 85, 0.7) !important;
-}
 
-[data-theme="dark"] .doc-filter-row,
-.dark .doc-filter-row {
-  background: #131d31 !important;
-  border-color: rgba(51, 65, 85, 0.7) !important;
-}
 
-[data-theme="dark"] .doc-filter-row input,
-.dark .doc-filter-row input,
-[data-theme="dark"] .doc-filter-row select,
-.dark .doc-filter-row select {
-  background: #0b1120 !important;
-  border-color: rgba(51, 65, 85, 0.8) !important;
-  color: #f8fafc !important;
-}
 
-[data-theme="dark"] .doc-table-panel,
-.dark .doc-table-panel {
-  background: #131d31 !important;
-  border-color: rgba(51, 65, 85, 0.7) !important;
-}
 
-[data-theme="dark"] .doc-table-panel table th,
-.dark .doc-table-panel table th {
-  background: #0d1527 !important;
-  color: #94a3b8 !important;
-  border-color: rgba(51, 65, 85, 0.6) !important;
-}
 
-[data-theme="dark"] .doc-table-panel table td,
-.dark .doc-table-panel table td {
-  border-color: rgba(51, 65, 85, 0.4) !important;
-}
 
-[data-theme="dark"] .doc-table-row:hover,
-.dark .doc-table-row:hover {
-  background-color: rgba(13, 148, 136, 0.12) !important;
-}
 
-[data-theme="dark"] .doc-name-text,
-.dark .doc-name-text {
-  color: #f8fafc !important;
-}
 
-[data-theme="dark"] .doc-muted,
-.dark .doc-muted {
-  color: #94a3b8 !important;
-}
 
-[data-theme="dark"] .doc-pincode-badge,
-.dark .doc-pincode-badge {
-  background: rgba(30, 41, 59, 0.8) !important;
-  color: #cbd5e1 !important;
-}
 
-[data-theme="dark"] .doc-signature-section,
-.dark .doc-signature-section,
-[data-theme="dark"] .clinic-photos-section,
-.dark .clinic-photos-section {
-  background: rgba(11, 17, 32, 0.7) !important;
-  border-color: rgba(51, 65, 85, 0.7) !important;
-}
 
-[data-theme="dark"] .clinic-photo-card,
-.dark .clinic-photo-card {
-  background: #0b1120 !important;
-  border-color: rgba(51, 65, 85, 0.7) !important;
-}
 
-[data-theme="dark"] .doc-signature-card,
-.dark .doc-signature-card {
-  background: #0b1120 !important;
-  border-color: rgba(51, 65, 85, 0.7) !important;
-}
 
-[data-theme="dark"] .sig-canvas-container,
-.dark .sig-canvas-container {
-  background: #0b1120 !important;
-  border-color: rgba(51, 65, 85, 0.8) !important;
-}
 
-[data-theme="dark"] .rpt-btn-sm.rpt-btn-pre,
-.dark .rpt-btn-sm.rpt-btn-pre,
-[data-theme="dark"] .rpt-btn-sm.rpt-btn-outline,
-.dark .rpt-btn-sm.rpt-btn-outline {
-  background: #1e293b !important;
-  border-color: #2dd4bf !important;
-  color: #2dd4bf !important;
-}
 
-[data-theme="dark"] .rpt-btn-sm.rpt-btn-pre:hover,
-.dark .rpt-btn-sm.rpt-btn-pre:hover,
-[data-theme="dark"] .rpt-btn-sm.rpt-btn-outline:hover,
-.dark .rpt-btn-sm.rpt-btn-outline:hover {
-  background: rgba(45, 212, 191, 0.15) !important;
-  color: #5eead4 !important;
-}
 
-[data-theme="dark"] .rpt-btn-sm.rpt-btn-post,
-.dark .rpt-btn-sm.rpt-btn-post {
-  background: linear-gradient(135deg, #059669 0%, #10b981 100%) !important;
-  color: #ffffff !important;
-}
 
-[data-theme="dark"] .rpt-btn-sm.rpt-btn-edit,
-.dark .rpt-btn-sm.rpt-btn-edit {
-  background: #0284c7 !important;
-  color: #ffffff !important;
-}
 
 /* =========================================================
    GLOBAL RESET
@@ -387,7 +169,7 @@ button {
   background: oklch(60% .01 180);
 }
 
-/* ── Brand ── */
+/* â”€â”€ Brand â”€â”€ */
 .brand {
   height: 64px;
   display: flex;
@@ -432,7 +214,7 @@ button {
   letter-spacing: .05em;
 }
 
-/* ── Nav ── */
+/* â”€â”€ Nav â”€â”€ */
 .sidebar nav {
   padding: .75rem;
 }
@@ -1287,12 +1069,6 @@ body.modal-open {
   -webkit-filter: none !important;
 }
 
-[data-theme="dark"] .zzc-modal {
-  background: #111827;
-  border-color: rgba(75, 85, 99, 0.5);
-  color: #f9fafb;
-  box-shadow: 0 25px 65px -12px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.08);
-}
 
 @keyframes modalOverlayFadeIn {
   from { opacity: 0; }
@@ -1521,9 +1297,9 @@ body.modal-open {
 
 
 /* =========================================================
-   ─────────────────────────────────────────────────────
-   SHARED PAGE TITLE — Reports & Doctors views
-   ─────────────────────────────────────────────────────
+   â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+   SHARED PAGE TITLE â€” Reports & Doctors views
+   â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 ========================================================= */
 .crm-page-title {
   display: flex;
@@ -1550,7 +1326,7 @@ body.modal-open {
 }
 
 /* =========================================================
-   SHARED FIELD CONTROL — used in Reports add-row & filters
+   SHARED FIELD CONTROL â€” used in Reports add-row & filters
 ========================================================= */
 .rpt-field {
   display: flex;
@@ -2079,19 +1855,7 @@ body.modal-open {
   transform: scale(0.96);
 }
 
-[data-theme="dark"] .rpt-btn-view-eye,
-.dark .rpt-btn-view-eye {
-  background: rgba(14, 165, 233, 0.14);
-  border-color: rgba(56, 189, 248, 0.4);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
-}
 
-[data-theme="dark"] .rpt-btn-view-eye:hover,
-.dark .rpt-btn-view-eye:hover {
-  background: rgba(14, 165, 233, 0.25);
-  border-color: #38bdf8;
-  box-shadow: 0 4px 14px rgba(56, 189, 248, 0.35);
-}
 
 @keyframes zzc-spin {
   from {
@@ -2188,7 +1952,7 @@ body.modal-open {
   font-weight: 600;
 }
 
-/* ─── Outcome badge (Reported Calls modal) ─── */
+/* â”€â”€â”€ Outcome badge (Reported Calls modal) â”€â”€â”€ */
 .rpt-outcome-badge {
   display: inline-block;
   padding: 2px 8px;
@@ -2200,7 +1964,7 @@ body.modal-open {
   border: 1px solid color-mix(in oklab, var(--primary) 25%, transparent);
 }
 
-/* ─── Submit toast ─── */
+/* â”€â”€â”€ Submit toast â”€â”€â”€ */
 .rpt-submit-toast {
   display: flex;
   align-items: center;
@@ -2276,7 +2040,7 @@ body.modal-open {
 }
 
 /* =========================================================
-   CALL MODALS — Pre Call / Post Call / Edit Call
+   CALL MODALS â€” Pre Call / Post Call / Edit Call
 ========================================================= */
 .rpt-call-modal {
   max-width: 600px !important;
@@ -2391,7 +2155,7 @@ body.modal-open {
   margin-bottom: .75rem;
 }
 
-/* ─── Reported calls modal ─── */
+/* â”€â”€â”€ Reported calls modal â”€â”€â”€ */
 .rpt-reported-modal {
   max-width: 760px !important;
 }
@@ -2447,7 +2211,7 @@ body.modal-open {
   transform: translateY(0);
 }
 
-/* Stat cards — same tokens as dashboard .stats */
+/* Stat cards â€” same tokens as dashboard .stats */
 .doc-stat-row {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -2634,7 +2398,7 @@ textarea:focus-visible {
 
 
 /* =========================================================
-   TABLET  (≤ 1100px)
+   TABLET  (â‰¤ 1100px)
 ========================================================= */
 @media (max-width: 1100px) {
   .sidebar {
@@ -2672,7 +2436,7 @@ textarea:focus-visible {
 
 
 /* =========================================================
-   MOBILE  (≤ 700px)
+   MOBILE  (â‰¤ 700px)
 ========================================================= */
 @media (max-width: 700px) {
   .app {
@@ -2766,7 +2530,7 @@ textarea:focus-visible {
 
 
 /* =========================================================
-   SMALL MOBILE  (≤ 480px)
+   SMALL MOBILE  (â‰¤ 480px)
 ========================================================= */
 @media (max-width: 480px) {
   .sidebar nav {
@@ -2875,10 +2639,10 @@ textarea:focus-visible {
 }
 
 /* =========================================================
-   PLAN TARGET PANEL — shown on Executive & Team dashboards
+   PLAN TARGET PANEL â€” shown on Executive & Team dashboards
 ========================================================= */
 
-/* ── empty state (no plan yet) ── */
+/* â”€â”€ empty state (no plan yet) â”€â”€ */
 .pln-target-empty {
   display: flex;
   align-items: center;
@@ -2899,7 +2663,7 @@ textarea:focus-visible {
   color: var(--foreground);
 }
 
-/* ── full panel ── */
+/* â”€â”€ full panel â”€â”€ */
 .pln-target-panel {
   padding: .9rem 1rem;
   margin-bottom: 0;
@@ -2934,7 +2698,7 @@ textarea:focus-visible {
   white-space: nowrap;
 }
 
-/* ── stat pills row ── */
+/* â”€â”€ stat pills row â”€â”€ */
 .pln-target-pills {
   display: flex;
   flex-wrap: wrap;
@@ -2987,7 +2751,7 @@ textarea:focus-visible {
   border-color: oklch(85% .07 75);
 }
 
-/* ── progress bar ── */
+/* â”€â”€ progress bar â”€â”€ */
 .pln-target-progress-row {
   display: flex;
   align-items: center;
@@ -3620,10 +3384,6 @@ textarea:focus-visible {
   gap: 0.25rem;
 }
 
-[data-theme="dark"] .doc-details-stat-box {
-  background: rgba(30, 41, 59, 0.7);
-  border-color: rgba(51, 65, 85, 0.8);
-}
 
 .doc-details-stat-label {
   font-size: 0.68rem;
@@ -3652,10 +3412,6 @@ textarea:focus-visible {
   padding: 1rem;
 }
 
-[data-theme="dark"] .doc-details-info-grid {
-  background: rgba(17, 24, 39, 0.6);
-  border-color: rgba(55, 65, 81, 0.8);
-}
 
 .doc-details-item {
   display: flex;

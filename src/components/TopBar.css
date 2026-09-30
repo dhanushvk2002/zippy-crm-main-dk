@@ -1,5 +1,5 @@
-/* ==========================================================================
-   TopBar.css — Healthcare CRM Modern Header
+﻿/* ==========================================================================
+   TopBar.css â€” Healthcare CRM Modern Header
    Clean, Compact, Healthcare SaaS Palette (#0284c7 / #0369a1)
    ========================================================================== */
 
@@ -18,7 +18,7 @@
   backdrop-filter: blur(8px);
 }
 
-/* ── LEFT: Title & Breadcrumb ── */
+/* â”€â”€ LEFT: Title & Breadcrumb â”€â”€ */
 .hc-topbar-left {
   display: flex;
   flex-direction: column;
@@ -58,7 +58,7 @@
   line-height: 1.2;
 }
 
-/* ── CENTER: Large Global Search ── */
+/* â”€â”€ CENTER: Large Global Search â”€â”€ */
 .hc-topbar-center {
   flex: 1;
   max-width: 520px;
@@ -115,7 +115,7 @@
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
-/* ── RIGHT: Actions & Profile ── */
+/* â”€â”€ RIGHT: Actions & Profile â”€â”€ */
 .hc-topbar-right {
   display: flex;
   align-items: center;
@@ -177,7 +177,7 @@
   border: 1.5px solid #ffffff;
 }
 
-/* ── Profile Trigger & Dropdown ── */
+/* â”€â”€ Profile Trigger & Dropdown â”€â”€ */
 .hc-profile-wrap,
 .hc-notif-wrap {
   position: relative;
@@ -223,7 +223,7 @@
   color: #94a3b8;
 }
 
-/* ── Common Dropdown Menus ── */
+/* â”€â”€ Common Dropdown Menus â”€â”€ */
 .hc-dropdown-menu {
   position: absolute;
   right: 0;
@@ -315,7 +315,7 @@
   color: #dc2626;
 }
 
-/* ── Notification Menu ── */
+/* â”€â”€ Notification Menu â”€â”€ */
 .hc-notif-menu {
   width: 320px;
   padding: 12px;
@@ -396,71 +396,14 @@
   color: #94a3b8;
 }
 
-/* ── Dark Mode ── */
-[data-theme="dark"] .hc-topbar,
-.theme-dark .hc-topbar {
-  background: #0f172a;
-  border-color: rgba(51, 65, 85, 0.7);
-}
+/* â”€â”€ Dark Mode â”€â”€ */
 
-[data-theme="dark"] .hc-topbar-title,
-.theme-dark .hc-topbar-title {
-  color: #f8fafc;
-}
 
-[data-theme="dark"] .hc-search-input,
-.theme-dark .hc-search-input {
-  background: #1e293b;
-  border-color: rgba(51, 65, 85, 0.8);
-  color: #f8fafc;
-}
 
-[data-theme="dark"] .hc-search-kbd,
-.theme-dark .hc-search-kbd {
-  background: #334155;
-  border-color: rgba(71, 85, 105, 0.8);
-  color: #cbd5e1;
-}
 
-[data-theme="dark"] .hc-icon-btn,
-.theme-dark .hc-icon-btn,
-[data-theme="dark"] .hc-profile-trigger,
-.theme-dark .hc-profile-trigger {
-  background: #1e293b;
-  border-color: rgba(51, 65, 85, 0.8);
-  color: #cbd5e1;
-}
 
-[data-theme="dark"] .hc-profile-name,
-.theme-dark .hc-profile-name {
-  color: #f8fafc;
-}
 
-[data-theme="dark"] .hc-dropdown-menu,
-.theme-dark .hc-dropdown-menu {
-  background: #1e293b;
-  border-color: rgba(51, 65, 85, 0.8);
-}
 
-[data-theme="dark"] .hc-profile-head-name,
-.theme-dark .hc-profile-head-name,
-[data-theme="dark"] .hc-menu-title,
-.theme-dark .hc-menu-title {
-  color: #f8fafc;
-}
 
-[data-theme="dark"] .hc-menu-item,
-.theme-dark .hc-menu-item {
-  color: #cbd5e1;
-}
 
-[data-theme="dark"] .hc-menu-item:hover,
-.theme-dark .hc-menu-item:hover {
-  background: #334155;
-  color: #f8fafc;
-}
 
-[data-theme="dark"] .hc-notif-item,
-.theme-dark .hc-notif-item {
-  background: #0f172a;
-}

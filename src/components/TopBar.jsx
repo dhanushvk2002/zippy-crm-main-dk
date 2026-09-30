@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import useTheme from "../useTheme.js";
-import { Sun, Moon, Search, Plus } from "lucide-react";
+import { Search, Plus } from "lucide-react";
 
 export default function TopBar({
   title,
@@ -15,7 +14,7 @@ export default function TopBar({
   onTabChange,
   onOpenSalesCRM,
 }) {
-  const [theme, setTheme] = useTheme();
+
   // State to handle opening and closing the dropdown list panel
   const [salesMenuOpen, setSalesMenuOpen] = useState(false);
   const dropdownRef = useRef(null);
@@ -101,27 +100,7 @@ export default function TopBar({
           )}
         </div>
         
-        {/* Light / Dark Mode Switcher */}
-        <div className="zzc-theme-toggle" role="group" aria-label="Theme Switcher">
-          <button
-            type="button"
-            className={`zzc-theme-btn ${theme !== "dark" ? "active" : ""}`}
-            onClick={() => setTheme("light")}
-            title="Switch to Light Mode"
-          >
-            <Sun size={13} />
-            <span>Light</span>
-          </button>
-          <button
-            type="button"
-            className={`zzc-theme-btn ${theme === "dark" ? "active" : ""}`}
-            onClick={() => setTheme("dark")}
-            title="Switch to Dark Mode"
-          >
-            <Moon size={13} />
-            <span>Dark</span>
-          </button>
-        </div>
+
 
         <a href="#" className="zzc-btn-link">Console</a>
       </div>

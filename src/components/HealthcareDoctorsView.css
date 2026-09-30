@@ -1,5 +1,5 @@
-/* ==========================================================================
-   HealthcareDoctorsView.css — Doctors Directory & Profile Drawer
+﻿/* ==========================================================================
+   HealthcareDoctorsView.css â€” Doctors Directory & Profile Drawer
    Healthcare SaaS UI with white cards, soft shadows, 12-16px radius
    ========================================================================== */
 
@@ -34,7 +34,7 @@
   margin: 0;
 }
 
-/* ── Toolbar & Filters ── */
+/* â”€â”€ Toolbar & Filters â”€â”€ */
 .hc-doctors-toolbar {
   display: flex;
   align-items: center;
@@ -137,7 +137,7 @@
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
-/* ── Doctor Cards Grid ── */
+/* â”€â”€ Doctor Cards Grid â”€â”€ */
 .hc-doctors-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
@@ -346,7 +346,7 @@
   border-color: #fca5a5;
 }
 
-/* ── Modern Table Container ── */
+/* â”€â”€ Modern Table Container â”€â”€ */
 .hc-table-container {
   background: #ffffff;
   border-radius: 16px;
@@ -483,7 +483,7 @@
   cursor: pointer;
 }
 
-/* ── Profile Drawer Modal ── */
+/* â”€â”€ Profile Drawer Modal â”€â”€ */
 .hc-modal-backdrop {
   position: fixed;
   inset: 0;
@@ -890,7 +890,7 @@
   flex-shrink: 0;
 }
 
-/* ── Empty State ── */
+/* â”€â”€ Empty State â”€â”€ */
 .hc-empty-state {
   text-align: center;
   padding: 3.5rem 1.5rem;
@@ -966,98 +966,19 @@
 /* =========================================================
    HEALTHCARE DOCTORS VIEW DARK THEME OVERRIDES
 ========================================================= */
-[data-theme="dark"] .hc-view-title,
-.dark .hc-view-title {
-  color: #f8fafc !important;
-}
 
-[data-theme="dark"] .hc-view-subtitle,
-.dark .hc-view-subtitle {
-  color: #94a3b8 !important;
-}
 
-[data-theme="dark"] .hc-doctors-toolbar,
-.dark .hc-doctors-toolbar {
-  background: #131d31 !important;
-  border-color: rgba(51, 65, 85, 0.7) !important;
-}
 
-[data-theme="dark"] .hc-search-field,
-.dark .hc-search-field {
-  background: #0b1120 !important;
-  border-color: rgba(51, 65, 85, 0.8) !important;
-}
 
-[data-theme="dark"] .hc-search-field input,
-.dark .hc-search-field input {
-  color: #f8fafc !important;
-}
 
-[data-theme="dark"] .hc-filter-select,
-.dark .hc-filter-select {
-  background-color: #0b1120 !important;
-  color: #f8fafc !important;
-  border-color: rgba(51, 65, 85, 0.8) !important;
-}
 
-[data-theme="dark"] .hc-doctor-card,
-.dark .hc-doctor-card {
-  background: #131d31 !important;
-  border-color: rgba(51, 65, 85, 0.7) !important;
-}
 
-[data-theme="dark"] .hc-doctor-card:hover,
-.dark .hc-doctor-card:hover {
-  border-color: #0d9488 !important;
-}
 
-[data-theme="dark"] .hc-doctor-name,
-.dark .hc-doctor-name {
-  color: #f8fafc !important;
-}
 
-[data-theme="dark"] .hc-doctor-spec,
-.dark .hc-doctor-spec {
-  color: #2dd4bf !important;
-}
 
-[data-theme="dark"] .hc-doctor-stats,
-.dark .hc-doctor-stats {
-  background: rgba(11, 17, 32, 0.6) !important;
-  border-color: rgba(51, 65, 85, 0.7) !important;
-}
 
-[data-theme="dark"] .hc-doctor-footer,
-.dark .hc-doctor-footer {
-  border-color: rgba(51, 65, 85, 0.7) !important;
-}
 
-[data-theme="dark"] .hc-table-container,
-.dark .hc-table-container {
-  background: #131d31 !important;
-  border-color: rgba(51, 65, 85, 0.7) !important;
-}
 
-[data-theme="dark"] .hc-table th,
-.dark .hc-table th {
-  background: #0d1527 !important;
-  color: #94a3b8 !important;
-  border-color: rgba(51, 65, 85, 0.6) !important;
-}
 
-[data-theme="dark"] .hc-table td,
-.dark .hc-table td {
-  border-color: rgba(51, 65, 85, 0.4) !important;
-  color: #cbd5e1 !important;
-}
 
-[data-theme="dark"] .hc-table tr:hover td,
-.dark .hc-table tr:hover td {
-  background: rgba(30, 41, 59, 0.6) !important;
-}
 
-[data-theme="dark"] .hc-drawer-content,
-.dark .hc-drawer-content {
-  background: #131d31 !important;
-  color: #f8fafc !important;
-}

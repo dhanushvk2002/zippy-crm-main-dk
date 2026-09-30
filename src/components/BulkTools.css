@@ -1,5 +1,5 @@
-/* ==========================================================================
-   BulkTools.css — Large-Scale Healthcare Updates & CSV Utilities
+﻿/* ==========================================================================
+   BulkTools.css â€” Large-Scale Healthcare Updates & CSV Utilities
    ========================================================================== */
 
 .hc-bulk-view {
@@ -96,7 +96,7 @@
   border-color: #0284c7;
 }
 
-/* ── Workspace ── */
+/* â”€â”€ Workspace â”€â”€ */
 .hc-bulk-workspace {
   background: #ffffff;
   border-radius: 18px;
@@ -219,53 +219,10 @@
 /* =========================================================
    BULK TOOLS DARK THEME OVERRIDES
 ========================================================= */
-[data-theme="dark"] .hc-bulk-card,
-.dark .hc-bulk-card {
-  background: #131d31 !important;
-  border-color: rgba(51, 65, 85, 0.7) !important;
-  color: #f8fafc !important;
-}
 
-[data-theme="dark"] .hc-bulk-card.selected,
-.dark .hc-bulk-card.selected {
-  background: #1e293b !important;
-  border-color: #0d9488 !important;
-}
 
-[data-theme="dark"] .hc-bulk-card-title,
-.dark .hc-bulk-card-title {
-  color: #f8fafc !important;
-}
 
-[data-theme="dark"] .hc-bulk-card-desc,
-.dark .hc-bulk-card-desc {
-  color: #94a3b8 !important;
-}
 
-[data-theme="dark"] .hc-bulk-console,
-.dark .hc-bulk-console,
-[data-theme="dark"] .hc-bulk-history-table,
-.dark .hc-bulk-history-table {
-  background: #131d31 !important;
-  border-color: rgba(51, 65, 85, 0.7) !important;
-  color: #f8fafc !important;
-}
 
-[data-theme="dark"] .hc-bulk-textarea,
-.dark .hc-bulk-textarea {
-  background: #0b1120 !important;
-  border-color: rgba(51, 65, 85, 0.8) !important;
-  color: #f8fafc !important;
-}
 
-[data-theme="dark"] .hc-bulk-history-table th,
-.dark .hc-bulk-history-table th {
-  background: #0d1527 !important;
-  color: #94a3b8 !important;
-  border-color: rgba(51, 65, 85, 0.6) !important;
-}
 
-[data-theme="dark"] .hc-bulk-history-table td,
-.dark .hc-bulk-history-table td {
-  border-color: rgba(51, 65, 85, 0.4) !important;
-}

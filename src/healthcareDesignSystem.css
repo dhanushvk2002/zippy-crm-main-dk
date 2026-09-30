@@ -1,10 +1,10 @@
-/* ==========================================================================
-   ZENVE ZIPPY — HEALTHCARE CRM DESIGN SYSTEM
+﻿/* ==========================================================================
+   ZENVE ZIPPY â€” HEALTHCARE CRM DESIGN SYSTEM
    Professional Modern Doctors & Veterinary Healthcare SaaS Tokens
    ========================================================================== */
 
 :root {
-  /* ── Core Healthcare Color Palette ── */
+  /* â”€â”€ Core Healthcare Color Palette â”€â”€ */
   --hc-primary: #0284c7;          /* Healthcare Sky Blue */
   --hc-primary-hover: #0369a1;
   --hc-primary-light: #e0f2fe;
@@ -25,7 +25,7 @@
   --hc-card-border: rgba(226, 232, 240, 0.9);
   --hc-card-border-hover: rgba(2, 132, 199, 0.35);
 
-  /* ── Status Colors ── */
+  /* â”€â”€ Status Colors â”€â”€ */
   --hc-success: #10b981;
   --hc-success-bg: #ecfdf5;
   --hc-success-border: #a7f3d0;
@@ -42,7 +42,7 @@
   --hc-purple-bg: #f5f3ff;
   --hc-purple-border: #ddd6fe;
 
-  /* ── Shadows & Radius ── */
+  /* â”€â”€ Shadows & Radius â”€â”€ */
   --hc-shadow-xs: 0 1px 2px 0 rgba(15, 23, 42, 0.04);
   --hc-shadow-sm: 0 1px 3px 0 rgba(15, 23, 42, 0.06), 0 1px 2px -1px rgba(15, 23, 42, 0.04);
   --hc-shadow-md: 0 4px 14px -2px rgba(15, 23, 42, 0.06), 0 2px 6px -2px rgba(15, 23, 42, 0.04);
@@ -55,35 +55,14 @@
   --hc-radius-xl: 20px;
   --hc-radius-full: 9999px;
 
-  /* ── Typography ── */
+  /* â”€â”€ Typography â”€â”€ */
   --hc-font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --hc-font-display: 'Outfit', 'Inter', -apple-system, sans-serif;
 }
 
-/* ── Dark Mode Overrides ── */
-[data-theme="dark"],
-.theme-dark {
-  --hc-bg: #0b1120;
-  --hc-card: #131d31;
-  --hc-card-border: rgba(51, 65, 85, 0.7);
-  --hc-card-border-hover: rgba(56, 189, 248, 0.4);
 
-  --hc-navy: #f8fafc;
-  --hc-charcoal: #e2e8f0;
-  --hc-muted: #94a3b8;
-  --hc-muted-light: #64748b;
 
-  --hc-primary-light: rgba(2, 132, 199, 0.15);
-  --hc-teal-light: rgba(3, 105, 161, 0.15);
-  --hc-success-bg: rgba(16, 185, 129, 0.15);
-  --hc-warning-bg: rgba(245, 158, 11, 0.15);
-  --hc-danger-bg: rgba(239, 68, 68, 0.15);
-
-  --hc-shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.35);
-  --hc-shadow-md: 0 6px 18px rgba(0, 0, 0, 0.45);
-}
-
-/* ── Common Healthcare Layout Containers ── */
+/* â”€â”€ Common Healthcare Layout Containers â”€â”€ */
 .zzc-app {
   display: flex;
   width: 100%;
@@ -150,7 +129,7 @@
   margin-top: 3px;
 }
 
-/* ── Common Action Buttons ── */
+/* â”€â”€ Common Action Buttons â”€â”€ */
 .hc-btn-primary {
   height: 38px;
   padding: 0 16px;
@@ -203,7 +182,7 @@
   color: var(--hc-primary);
 }
 
-/* ── Common Filter Bars ── */
+/* â”€â”€ Common Filter Bars â”€â”€ */
 .hc-filter-bar {
   display: flex;
   align-items: center;
@@ -281,7 +260,7 @@
   box-shadow: 0 0 0 3px var(--hc-primary-ring);
 }
 
-/* ── View Switcher (Grid / List) ── */
+/* â”€â”€ View Switcher (Grid / List) â”€â”€ */
 .hc-view-switch {
   display: flex;
   background: var(--hc-bg);
@@ -313,7 +292,7 @@
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
 }
 
-/* ── Status Badges ── */
+/* â”€â”€ Status Badges â”€â”€ */
 .hc-badge {
   display: inline-flex;
   align-items: center;
@@ -376,7 +355,7 @@
   background: var(--hc-danger);
 }
 
-/* ── Empty States ── */
+/* â”€â”€ Empty States â”€â”€ */
 .hc-empty-card {
   background: var(--hc-card);
   border-radius: var(--hc-radius-lg);

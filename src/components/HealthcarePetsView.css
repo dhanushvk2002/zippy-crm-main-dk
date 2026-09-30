@@ -1,5 +1,5 @@
-/* ==========================================================================
-   HealthcarePetsView.css — Veterinary Patient EHR & Pet Profile Modal
+﻿/* ==========================================================================
+   HealthcarePetsView.css â€” Veterinary Patient EHR & Pet Profile Modal
    ========================================================================== */
 
 .hc-pets-view {
@@ -23,7 +23,7 @@
   flex-wrap: wrap;
 }
 
-/* ── Pets Cards Grid ── */
+/* â”€â”€ Pets Cards Grid â”€â”€ */
 .hc-pets-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
@@ -204,7 +204,7 @@
   border-top: 1px solid rgba(226, 232, 240, 0.6);
 }
 
-/* ── Section 9: Pet Profile Modal ── */
+/* â”€â”€ Section 9: Pet Profile Modal â”€â”€ */
 .hc-pet-profile-modal {
   width: 100%;
   max-width: 820px;
@@ -295,7 +295,7 @@
   gap: 10px;
 }
 
-/* ── Section 9: Vitals KPI Strip ── */
+/* â”€â”€ Section 9: Vitals KPI Strip â”€â”€ */
 .hc-vitals-strip {
   display: grid;
   grid-template-columns: repeat(4, 1fr);

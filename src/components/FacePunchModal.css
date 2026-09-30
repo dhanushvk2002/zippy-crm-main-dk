@@ -1,5 +1,5 @@
-/* ==========================================================================
-   FacePunchModal.css — Biometric Face Scanning & GPS Geolocation Capture
+﻿/* ==========================================================================
+   FacePunchModal.css â€” Biometric Face Scanning & GPS Geolocation Capture
    ========================================================================== */
 
 .face-punch-overlay {
@@ -47,15 +47,6 @@
   }
 }
 
-[data-theme="dark"] .face-punch-modal {
-  background: #0f172a;
-  border-color: rgba(51, 65, 85, 0.85);
-  box-shadow:
-    0 25px 60px -12px rgba(0, 0, 0, 0.8),
-    0 0 0 1px rgba(16, 185, 129, 0.25),
-    0 10px 35px -5px rgba(16, 185, 129, 0.25);
-  color: #f1f5f9;
-}
 
 /* Close Button */
 .face-modal-close-btn {
@@ -92,10 +83,6 @@
   gap: 12px;
 }
 
-[data-theme="dark"] .face-modal-header {
-  border-bottom-color: rgba(51, 65, 85, 0.6);
-  background: linear-gradient(180deg, rgba(16, 185, 129, 0.1) 0%, transparent 100%);
-}
 
 .face-modal-icon-badge {
   width: 44px;
@@ -118,9 +105,6 @@
   letter-spacing: -0.01em;
 }
 
-[data-theme="dark"] .face-modal-title-wrap h3 {
-  color: #f8fafc;
-}
 
 .face-modal-title-wrap p {
   margin: 2px 0 0;
@@ -128,9 +112,6 @@
   color: #64748b;
 }
 
-[data-theme="dark"] .face-modal-title-wrap p {
-  color: #94a3b8;
-}
 
 /* Modal Body */
 .face-modal-body {
@@ -428,16 +409,7 @@
   color: #0f172a;
 }
 
-[data-theme="dark"] .face-retake-btn {
-  background: #1e293b;
-  border-color: #334155;
-  color: #cbd5e1;
-}
 
-[data-theme="dark"] .face-retake-btn:hover {
-  background: #334155;
-  color: #f1f5f9;
-}
 
 .face-upload-label-btn {
   padding: 8px 12px;
@@ -459,10 +431,6 @@
   background: rgba(56, 189, 248, 0.2);
 }
 
-[data-theme="dark"] .face-upload-label-btn {
-  color: #38bdf8;
-  border-color: rgba(56, 189, 248, 0.4);
-}
 
 /* Location & Timing Telemetry Cards */
 .face-telemetry-grid {
@@ -482,10 +450,6 @@
   transition: all 0.2s ease;
 }
 
-[data-theme="dark"] .face-telemetry-card {
-  background: #1e293b;
-  border-color: #334155;
-}
 
 .face-telemetry-icon {
   width: 32px;
@@ -507,15 +471,7 @@
   color: #059669;
 }
 
-[data-theme="dark"] .face-telemetry-icon.location {
-  background: rgba(56, 189, 248, 0.15);
-  color: #38bdf8;
-}
 
-[data-theme="dark"] .face-telemetry-icon.time {
-  background: rgba(52, 211, 153, 0.15);
-  color: #34d399;
-}
 
 .face-telemetry-label {
   font-size: 0.68rem;
@@ -525,9 +481,6 @@
   color: #64748b;
 }
 
-[data-theme="dark"] .face-telemetry-label {
-  color: #94a3b8;
-}
 
 .face-telemetry-val {
   font-size: 0.82rem;
@@ -537,9 +490,6 @@
   line-height: 1.25;
 }
 
-[data-theme="dark"] .face-telemetry-val {
-  color: #f1f5f9;
-}
 
 .face-telemetry-sub {
   font-size: 0.7rem;
@@ -548,9 +498,6 @@
   word-break: break-all;
 }
 
-[data-theme="dark"] .face-telemetry-sub {
-  color: #94a3b8;
-}
 
 /* Auto-detect button inside location card */
 .face-auto-location-btn {
@@ -575,16 +522,7 @@
   border-color: #0284c7;
 }
 
-[data-theme="dark"] .face-auto-location-btn {
-  background: rgba(56, 189, 248, 0.15);
-  color: #38bdf8;
-  border-color: rgba(56, 189, 248, 0.3);
-}
 
-[data-theme="dark"] .face-auto-location-btn:hover {
-  background: #38bdf8;
-  color: #0f172a;
-}
 
 .spinning {
   animation: faceSpin 1s linear infinite;
@@ -612,10 +550,6 @@
   margin-top: 4px;
 }
 
-[data-theme="dark"] .face-auto-loc-badge {
-  color: #2dd4bf;
-  background: rgba(45, 212, 191, 0.15);
-}
 
 /* Modal Bottom Actions */
 .face-modal-footer {
@@ -655,10 +589,6 @@
   color: #64748b;
 }
 
-[data-theme="dark"] .face-confirm-submit-btn:disabled {
-  background: #334155;
-  color: #64748b;
-}
 
 .face-cancel-btn {
   width: 100%;
@@ -678,15 +608,7 @@
   color: #0f172a;
 }
 
-[data-theme="dark"] .face-cancel-btn {
-  border-color: #334155;
-  color: #94a3b8;
-}
 
-[data-theme="dark"] .face-cancel-btn:hover {
-  background: #1e293b;
-  color: #f1f5f9;
-}
 
 /* ==========================================================================
    Table & Summary Thumbnail and Lightbox Styles
@@ -771,11 +693,6 @@
   white-space: nowrap;
 }
 
-[data-theme="dark"] .attend-loc-sub-tag {
-  color: #38bdf8;
-  background: rgba(56, 189, 248, 0.12);
-  border-color: rgba(56, 189, 248, 0.25);
-}
 
 /* Lightbox Preview Modal */
 .attend-preview-lightbox {
@@ -802,11 +719,6 @@
   animation: faceModalScaleIn 0.24s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-[data-theme="dark"] .attend-lightbox-card {
-  background: #0f172a;
-  border-color: rgba(51, 65, 85, 0.8);
-  color: #f1f5f9;
-}
 
 .attend-lightbox-header {
   padding: 1rem 1.25rem;
@@ -816,9 +728,6 @@
   border-bottom: 1px solid rgba(226, 232, 240, 0.8);
 }
 
-[data-theme="dark"] .attend-lightbox-header {
-  border-bottom-color: rgba(51, 65, 85, 0.8);
-}
 
 .attend-lightbox-img {
   width: 100%;
@@ -840,9 +749,6 @@
   color: #0f172a;
 }
 
-[data-theme="dark"] .attend-lightbox-title {
-  color: #f8fafc;
-}
 
 .camera-icon-teal {
   color: #0369a1;
@@ -868,10 +774,6 @@
   color: #0f172a;
 }
 
-[data-theme="dark"] .attend-lightbox-close:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: #ffffff;
-}
 
 .attend-lightbox-meta {
   display: flex;
@@ -893,9 +795,6 @@
   font-weight: 500;
 }
 
-[data-theme="dark"] .attend-meta-k {
-  color: #94a3b8;
-}
 
 .attend-meta-v {
   font-weight: 600;
@@ -908,9 +807,6 @@
   justify-content: flex-end;
 }
 
-[data-theme="dark"] .attend-meta-v {
-  color: #f1f5f9;
-}
 
 .attend-coords {
   color: #0284c7;
@@ -933,10 +829,6 @@
   gap: 6px;
 }
 
-[data-theme="dark"] .attend-meta-status-badge {
-  background: rgba(16, 185, 129, 0.15);
-  color: #34d399;
-}
 
 /* Fallback badge when no face image */
 .attend-no-photo-badge {
@@ -951,11 +843,6 @@
   border: 1px dashed #cbd5e1;
 }
 
-[data-theme="dark"] .attend-no-photo-badge {
-  background: #1e293b;
-  border-color: #334155;
-  color: #64748b;
-}
 
 /* Punch in location subtext */
 .attend-punch-cell {
@@ -975,9 +862,6 @@
   white-space: nowrap;
 }
 
-[data-theme="dark"] .attend-loc-sub {
-  color: #38bdf8;
-}
 
 /* Face cell */
 .attend-face-cell {
