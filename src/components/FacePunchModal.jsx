@@ -20,6 +20,35 @@ import docFemale3 from "../assets/doctor-female-3.jpg";
 import { getDoctorGender } from "../genderHelper.js";
 import "./FacePunchModal.css";
 
+const MAX_SELFIE_DATA_URL_LENGTH = 48 * 1024;
+
+function createCompactSelfie(sourceCanvas) {
+  const outputCanvas = document.createElement("canvas");
+  const context = outputCanvas.getContext("2d");
+  if (!context) return sourceCanvas.toDataURL("image/jpeg", 0.5);
+
+  const initialScale = Math.min(1, 440 / Math.max(sourceCanvas.width, sourceCanvas.height));
+  let width = Math.max(1, Math.round(sourceCanvas.width * initialScale));
+  let height = Math.max(1, Math.round(sourceCanvas.height * initialScale));
+  let lastDataUrl = "";
+
+  while (width >= 120 && height >= 120) {
+    outputCanvas.width = width;
+    outputCanvas.height = height;
+    context.drawImage(sourceCanvas, 0, 0, width, height);
+
+    for (const quality of [0.82, 0.72, 0.62, 0.52, 0.42]) {
+      lastDataUrl = outputCanvas.toDataURL("image/jpeg", quality);
+      if (lastDataUrl.length <= MAX_SELFIE_DATA_URL_LENGTH) return lastDataUrl;
+    }
+
+    width = Math.round(width * 0.8);
+    height = Math.round(height * 0.8);
+  }
+
+  return lastDataUrl;
+}
+
 export default function FacePunchModal({
   isOpen,
   executive = {},
@@ -373,7 +402,7 @@ export default function FacePunchModal({
     ctx.scale(-1, 1);
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    const dataUrl = canvas.toDataURL("image/jpeg", 0.92);
+    const dataUrl = createCompactSelfie(canvas);
     setCapturedImage(dataUrl);
     stopCameraStream();
   };
@@ -476,7 +505,7 @@ export default function FacePunchModal({
         388
       );
 
-      const dataUrl = canvas.toDataURL("image/jpeg", 0.92);
+      const dataUrl = createCompactSelfie(canvas);
       setCapturedImage(dataUrl);
       stopCameraStream();
     };
