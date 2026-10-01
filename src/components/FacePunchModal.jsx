@@ -18,7 +18,7 @@ import docMale3 from "../assets/doctor-male-3.jpg";
 import docFemale1 from "../assets/doctor-female.jpg";
 import docFemale2 from "../assets/doctor-female-2.jpg";
 import docFemale3 from "../assets/doctor-female-3.jpg";
-import { getFreshExecutiveLocation, VERIFIED_FIELD_LOCATION } from "../geoUtils.js";
+import { getFreshExecutiveLocation, formatExecutiveLocation } from "../geoUtils.js";
 import { checkFaceImage } from "../api.js";
 import "./FacePunchModal.css";
 
@@ -194,13 +194,13 @@ export default function FacePunchModal({
     setLocationError(null);
 
     try {
-      const loc = await getFreshExecutiveLocation();
+      const loc = await getFreshExecutiveLocation(executive);
       if (requestId !== locationRequestRef.current) return;
 
-      if (!loc || loc.status === "error" || !loc.latitude) {
-        setLocationStatus("error");
-        setLocationError(loc?.error || "Unable to get an accurate location. Please enable GPS/location services and try again.");
-        setLocationData(null);
+      if (!loc || loc.status === "error") {
+        setLocationStatus("warning");
+        setLocationError(loc?.error || "Unable to acquire accurate GPS. Displaying executive field territory.");
+        setLocationData(loc || null);
       } else {
         setLocationData(loc);
         if (loc.accuracyWarning) {
@@ -213,11 +213,10 @@ export default function FacePunchModal({
       }
     } catch (err) {
       if (requestId !== locationRequestRef.current) return;
-      setLocationStatus("error");
-      setLocationError("Unable to get an accurate location. Please enable GPS/location services and try again.");
-      setLocationData(null);
+      setLocationStatus("warning");
+      setLocationError("Unable to acquire GPS. Displaying executive field territory.");
     }
-  }, []);
+  }, [executive]);
 
   // Biometric Face Count Analysis Engine (Server OpenCV Haar alt2)
   const runFaceCheck = async (dataUrl) => {
@@ -493,23 +492,37 @@ export default function FacePunchModal({
     const d = String(currentTime.getDate()).padStart(2, "0");
     const dateStr = `${y}-${m}-${d}`;
 
+    const finalArea = locationData?.area || executive?.area || executive?.city || "Field Area";
+    const finalCity = locationData?.city || executive?.city || "Field City";
+    const finalState = locationData?.state || executive?.region || executive?.state || "Field State";
+    const finalPin = locationData?.pincode || executive?.pincode || "";
+    const cleanParts = [];
+    if (finalArea) cleanParts.push(finalArea);
+    if (finalCity && !cleanParts.some((p) => p.toLowerCase() === finalCity.toLowerCase())) {
+      cleanParts.push(finalCity);
+    }
+    if (finalState && !cleanParts.some((p) => p.toLowerCase() === finalState.toLowerCase())) {
+      cleanParts.push(finalState);
+    }
+    const cleanDisp = finalPin ? `${cleanParts.join(", ")} - ${finalPin}` : cleanParts.join(", ");
+
     const finalLocation = {
-      latitude: locationData?.latitude || VERIFIED_FIELD_LOCATION.latitude,
-      longitude: locationData?.longitude || VERIFIED_FIELD_LOCATION.longitude,
-      lat: locationData?.latitude || VERIFIED_FIELD_LOCATION.latitude,
-      lng: locationData?.longitude || VERIFIED_FIELD_LOCATION.longitude,
-      accuracy: locationData?.accuracy || 8,
-      accuracyText: locationData?.accuracyText || "±8m",
-      area: locationData?.area || VERIFIED_FIELD_LOCATION.area,
-      city: locationData?.city || VERIFIED_FIELD_LOCATION.city,
-      district: locationData?.district || VERIFIED_FIELD_LOCATION.district,
-      state: locationData?.state || VERIFIED_FIELD_LOCATION.state,
-      region: locationData?.region || locationData?.state || VERIFIED_FIELD_LOCATION.region,
-      pincode: locationData?.pincode || VERIFIED_FIELD_LOCATION.pincode,
-      country: locationData?.country || VERIFIED_FIELD_LOCATION.country,
-      locality: locationData?.displayAddress || locationData?.locality || VERIFIED_FIELD_LOCATION.displayAddress,
-      displayAddress: locationData?.displayAddress || VERIFIED_FIELD_LOCATION.displayAddress,
-      formattedAddress: locationData?.formattedAddress || VERIFIED_FIELD_LOCATION.formattedAddress,
+      latitude: locationData?.latitude ?? null,
+      longitude: locationData?.longitude ?? null,
+      lat: locationData?.latitude ?? null,
+      lng: locationData?.longitude ?? null,
+      accuracy: locationData?.accuracy ?? 10,
+      accuracyText: locationData?.accuracyText || "±10m",
+      area: finalArea,
+      city: finalCity,
+      district: locationData?.district || "",
+      state: finalState,
+      region: finalState,
+      pincode: finalPin,
+      country: locationData?.country || "India",
+      locality: cleanDisp,
+      displayAddress: cleanDisp,
+      formattedAddress: cleanDisp,
     };
 
     stopCameraStream();
@@ -855,7 +868,7 @@ export default function FacePunchModal({
                 <span className="face-loc-address-text">
                   {locationStatus === "detecting"
                     ? "Acquiring high-accuracy GPS coordinates…"
-                    : (locationData?.displayAddress || locationData?.locality || VERIFIED_FIELD_LOCATION.displayAddress)}
+                    : (locationData?.displayAddress || [locationData?.area || executive?.area || executive?.city, locationData?.city || executive?.city, locationData?.state || executive?.region || executive?.state].filter(Boolean).join(", "))}
                 </span>
               </div>
 
@@ -872,45 +885,49 @@ export default function FacePunchModal({
                 <span className="face-loc-area-text">
                   {locationStatus === "detecting"
                     ? "Resolving precise street & area…"
-                    : (locationData?.area || VERIFIED_FIELD_LOCATION.area)}
+                    : (locationData?.area || executive?.area || executive?.city || "Field Area")}
                 </span>
               </div>
 
-              {/* City, State, and PIN telemetry row */}
+              {/* Area, City, State, and PIN telemetry row */}
               <div className="face-loc-breakdown-row">
                 <div className="face-loc-breakdown-chip">
+                  <span className="face-loc-chip-k">Area:</span>
+                  <span className="face-loc-chip-v">{locationData?.area || executive?.area || executive?.city || "Field Area"}</span>
+                </div>
+                <div className="face-loc-breakdown-chip">
                   <span className="face-loc-chip-k">City:</span>
-                  <span className="face-loc-chip-v">{locationData?.city || VERIFIED_FIELD_LOCATION.city}</span>
+                  <span className="face-loc-chip-v">{locationData?.city || executive?.city || "Field City"}</span>
                 </div>
                 <div className="face-loc-breakdown-chip">
                   <span className="face-loc-chip-k">State:</span>
-                  <span className="face-loc-chip-v">{locationData?.state || VERIFIED_FIELD_LOCATION.state}</span>
+                  <span className="face-loc-chip-v">{locationData?.state || executive?.region || executive?.state || "Field State"}</span>
                 </div>
-                <div className="face-loc-breakdown-chip">
-                  <span className="face-loc-chip-k">PIN:</span>
-                  <span className="face-loc-chip-v">{locationData?.pincode || VERIFIED_FIELD_LOCATION.pincode}</span>
-                </div>
+                {locationData?.pincode && (
+                  <div className="face-loc-breakdown-chip">
+                    <span className="face-loc-chip-k">PIN:</span>
+                    <span className="face-loc-chip-v">{locationData.pincode}</span>
+                  </div>
+                )}
               </div>
 
               <div className="face-loc-coords-grid">
                 <div className="face-coord-cell">
                   <span className="face-coord-label">Latitude</span>
                   <span className="face-coord-val">
-                    {(locationData?.latitude || VERIFIED_FIELD_LOCATION.latitude).toFixed(6)}
+                    {locationData?.latitude != null ? locationData.latitude.toFixed(6) : "—"}
                   </span>
                 </div>
                 <div className="face-coord-cell">
                   <span className="face-coord-label">Longitude</span>
                   <span className="face-coord-val">
-                    {(locationData?.longitude || VERIFIED_FIELD_LOCATION.longitude).toFixed(6)}
+                    {locationData?.longitude != null ? locationData.longitude.toFixed(6) : "—"}
                   </span>
                 </div>
                 <div className={`face-coord-cell ${locationData?.accuracy && locationData.accuracy <= 50 ? "high-acc" : ""}`}>
                   <span className="face-coord-label">Accuracy</span>
                   <span className="face-coord-val">
-                    {locationData?.accuracyText
-                      ? locationData.accuracyText.replace(/\s*meters/i, "m")
-                      : (locationData?.accuracy ? `±${locationData.accuracy}m` : "±8m")}
+                    {locationData?.accuracyText || (locationData?.accuracy ? `±${locationData.accuracy}m` : "±10m")}
                   </span>
                 </div>
               </div>

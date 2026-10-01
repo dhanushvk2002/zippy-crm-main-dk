@@ -31,53 +31,27 @@ import AttendancePunchAlertsPanel from "./AttendancePunchAlertsPanel.jsx";
 import defaultFacePhoto from "../assets/doctor-male.jpg";
 import { fetchAttendanceList, punchInAttendance } from "../api.js";
 import { formatAttendanceDateAndDay } from "../dateUtils.js";
-import { VERIFIED_FIELD_LOCATION } from "../geoUtils.js";
+import { formatExecutiveLocation, formatLocationString } from "../geoUtils.js";
 import "./AttendanceReportView.css";
 
 const STORAGE_KEY = "zenve_crm_attendance_records";
 
-function normalizeFullAddress(addr) {
-  if (!addr) return VERIFIED_FIELD_LOCATION.displayAddress;
-  if (
-    /jayanagar|4th t block|kalyanmandap|bengaluru|bangalore|canara bank|field territory|karnataka/i.test(addr) &&
-    !addr.includes("1478/1")
-  ) {
-    return VERIFIED_FIELD_LOCATION.displayAddress;
+function normalizeFullAddress(addr, exec = null) {
+  if (!addr) {
+    const area = exec?.area || exec?.territory || exec?.city || "Field Area";
+    const city = exec?.city || "Field City";
+    const state = exec?.region || exec?.state || "Field State";
+    return [area, city, state].filter(Boolean).join(", ");
   }
-  return addr;
+  return formatLocationString(addr, exec);
 }
 
-function formatShortLocation(loc) {
-  if (!loc) return "Jayanagar, Bengaluru";
-  if (typeof loc === "object") {
-    if (loc.locality && loc.city && !loc.locality.includes("1478/1") && !loc.locality.includes("Kalyanmandap") && !loc.locality.includes("40th Cross")) {
-      return `${loc.locality}, ${loc.city}`;
-    }
-    const raw = loc.displayAddress || loc.formattedAddress || loc.locality || loc.area || "";
-    return formatShortLocationString(raw);
-  }
-  return formatShortLocationString(String(loc));
+function formatShortLocation(loc, exec = null) {
+  return formatExecutiveLocation(loc, exec);
 }
 
-function formatShortLocationString(str) {
-  if (!str) return "Jayanagar, Bengaluru";
-  const s = String(str).trim();
-  if (/jayanagar|kalyanmandap|40th cross|4th t block|tilak nagar|pattabhirama|1478\/1/i.test(s)) {
-    return "Jayanagar, Bengaluru";
-  }
-  if (/bengaluru|bangalore/i.test(s)) {
-    const parts = s.split(",").map((p) => p.trim()).filter(Boolean);
-    const cityIdx = parts.findIndex((p) => /bengaluru|bangalore/i.test(p));
-    if (cityIdx > 0) {
-      return `${parts[cityIdx - 1]}, ${parts[cityIdx]}`;
-    }
-    return "Jayanagar, Bengaluru";
-  }
-  const parts = s.split(",").map((p) => p.trim()).filter(Boolean);
-  if (parts.length >= 2) {
-    return `${parts[parts.length - 2]}, ${parts[parts.length - 1]}`;
-  }
-  return s;
+function formatShortLocationString(str, exec = null) {
+  return formatLocationString(str, exec);
 }
 
 function getTodayIso() {
@@ -305,6 +279,22 @@ export default function AttendanceReportView({
         }
       }
 
+      const inAreaRaw = row.login_area || row.area || "";
+      const inFormatted = inAreaRaw ? formatLocationString(inAreaRaw, exec) : formatExecutiveLocation(null, exec);
+      const inParts = inFormatted.split(",").map((p) => p.trim());
+      const inArea = inParts[0] || exec.area || exec.city || "Field Area";
+      const inCity = inParts[1] || exec.city || "Field City";
+      const inState = inParts[2] || exec.region || exec.state || "Field State";
+
+      const outAreaRaw = row.logout_area || row.area || "";
+      const outFormatted = outAreaRaw
+        ? formatLocationString(outAreaRaw, exec)
+        : (row.logout_time ? formatExecutiveLocation(null, exec) : null);
+      const outParts = outFormatted ? outFormatted.split(",").map((p) => p.trim()) : [];
+      const outArea = outParts[0] || inArea;
+      const outCity = outParts[1] || inCity;
+      const outState = outParts[2] || inState;
+
       const key = `${row.executive_id}_${row.attendance_date}`;
       map.set(key, {
         id: key,
@@ -314,33 +304,35 @@ export default function AttendanceReportView({
         date: String(row.attendance_date),
         punchIn: inTime,
         punchInLocation: {
-          area: VERIFIED_FIELD_LOCATION.area,
-          city: "Bengaluru",
-          region: "Karnataka",
-          locality: normalizeFullAddress(row.area || row.login_area),
-          displayAddress: normalizeFullAddress(row.area || row.login_area),
-          coords: { latitude: row.latitude ?? row.login_latitude ?? VERIFIED_FIELD_LOCATION.latitude, longitude: row.longitude ?? row.login_longitude ?? VERIFIED_FIELD_LOCATION.longitude },
+          area: inArea,
+          city: inCity,
+          state: inState,
+          region: inState,
+          locality: inFormatted,
+          displayAddress: inFormatted,
+          coords: { latitude: row.latitude ?? row.login_latitude ?? null, longitude: row.longitude ?? row.login_longitude ?? null },
         },
         faceImage: row.login_selfie_url,
         lunchOut: formatIsoToTimeStr(row.lunch_out_time || row.lunch_out),
         lunchIn: formatIsoToTimeStr(row.lunch_in_time || row.lunch_in),
         punchOut: outTime,
-        punchOutLocation: (row.area || row.logout_area)
+        punchOutLocation: outFormatted
           ? {
-              area: VERIFIED_FIELD_LOCATION.area,
-              city: "Bengaluru",
-              region: "Karnataka",
-              locality: normalizeFullAddress(row.area || row.logout_area),
-              displayAddress: normalizeFullAddress(row.area || row.logout_area),
-              coords: { latitude: row.latitude ?? row.logout_latitude ?? VERIFIED_FIELD_LOCATION.latitude, longitude: row.longitude ?? row.logout_longitude ?? VERIFIED_FIELD_LOCATION.longitude },
+              area: outArea,
+              city: outCity,
+              state: outState,
+              region: outState,
+              locality: outFormatted,
+              displayAddress: outFormatted,
+              coords: { latitude: row.latitude ?? row.logout_latitude ?? null, longitude: row.longitude ?? row.logout_longitude ?? null },
             }
           : null,
         punchOutFaceImage: row.logout_selfie_url,
         duration: durStr,
         status: row.status || (row.logout_time ? "Completed" : "Working"),
         remarks: row.logout_time
-          ? `Shift completed · 📍 ${normalizeFullAddress(row.area || row.logout_area)}`
-          : `Face verified · 📍 ${normalizeFullAddress(row.area || row.login_area)}`,
+          ? `Shift completed · 📍 ${outFormatted}`
+          : `Face verified · 📍 ${inFormatted}`,
         executiveObj: exec,
       });
     });
@@ -355,24 +347,23 @@ export default function AttendanceReportView({
         id: item.execId || 1,
         name: item.execName || "Executive",
         employee_code: `SE-00${item.execId || 1}`,
-        region: item.punchInLocation?.region || item.punchInLocation?.locality || "Karnataka",
+        city: item.punchInLocation?.city || "Field City",
+        region: item.punchInLocation?.region || item.punchInLocation?.state || "Field State",
       };
 
-      const inLoc = normalizeFullAddress(item.punchInLocation?.displayAddress || item.punchInLocation?.locality || item.punchInLocation?.area);
-      const outLoc = item.punchOutLocation ? normalizeFullAddress(item.punchOutLocation?.displayAddress || item.punchOutLocation?.locality || item.punchOutLocation?.area) : null;
+      const inLoc = formatExecutiveLocation(item.punchInLocation, exec);
+      const outLoc = item.punchOutLocation ? formatExecutiveLocation(item.punchOutLocation, exec) : null;
 
       map.set(key, {
         ...existing,
         ...item,
         punchInLocation: item.punchInLocation ? {
           ...item.punchInLocation,
-          area: VERIFIED_FIELD_LOCATION.area,
           locality: inLoc,
           displayAddress: inLoc,
         } : existing?.punchInLocation,
         punchOutLocation: outLoc ? {
           ...(item.punchOutLocation || {}),
-          area: VERIFIED_FIELD_LOCATION.area,
           locality: outLoc,
           displayAddress: outLoc,
         } : existing?.punchOutLocation,
@@ -820,9 +811,9 @@ export default function AttendanceReportView({
                               )}
                             </div>
                             {row.punchInLocation && (
-                              <div className="att-rep-loc-sub" title={normalizeFullAddress(row.punchInLocation.displayAddress || row.punchInLocation.locality)}>
+                              <div className="att-rep-loc-sub" title={formatExecutiveLocation(row.punchInLocation, row.executiveObj || row)}>
                                 <MapPin size={10} />
-                                <span>{formatShortLocation(row.punchInLocation)}</span>
+                                <span>{formatExecutiveLocation(row.punchInLocation, row.executiveObj || row)}</span>
                               </div>
                             )}
                           </div>
@@ -841,9 +832,9 @@ export default function AttendanceReportView({
                                   </span>
                                 </div>
                                 {(row.lunchOutLocation?.displayAddress || row.lunchOutLocation?.locality || row.lunchInLocation?.displayAddress || row.lunchInLocation?.locality) && (
-                                  <div className="att-rep-loc-sub" title={normalizeFullAddress(row.lunchOutLocation?.displayAddress || row.lunchInLocation?.displayAddress || "")}>
+                                  <div className="att-rep-loc-sub" title={formatExecutiveLocation(row.lunchOutLocation || row.lunchInLocation, row.executiveObj || row)}>
                                     <MapPin size={10} />
-                                    <span>{formatShortLocation(row.lunchOutLocation || row.lunchInLocation)}</span>
+                                    <span>{formatExecutiveLocation(row.lunchOutLocation || row.lunchInLocation, row.executiveObj || row)}</span>
                                   </div>
                                 )}
                               </>
@@ -887,9 +878,9 @@ export default function AttendanceReportView({
                                   )}
                                 </div>
                                 {row.punchOutLocation && (
-                                  <div className="att-rep-loc-sub" title={normalizeFullAddress(row.punchOutLocation.displayAddress || row.punchOutLocation.locality)}>
+                                  <div className="att-rep-loc-sub" title={formatExecutiveLocation(row.punchOutLocation, row.executiveObj || row)}>
                                     <MapPin size={10} />
-                                    <span>{formatShortLocation(row.punchOutLocation)}</span>
+                                    <span>{formatExecutiveLocation(row.punchOutLocation, row.executiveObj || row)}</span>
                                   </div>
                                 )}
                               </>

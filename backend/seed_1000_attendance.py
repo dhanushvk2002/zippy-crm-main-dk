@@ -29,20 +29,28 @@ try:
         
         areas_by_reg = {
             "Karnataka": [
-                "Jayanagar, Bengaluru",
-                "Indiranagar, Bengaluru",
-                "Koramangala, Bengaluru",
-                "Whitefield, Bengaluru",
-                "Malleshwaram, Bengaluru",
-                "HSR Layout, Bengaluru"
+                "Jayanagar, Bengaluru, Karnataka",
+                "Indiranagar, Bengaluru, Karnataka",
+                "Koramangala, Bengaluru, Karnataka",
+                "Whitefield, Bengaluru, Karnataka",
+                "Malleshwaram, Bengaluru, Karnataka",
+                "HSR Layout, Bengaluru, Karnataka"
             ],
             "Tamil Nadu": [
-                "T. Nagar, Chennai",
-                "Anna Nagar, Chennai",
-                "Adyar, Chennai",
-                "Velachery, Chennai",
-                "Guindy, Chennai",
-                "Coimbatore Central, Coimbatore"
+                "T. Nagar, Chennai, Tamil Nadu",
+                "Anna Nagar, Chennai, Tamil Nadu",
+                "Adyar, Chennai, Tamil Nadu",
+                "Velachery, Chennai, Tamil Nadu",
+                "Guindy, Chennai, Tamil Nadu",
+                "RS Puram, Coimbatore, Tamil Nadu",
+                "KK Nagar, Madurai, Tamil Nadu",
+                "Katpadi, Vellore, Tamil Nadu"
+            ],
+            "Assam": [
+                "Dispur, Guwahati, Assam",
+                "Ulubari, Guwahati, Assam",
+                "Paltan Bazaar, Guwahati, Assam",
+                "Six Mile, Guwahati, Assam"
             ]
         }
         

@@ -27,7 +27,13 @@ import DoctorAvatar from "./DoctorAvatar.jsx";
 import ModernDatePicker from "./ModernDatePicker.jsx";
 import FacePunchModal from "./FacePunchModal.jsx";
 import AttendancePunchAlertsPanel from "./AttendancePunchAlertsPanel.jsx";
-import { getFreshExecutiveLocation, reverseGeocodeCoordinates, VERIFIED_FIELD_LOCATION } from "../geoUtils.js";
+import {
+  getFreshExecutiveLocation,
+  reverseGeocodeCoordinates,
+  VERIFIED_FIELD_LOCATION,
+  formatExecutiveLocation,
+  formatLocationString,
+} from "../geoUtils.js";
 import defaultFacePhoto from "../assets/doctor-male.jpg";
 import {
   fetchList,
@@ -44,114 +50,88 @@ import "./FacePunchModal.css";
 
 const STORAGE_KEY = "zenve_crm_attendance_records";
 
-export function normalizeDisplayLoc(addr) {
-  if (!addr) return VERIFIED_FIELD_LOCATION.displayAddress;
-  const s = String(addr).trim();
-  if (s.includes("1478/1") && s.includes("560041")) return s;
-  if (/jayanagar|4th t block|kalyanmandap|bengaluru|bangalore|canara bank|field territory|karnata/i.test(s)) {
-    return VERIFIED_FIELD_LOCATION.displayAddress;
+export function normalizeDisplayLoc(addr, exec = null) {
+  if (!addr) {
+    const area = exec?.area || exec?.territory || exec?.city || "Field Area";
+    const city = exec?.city || "Field City";
+    const state = exec?.region || exec?.state || "Field State";
+    return [area, city, state].filter(Boolean).join(", ");
   }
-  return s;
+  return formatLocationString(addr, exec);
 }
 
-export function normalizeRecordLocations(rec) {
+export function normalizeRecordLocations(rec, exec = null) {
   if (!rec || typeof rec !== "object") return rec;
   const updated = { ...rec };
+  const currentExec = exec || rec.executiveObj || {
+    name: rec.execName,
+    city: rec.punchInLocation?.city || rec.city,
+    region: rec.punchInLocation?.state || rec.region || rec.state,
+  };
+
   if (updated.punchInLocation) {
     const rawLoc = updated.punchInLocation.displayAddress || updated.punchInLocation.locality || updated.punchInLocation.area;
-    const normLoc = normalizeDisplayLoc(rawLoc);
+    const normLoc = formatExecutiveLocation(updated.punchInLocation, currentExec);
     updated.punchInLocation = {
       ...updated.punchInLocation,
       locality: normLoc,
       displayAddress: normLoc,
       formattedAddress: normLoc,
-      area: VERIFIED_FIELD_LOCATION.area,
-      city: VERIFIED_FIELD_LOCATION.city,
-      state: VERIFIED_FIELD_LOCATION.state,
     };
   }
   if (updated.punchOutLocation) {
     const rawLoc = updated.punchOutLocation.displayAddress || updated.punchOutLocation.locality || updated.punchOutLocation.area;
-    const normLoc = normalizeDisplayLoc(rawLoc);
+    const normLoc = formatExecutiveLocation(updated.punchOutLocation, currentExec);
     updated.punchOutLocation = {
       ...updated.punchOutLocation,
       locality: normLoc,
       displayAddress: normLoc,
       formattedAddress: normLoc,
-      area: VERIFIED_FIELD_LOCATION.area,
-      city: VERIFIED_FIELD_LOCATION.city,
-      state: VERIFIED_FIELD_LOCATION.state,
     };
   }
   if (updated.lunchOutLocation) {
-    const rawLoc = updated.lunchOutLocation.displayAddress || updated.lunchOutLocation.locality || updated.lunchOutLocation.area;
-    const normLoc = normalizeDisplayLoc(rawLoc);
+    const normLoc = formatExecutiveLocation(updated.lunchOutLocation, currentExec);
     updated.lunchOutLocation = {
       ...updated.lunchOutLocation,
       locality: normLoc,
       displayAddress: normLoc,
       formattedAddress: normLoc,
-      area: VERIFIED_FIELD_LOCATION.area,
     };
   }
   if (updated.lunchInLocation) {
-    const rawLoc = updated.lunchInLocation.displayAddress || updated.lunchInLocation.locality || updated.lunchInLocation.area;
-    const normLoc = normalizeDisplayLoc(rawLoc);
+    const normLoc = formatExecutiveLocation(updated.lunchInLocation, currentExec);
     updated.lunchInLocation = {
       ...updated.lunchInLocation,
       locality: normLoc,
       displayAddress: normLoc,
       formattedAddress: normLoc,
-      area: VERIFIED_FIELD_LOCATION.area,
     };
   }
-  if (updated.remarks && (/jayanagar|kalyanmandap|bengaluru|bangalore|karnata/i.test(updated.remarks) || /📍/.test(updated.remarks))) {
-    updated.remarks = updated.remarks.replace(/📍\s*[^,\n]+.*$/i, `📍 ${VERIFIED_FIELD_LOCATION.displayAddress}`);
+  if (updated.remarks && /📍/.test(updated.remarks)) {
+    const parts = updated.remarks.split("📍");
+    const prefix = parts[0].trim();
+    const rawAddr = parts.slice(1).join("📍").trim();
+    updated.remarks = `${prefix} · 📍 ${formatLocationString(rawAddr, currentExec)}`;
   }
   return updated;
 }
 
-export function formatShortLocation(loc) {
-  if (!loc) return "Jayanagar, Bengaluru";
-  if (typeof loc === "object") {
-    if (loc.locality && loc.city && !loc.locality.includes("1478/1") && !loc.locality.includes("Kalyanmandap") && !loc.locality.includes("40th Cross")) {
-      return `${loc.locality}, ${loc.city}`;
-    }
-    const raw = loc.displayAddress || loc.formattedAddress || loc.locality || loc.area || "";
-    return formatShortLocationString(raw);
-  }
-  return formatShortLocationString(String(loc));
+export function formatShortLocation(loc, exec = null) {
+  return formatExecutiveLocation(loc, exec);
 }
 
-export function formatShortLocationString(str) {
-  if (!str) return "Jayanagar, Bengaluru";
-  const s = String(str).trim();
-  if (/jayanagar|kalyanmandap|40th cross|4th t block|tilak nagar|pattabhirama|1478\/1/i.test(s)) {
-    return "Jayanagar, Bengaluru";
-  }
-  if (/bengaluru|bangalore/i.test(s)) {
-    const parts = s.split(",").map((p) => p.trim()).filter(Boolean);
-    const cityIdx = parts.findIndex((p) => /bengaluru|bangalore/i.test(p));
-    if (cityIdx > 0) {
-      return `${parts[cityIdx - 1]}, ${parts[cityIdx]}`;
-    }
-    return "Jayanagar, Bengaluru";
-  }
-  const parts = s.split(",").map((p) => p.trim()).filter(Boolean);
-  if (parts.length >= 2) {
-    return `${parts[parts.length - 2]}, ${parts[parts.length - 1]}`;
-  }
-  return s;
+export function formatShortLocationString(str, exec = null) {
+  return formatLocationString(str, exec);
 }
 
-export function formatShortRemarks(rem) {
+export function formatShortRemarks(rem, exec = null) {
   if (!rem) return "";
   const s = String(rem);
   if (/📍/.test(s)) {
     const parts = s.split("📍");
     const prefix = parts[0].trim();
     const rawAddr = parts.slice(1).join("📍").trim();
-    return `${prefix} · 📍 ${formatShortLocationString(rawAddr)}`;
+    return `${prefix} · 📍 ${formatLocationString(rawAddr, exec)}`;
   }
   return s;
 }
@@ -374,21 +354,17 @@ export default function AttendanceView({
     setLocationDetecting(true);
     setLocationError(null);
     try {
-      const loc = await getFreshExecutiveLocation();
-      if (!loc || loc.status === "error" || !loc.latitude) {
-        setCurrentLocation(VERIFIED_FIELD_LOCATION);
-        setLocationError(null);
-      } else {
-        setCurrentLocation(loc);
-        setLocationError(loc.accuracyWarning || null);
-      }
-    } catch {
-      setCurrentLocation(VERIFIED_FIELD_LOCATION);
-      setLocationError(null);
+      const loc = await getFreshExecutiveLocation(activeExecutive);
+      setCurrentLocation(loc);
+      setLocationError(loc?.accuracyWarning || null);
+    } catch (err) {
+      const fallbackLoc = await getFreshExecutiveLocation(activeExecutive);
+      setCurrentLocation(fallbackLoc);
+      setLocationError(err?.message || null);
     } finally {
       setLocationDetecting(false);
     }
-  }, []);
+  }, [activeExecutive]);
 
   // Request fresh location on component mount or executive switch
   useEffect(() => {
@@ -409,7 +385,12 @@ export default function AttendanceView({
         const parsed = JSON.parse(saved);
         let cleaned = false;
         Object.keys(parsed).forEach((k) => {
-          if (parsed[k]?.punchIn === "04:27:45 PM" || parsed[k]?.remarks?.includes("Regular field shift")) {
+          if (
+            parsed[k]?.punchIn === "04:27:45 PM" ||
+            parsed[k]?.remarks?.includes("Regular field shift") ||
+            (parsed[k]?.punchInLocation?.displayAddress && parsed[k].punchInLocation.displayAddress.includes("1478/1")) ||
+            (parsed[k]?.punchInLocation?.area && parsed[k].punchInLocation.area.includes("1478/1"))
+          ) {
             delete parsed[k];
             cleaned = true;
           } else if (parsed[k]) {
@@ -1270,7 +1251,7 @@ export default function AttendanceView({
             <div className="attend-loc-address-text">
               📍 {locationDetecting
                 ? "Acquiring high-accuracy GPS coordinates…"
-                : (currentLocation?.displayAddress || VERIFIED_FIELD_LOCATION.displayAddress)}
+                : (currentLocation?.displayAddress || [currentLocation?.area || activeExecutive?.area || activeExecutive?.city, currentLocation?.city || activeExecutive?.city, currentLocation?.state || activeExecutive?.region || activeExecutive?.state].filter(Boolean).join(", "))}
             </div>
 
             {/* Dedicated Accurate Area Highlight Banner */}
@@ -1281,20 +1262,25 @@ export default function AttendanceView({
               <span style={{ fontSize: "0.82rem", fontWeight: 600, color: "#14532d", lineHeight: 1.4 }}>
                 {locationDetecting
                   ? "Resolving precise street & area…"
-                  : (currentLocation?.area || VERIFIED_FIELD_LOCATION.area)}
+                  : (currentLocation?.area || activeExecutive?.area || activeExecutive?.city || "Field Area")}
               </span>
             </div>
 
             <div className="attend-loc-breakdown-row" style={{ display: "flex", gap: "8px", marginTop: "8px", flexWrap: "wrap" }}>
               <span className="attend-loc-tag" style={{ background: "#f1f5f9", padding: "3px 8px", borderRadius: "6px", fontSize: "0.78rem" }}>
-                <strong>City:</strong> {currentLocation?.city || VERIFIED_FIELD_LOCATION.city}
+                <strong>Area:</strong> {currentLocation?.area || activeExecutive?.area || activeExecutive?.city || "Field Area"}
               </span>
               <span className="attend-loc-tag" style={{ background: "#f1f5f9", padding: "3px 8px", borderRadius: "6px", fontSize: "0.78rem" }}>
-                <strong>State:</strong> {currentLocation?.state || VERIFIED_FIELD_LOCATION.state}
+                <strong>City:</strong> {currentLocation?.city || activeExecutive?.city || "Field City"}
               </span>
               <span className="attend-loc-tag" style={{ background: "#f1f5f9", padding: "3px 8px", borderRadius: "6px", fontSize: "0.78rem" }}>
-                <strong>PIN:</strong> {currentLocation?.pincode || VERIFIED_FIELD_LOCATION.pincode}
+                <strong>State:</strong> {currentLocation?.state || activeExecutive?.region || activeExecutive?.state || "Field State"}
               </span>
+              {currentLocation?.pincode && (
+                <span className="attend-loc-tag" style={{ background: "#f1f5f9", padding: "3px 8px", borderRadius: "6px", fontSize: "0.78rem" }}>
+                  <strong>PIN:</strong> {currentLocation.pincode}
+                </span>
+              )}
             </div>
             {currentLocation?.district && (
               <div className="attend-loc-sub-meta" style={{ marginTop: "4px" }}>
@@ -1309,19 +1295,19 @@ export default function AttendanceView({
             <div className="attend-coord-badge">
               <span className="coord-label">Latitude:</span>
               <span className="coord-value">
-                {(currentLocation?.latitude || VERIFIED_FIELD_LOCATION.latitude).toFixed(6)}
+                {currentLocation?.latitude != null ? currentLocation.latitude.toFixed(6) : "—"}
               </span>
             </div>
             <div className="attend-coord-badge">
               <span className="coord-label">Longitude:</span>
               <span className="coord-value">
-                {(currentLocation?.longitude || VERIFIED_FIELD_LOCATION.longitude).toFixed(6)}
+                {currentLocation?.longitude != null ? currentLocation.longitude.toFixed(6) : "—"}
               </span>
             </div>
             <div className={`attend-coord-badge high-acc`}>
               <span className="coord-label">Accuracy:</span>
               <span className="coord-value">
-                {currentLocation?.accuracyText ? currentLocation.accuracyText : "±8m"}
+                {currentLocation?.accuracyText ? currentLocation.accuracyText : (currentLocation?.accuracy ? `±${currentLocation.accuracy}m` : "±10m")}
               </span>
             </div>
           </div>
@@ -1903,9 +1889,9 @@ export default function AttendanceView({
                             {row.punchIn || "—"}
                           </span>
                           {row.punchIn && (
-                            <span className="attend-loc-sub" title={normalizeDisplayLoc(row.punchInLocation?.displayAddress || row.punchInLocation?.locality || row.punchInLocation?.area)}>
+                            <span className="attend-loc-sub" title={formatExecutiveLocation(row.punchInLocation, row.executiveObj || row)}>
                               <MapPin size={10} />
-                              {formatShortLocation(row.punchInLocation)}
+                              {formatExecutiveLocation(row.punchInLocation, row.executiveObj || row)}
                             </span>
                           )}
                         </div>
@@ -1940,9 +1926,9 @@ export default function AttendanceView({
                             {row.punchOut || "—"}
                           </span>
                           {row.punchOut && (
-                            <span className="attend-loc-sub" title={normalizeDisplayLoc(row.punchOutLocation?.displayAddress || row.punchOutLocation?.locality || row.punchOutLocation?.area)}>
+                            <span className="attend-loc-sub" title={formatExecutiveLocation(row.punchOutLocation, row.executiveObj || row)}>
                               <MapPin size={10} />
-                              {formatShortLocation(row.punchOutLocation)}
+                              {formatExecutiveLocation(row.punchOutLocation, row.executiveObj || row)}
                             </span>
                           )}
                         </div>
@@ -2075,10 +2061,9 @@ export default function AttendanceView({
         onClose={() => setPunchModalOpen(false)}
         onConfirm={handleConfirmPunch}
         actionType={punchActionType}
+        initialLocation={currentLocation}
         executive={{
           ...activeExecutive,
-          // Attach the executive's first pincode from PincodeCoverage so the modal
-          // can resolve their area instantly via India Post API without needing GPS
           pincode:
             activeExecutive?.pincode ||
             (data?.coverage || []).find(
@@ -2129,9 +2114,9 @@ export default function AttendanceView({
                 </div>
                 {previewPhotoModal.location && (
                   <div className="attend-meta-row">
-                    <span className="attend-meta-k">GPS Location:</span>
+                    <span className="attend-meta-k">Location:</span>
                     <span className="attend-meta-v">
-                      📍 {normalizeDisplayLoc(previewPhotoModal.location.displayAddress || previewPhotoModal.location.locality || profileRegion)}
+                      📍 {formatExecutiveLocation(previewPhotoModal.location, { name: previewPhotoModal.execName, region: profileRegion })}
                       {(previewPhotoModal.location.lat || previewPhotoModal.location.latitude) && (
                         <small className="attend-coords">
                           ({Number(previewPhotoModal.location.lat || previewPhotoModal.location.latitude).toFixed(4)}°, {Number(previewPhotoModal.location.lng || previewPhotoModal.location.longitude).toFixed(4)}°)

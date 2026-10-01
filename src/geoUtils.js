@@ -151,31 +151,28 @@ async function lookupBigDataCloud(lat, lng) {
 }
 
 export const VERIFIED_FIELD_LOCATION = {
-  address:
-    "2, 1478/1, 18th Main Kalyanmandap, 40th Cross Rd, 4th T Block East, Jayanagar, Bengaluru, Karnataka 560041",
-  area: "2, 1478/1, 18th Main Kalyanmandap, 40th Cross Rd, 4th T Block East, Jayanagar",
-  accurateArea: "2, 1478/1, 18th Main Kalyanmandap, 40th Cross Rd, 4th T Block East, Jayanagar",
-  building: "2, 1478/1",
-  landmark: "18th Main Kalyanmandap",
-  street: "40th Cross Rd",
-  suburb: "4th T Block East",
-  locality: "Jayanagar",
-  city: "Bengaluru",
-  district: "Bengaluru South",
-  state: "Karnataka",
-  region: "Karnataka",
-  pincode: "560041",
+  address: "Field Location",
+  area: "Field Area",
+  accurateArea: "Field Area",
+  building: "",
+  landmark: "",
+  street: "",
+  suburb: "Field Area",
+  locality: "Field Area",
+  city: "Field City",
+  district: "Field District",
+  state: "Field State",
+  region: "Field State",
+  pincode: "",
   country: "India",
   latitude: 12.926631,
   longitude: 77.589697,
   lat: 12.926631,
   lng: 77.589697,
-  accuracy: 8,
-  accuracyText: "±8m",
-  displayAddress:
-    "2, 1478/1, 18th Main Kalyanmandap, 40th Cross Rd, 4th T Block East, Jayanagar, Bengaluru, Karnataka 560041",
-  formattedAddress:
-    "2, 1478/1, 18th Main Kalyanmandap, 40th Cross Rd, 4th T Block East, Jayanagar, Bengaluru, Karnataka 560041",
+  accuracy: 10,
+  accuracyText: "±10m",
+  displayAddress: "Field Area, Field City, Field State",
+  formattedAddress: "Field Area, Field City, Field State",
 };
 
 /**
@@ -210,99 +207,86 @@ async function lookupBackendProxy(lat, lng) {
  * Resolves GPS coordinates (lat, lng) into detailed address fields:
  * { area, city, district, state, pincode, country, formattedAddress, displayAddress }
  */
-export async function reverseGeocodeCoordinates(lat, lng) {
+export async function reverseGeocodeCoordinates(lat, lng, exec = null) {
   if (typeof lat !== "number" || typeof lng !== "number" || isNaN(lat) || isNaN(lng)) {
+    const fallbackArea = exec?.area || exec?.territory || exec?.city || "Field Area";
+    const fallbackCity = exec?.city || "Field City";
+    const fallbackState = exec?.region || exec?.state || "Field State";
+    const parts = [fallbackArea, fallbackCity, fallbackState].filter(Boolean);
+    const disp = parts.join(", ");
     return {
-      ...VERIFIED_FIELD_LOCATION,
+      area: fallbackArea,
+      accurateArea: fallbackArea,
+      city: fallbackCity,
+      district: "",
+      state: fallbackState,
+      region: fallbackState,
+      pincode: exec?.pincode || "",
+      country: "India",
+      formattedAddress: disp,
+      displayAddress: disp,
     };
   }
 
-  // Check if coordinates fall within Bengaluru territory / Karnataka corridor
-  // (lat ~12.50 to 13.50, lng ~77.00 to 78.00)
-  const isBengaluruVicinity =
-    (lat >= 12.50 && lat <= 13.50 && lng >= 77.00 && lng <= 78.00);
-  if (isBengaluruVicinity) {
-    return {
-      ...VERIFIED_FIELD_LOCATION,
-    };
-  }
-
-  // Query providers in parallel (backend proxy first priority)
+  // Query providers in parallel
   const [server, osm, bdc] = await Promise.all([
     lookupBackendProxy(lat, lng),
     lookupNominatim(lat, lng),
     lookupBigDataCloud(lat, lng),
   ]);
 
-  // Merge with priority: Server -> OSM -> BDC
-  const area = server?.area || osm?.area || bdc?.area || "";
-  const city = server?.city || osm?.city || bdc?.city || "";
-  const district = server?.district || osm?.district || bdc?.district || "";
-  const state = server?.state || osm?.state || bdc?.state || "";
-  const pincode = server?.pincode || osm?.pincode || bdc?.pincode || "";
-  const country = server?.country || osm?.country || bdc?.country || "India";
-  const rawDisp = server?.displayAddress || osm?.raw?.display_name || "";
+  // Extract candidate values
+  let rawArea = server?.area || osm?.area || bdc?.area || "";
+  let rawCity = server?.city || osm?.city || bdc?.city || exec?.city || "";
+  let rawDistrict = server?.district || osm?.district || bdc?.district || "";
+  let rawState = server?.state || osm?.state || bdc?.state || exec?.region || exec?.state || "";
+  let rawPincode = server?.pincode || osm?.pincode || bdc?.pincode || exec?.pincode || "";
+  const rawCountry = server?.country || osm?.country || bdc?.country || "India";
 
-  // If any provider mentions Jayanagar, Bengaluru, Bangalore, or Karnataka,
-  // ALWAYS return the full verified field address!
-  if (
-    pincode === "560041" ||
-    pincode === "560011" ||
-    /jayanagar|pattabhirama|tilak nagar|40th cross|18th main|kalyanmandap|bengaluru|bangalore|karnataka/i.test(`${area} ${city} ${district} ${state} ${rawDisp}`)
-  ) {
-    return {
-      ...VERIFIED_FIELD_LOCATION,
-    };
+  // If area is empty or identical to city, search osm raw address for more granular locality
+  if ((!rawArea || rawArea.toLowerCase() === rawCity.toLowerCase()) && osm?.raw?.address) {
+    const a = osm.raw.address;
+    const moreSpecific = a.suburb || a.neighbourhood || a.quarter || a.residential || a.road || a.hamlet || a.village;
+    if (moreSpecific && isPlace(moreSpecific)) {
+      rawArea = clean(moreSpecific);
+    }
   }
 
-  if (server?.displayAddress && server?.area && server.displayAddress.length > 25) {
-    return {
-      area: server.area,
-      city: server.city,
-      district: server.district,
-      state: server.state,
-      region: server.region || server.state,
-      pincode: server.pincode,
-      country: server.country || "India",
-      formattedAddress: server.formattedAddress || server.displayAddress,
-      displayAddress: server.displayAddress,
-    };
+  // Fallback area to executive profile or district if still empty
+  if (!rawArea) {
+    rawArea = exec?.area || exec?.territory || rawDistrict || rawCity || "Field Area";
   }
 
-  // Prevent duplicate components in display string (e.g., area == city)
-  const same = (a, b) => clean(a).toLowerCase() === clean(b).toLowerCase();
+  const finalArea = rawArea;
+  const finalCity = rawCity || exec?.city || "Field City";
+  const finalDistrict = rawDistrict;
+  const finalState = rawState || exec?.region || exec?.state || "Field State";
+  const finalPincode = rawPincode ? rawPincode.replace(/\D/g, "").slice(0, 6) : "";
 
-  const finalArea = area && !same(area, city) && !same(area, state) ? area : "";
-  const finalCity = city && !same(city, state) ? city : (same(area, city) ? area : city);
-  const finalDistrict = district && !same(district, finalCity) && !same(district, state) ? district : "";
-  const finalState = state;
-  const finalPincode = pincode ? pincode.replace(/\D/g, "").slice(0, 6) : "";
-
-  // Standard clean format: Area, City, State, Pincode
-  const parts = [];
-  if (finalArea) parts.push(finalArea);
-  if (finalCity && !parts.includes(finalCity)) parts.push(finalCity);
-  if (finalState && !parts.includes(finalState)) parts.push(finalState);
-  if (finalPincode) parts.push(finalPincode);
-
-  const formattedAddress = parts.join(", ");
-
-  let displayAddress = formattedAddress;
-  if (finalPincode) {
-    const withoutPin = [finalArea, finalCity, finalState].filter(Boolean).join(", ");
-    displayAddress = withoutPin ? `${withoutPin} - ${finalPincode}` : finalPincode;
+  // Standard clean format: Area, City, State
+  const cleanParts = [];
+  if (finalArea) cleanParts.push(finalArea);
+  if (finalCity && !cleanParts.some((p) => p.toLowerCase() === finalCity.toLowerCase())) {
+    cleanParts.push(finalCity);
   }
+  if (finalState && !cleanParts.some((p) => p.toLowerCase() === finalState.toLowerCase())) {
+    cleanParts.push(finalState);
+  }
+
+  const formattedAddress = cleanParts.join(", ");
+  const displayAddress = finalPincode ? `${formattedAddress} - ${finalPincode}` : formattedAddress;
 
   return {
-    area: finalArea || finalCity || "Field Location",
+    area: finalArea,
+    accurateArea: finalArea,
     city: finalCity,
     district: finalDistrict,
     state: finalState,
-    region: finalState || finalCity,
+    region: finalState,
     pincode: finalPincode,
-    country,
-    formattedAddress: formattedAddress || "Field Location",
-    displayAddress: displayAddress || "Field Location",
+    country: rawCountry,
+    formattedAddress,
+    displayAddress,
   };
 }
 
@@ -388,19 +372,40 @@ export function getDeviceGpsPosition({
  *   - formattedAddress, displayAddress
  *   - accuracy, accuracyText, isAccurate
  */
-export async function getFreshExecutiveLocation() {
+/**
+ * Main function: Obtains fresh high-accuracy device GPS position and reverse geocodes it.
+ *
+ * Returns a complete location object with:
+ *   - latitude, longitude
+ *   - area, city, district, state, region, pincode, country
+ *   - formattedAddress, displayAddress
+ *   - accuracy, accuracyText, isAccurate
+ */
+export async function getFreshExecutiveLocation(exec = null) {
   try {
     const gps = await getDeviceGpsPosition({ timeout: 15000, enableHighAccuracy: true, maximumAge: 0 });
-    const geo = await reverseGeocodeCoordinates(gps.latitude, gps.longitude);
+    const geo = await reverseGeocodeCoordinates(gps.latitude, gps.longitude, exec);
 
-    const isBengaluruArea =
-      (gps.latitude >= 12.80 && gps.latitude <= 13.15 && gps.longitude >= 77.45 && gps.longitude <= 77.75) ||
-      (geo.city && /bengaluru|bangalore/i.test(geo.city));
+    const latVal = gps.latitude;
+    const lngVal = gps.longitude;
+    const accVal = gps.accuracy;
+    const accText = gps.accuracyText;
 
-    const latVal = isBengaluruArea ? VERIFIED_FIELD_LOCATION.latitude : gps.latitude;
-    const lngVal = isBengaluruArea ? VERIFIED_FIELD_LOCATION.longitude : gps.longitude;
-    const accVal = isBengaluruArea ? 8 : gps.accuracy;
-    const accText = isBengaluruArea ? "±8m" : gps.accuracyText;
+    const area = geo.area || exec?.area || exec?.city || "Field Area";
+    const city = geo.city || exec?.city || "Field City";
+    const state = geo.state || geo.region || exec?.region || exec?.state || "Field State";
+    const pincode = geo.pincode || exec?.pincode || "";
+
+    const cleanParts = [];
+    if (area) cleanParts.push(area);
+    if (city && !cleanParts.some((p) => p.toLowerCase() === city.toLowerCase())) {
+      cleanParts.push(city);
+    }
+    if (state && !cleanParts.some((p) => p.toLowerCase() === state.toLowerCase())) {
+      cleanParts.push(state);
+    }
+    const formattedAddress = cleanParts.join(", ");
+    const displayAddress = pincode ? `${formattedAddress} - ${pincode}` : formattedAddress;
 
     const fullResult = {
       latitude: latVal,
@@ -410,21 +415,21 @@ export async function getFreshExecutiveLocation() {
       accuracy: accVal,
       accuracyText: accText,
       isAccurate: !gps.isPoorAccuracy,
-      accuracyWarning: null,
-      area: geo.area || VERIFIED_FIELD_LOCATION.area,
-      accurateArea: geo.accurateArea || VERIFIED_FIELD_LOCATION.accurateArea,
-      landmark: geo.landmark || VERIFIED_FIELD_LOCATION.landmark,
-      street: geo.street || VERIFIED_FIELD_LOCATION.street,
-      suburb: geo.suburb || VERIFIED_FIELD_LOCATION.suburb,
-      city: geo.city || VERIFIED_FIELD_LOCATION.city,
-      district: geo.district || VERIFIED_FIELD_LOCATION.district,
-      state: geo.state || VERIFIED_FIELD_LOCATION.state,
-      region: geo.region || geo.state || VERIFIED_FIELD_LOCATION.region,
-      pincode: geo.pincode || VERIFIED_FIELD_LOCATION.pincode,
-      country: geo.country || VERIFIED_FIELD_LOCATION.country,
-      formattedAddress: geo.formattedAddress || VERIFIED_FIELD_LOCATION.formattedAddress,
-      displayAddress: geo.displayAddress || VERIFIED_FIELD_LOCATION.displayAddress,
-      locality: geo.displayAddress || VERIFIED_FIELD_LOCATION.displayAddress, // for compatibility
+      accuracyWarning: gps.accuracyWarning || null,
+      area,
+      accurateArea: area,
+      landmark: "",
+      street: "",
+      suburb: area,
+      city,
+      district: geo.district || "",
+      state,
+      region: state,
+      pincode,
+      country: geo.country || "India",
+      formattedAddress,
+      displayAddress,
+      locality: displayAddress,
       status: "locked",
       error: null,
       timestamp: gps.timestamp || Date.now(),
@@ -432,14 +437,135 @@ export async function getFreshExecutiveLocation() {
 
     return fullResult;
   } catch (err) {
-    // If device GPS fails or browser permission denied, fallback to verified location
+    // If device GPS fails or browser permission denied, fallback to executive's genuine profile details
+    const area = exec?.area || exec?.territory || exec?.city || "Field Area";
+    const city = exec?.city || "Field City";
+    const state = exec?.region || exec?.state || "Field State";
+    const pincode = exec?.pincode || "";
+    const cleanParts = [];
+    if (area) cleanParts.push(area);
+    if (city && !cleanParts.some((p) => p.toLowerCase() === city.toLowerCase())) {
+      cleanParts.push(city);
+    }
+    if (state && !cleanParts.some((p) => p.toLowerCase() === state.toLowerCase())) {
+      cleanParts.push(state);
+    }
+    const formattedAddress = cleanParts.join(", ");
+    const displayAddress = pincode ? `${formattedAddress} - ${pincode}` : formattedAddress;
+
     return {
-      ...VERIFIED_FIELD_LOCATION,
-      status: "locked",
-      error: null,
+      latitude: null,
+      longitude: null,
+      lat: null,
+      lng: null,
+      accuracy: null,
+      accuracyText: "GPS Unavailable",
+      isAccurate: false,
+      accuracyWarning: err?.message || "Location permission was denied or GPS unavailable.",
+      area,
+      accurateArea: area,
+      landmark: "",
+      street: "",
+      suburb: area,
+      city,
+      district: "",
+      state,
+      region: state,
+      pincode,
+      country: "India",
+      formattedAddress,
+      displayAddress,
+      locality: displayAddress,
+      status: "warning",
+      error: err?.message || "Unable to acquire device GPS.",
       timestamp: Date.now(),
     };
   }
+}
+
+/**
+ * Universal Formatter: Formats any location into Area Name, City Name, State Name
+ */
+export function formatExecutiveLocation(loc, exec = null) {
+  if (!loc) {
+    const area = exec?.area || exec?.territory || exec?.city || "Field Area";
+    const city = exec?.city || "Field City";
+    const state = exec?.region || exec?.state || "Field State";
+    return [area, city, state].filter(Boolean).join(", ");
+  }
+
+  if (typeof loc === "object") {
+    const area = loc.area || loc.accurateArea || loc.suburb || loc.neighbourhood || loc.locality || exec?.area || exec?.city || "";
+    const city = loc.city || exec?.city || "";
+    const state = loc.state || loc.region || exec?.region || exec?.state || "";
+
+    const cleanParts = [];
+    if (area) cleanParts.push(area);
+    if (city && !cleanParts.some((p) => p.toLowerCase() === city.toLowerCase())) {
+      cleanParts.push(city);
+    }
+    if (state && !cleanParts.some((p) => p.toLowerCase() === state.toLowerCase())) {
+      cleanParts.push(state);
+    }
+
+    if (cleanParts.length >= 2) {
+      return cleanParts.join(", ");
+    }
+
+    const raw = loc.displayAddress || loc.formattedAddress || loc.locality || loc.area || "";
+    if (raw) return formatLocationString(raw, exec);
+  }
+
+  return formatLocationString(String(loc), exec);
+}
+
+export function formatLocationString(str, exec = null) {
+  if (!str) {
+    const area = exec?.area || exec?.territory || exec?.city || "Field Area";
+    const city = exec?.city || "Field City";
+    const state = exec?.region || exec?.state || "Field State";
+    return [area, city, state].filter(Boolean).join(", ");
+  }
+
+  const s = String(str).trim();
+  // Filter out any full street strings like "2, 1478/1, 18th Main..."
+  if (s.includes("1478/1") || s.includes("Kalyanmandap")) {
+    const area = exec?.area || exec?.territory || "Jayanagar";
+    const city = exec?.city || "Bengaluru";
+    const state = exec?.region || exec?.state || "Karnataka";
+    return [area, city, state].filter(Boolean).join(", ");
+  }
+
+  // Split parts
+  const rawParts = s.split(",").map((p) => p.trim()).filter(Boolean);
+  // Remove postal codes or "India"
+  const parts = rawParts.filter((p) => !/^\d{5,6}$/.test(p) && p.toLowerCase() !== "india");
+
+  if (parts.length >= 3) {
+    // Return last 3 components: e.g. Area, City, State
+    return `${parts[parts.length - 3]}, ${parts[parts.length - 2]}, ${parts[parts.length - 1]}`;
+  }
+
+  if (parts.length === 2) {
+    // Area, City -> add State if known
+    const state = exec?.region || exec?.state;
+    if (state && !parts.some((p) => p.toLowerCase() === state.toLowerCase())) {
+      return `${parts[0]}, ${parts[1]}, ${state}`;
+    }
+    return `${parts[0]}, ${parts[1]}`;
+  }
+
+  if (parts.length === 1) {
+    const area = parts[0];
+    const city = exec?.city;
+    const state = exec?.region || exec?.state;
+    const out = [area];
+    if (city && city.toLowerCase() !== area.toLowerCase()) out.push(city);
+    if (state && state.toLowerCase() !== area.toLowerCase()) out.push(state);
+    return out.join(", ");
+  }
+
+  return s;
 }
 
 // Backward compatibility helper

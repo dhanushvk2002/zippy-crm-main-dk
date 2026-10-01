@@ -3735,28 +3735,6 @@ def login_sales_executive(data: ExecutiveLogin, db: Session = Depends(get_db)):
 
 @app.get("/reverse-geocode")
 def reverse_geocode_api(lat: float, lng: float):
-    # Check if coords are in the user's verified location territory (Jayanagar / Bengaluru)
-    # Approx bounding box for Bengaluru South / Jayanagar vicinity: lat 12.80 to 13.15, lng 77.45 to 77.75
-    is_jayanagar_vicinity = (12.80 <= lat <= 13.15) and (77.45 <= lng <= 77.75)
-    if is_jayanagar_vicinity:
-        return {
-            "area": "2, 1478/1, 18th Main Kalyanmandap, 40th Cross Rd, 4th T Block East, Jayanagar",
-            "accurate_area": "2, 1478/1, 18th Main Kalyanmandap, 40th Cross Rd, 4th T Block East, Jayanagar",
-            "building": "2, 1478/1",
-            "landmark": "18th Main Kalyanmandap",
-            "street": "40th Cross Rd",
-            "suburb": "4th T Block East",
-            "locality": "Jayanagar",
-            "city": "Bengaluru",
-            "district": "Bengaluru South",
-            "state": "Karnataka",
-            "region": "Karnataka",
-            "pincode": "560041",
-            "country": "India",
-            "formatted_address": "2, 1478/1, 18th Main Kalyanmandap, 40th Cross Rd, 4th T Block East, Jayanagar, Bengaluru, Karnataka 560041",
-            "display_address": "2, 1478/1, 18th Main Kalyanmandap, 40th Cross Rd, 4th T Block East, Jayanagar, Bengaluru, Karnataka 560041",
-        }
-
     # Try OpenStreetMap Nominatim first with proper user agent
     try:
         url = f"https://nominatim.openstreetmap.org/reverse?lat={lat}&lon={lng}&format=jsonv2&zoom=18&addressdetails=1&accept-language=en"
@@ -3766,34 +3744,35 @@ def reverse_geocode_api(lat: float, lng: float):
                 data = json.loads(response.read().decode())
                 addr = data.get("address", {})
                 pincode = addr.get("postcode") or ""
-                # If pincode is 560041 or mentions Jayanagar or Bengaluru, map to verified address
-                disp_str = (data.get("display_name") or "").lower()
-                if pincode == "560041" or "jayanagar" in disp_str or "bengaluru" in disp_str or "bangalore" in disp_str:
-                    return {
-                        "area": "2, 1478/1, 18th Main Kalyanmandap, 40th Cross Rd, 4th T Block East, Jayanagar",
-                        "accurate_area": "2, 1478/1, 18th Main Kalyanmandap, 40th Cross Rd, 4th T Block East, Jayanagar",
-                        "building": "2, 1478/1",
-                        "landmark": "18th Main Kalyanmandap",
-                        "street": "40th Cross Rd",
-                        "suburb": "4th T Block East",
-                        "locality": "Jayanagar",
-                        "city": "Bengaluru",
-                        "district": "Bengaluru South",
-                        "state": "Karnataka",
-                        "region": "Karnataka",
-                        "pincode": "560041",
-                        "country": "India",
-                        "formatted_address": "2, 1478/1, 18th Main Kalyanmandap, 40th Cross Rd, 4th T Block East, Jayanagar, Bengaluru, Karnataka 560041",
-                        "display_address": "2, 1478/1, 18th Main Kalyanmandap, 40th Cross Rd, 4th T Block East, Jayanagar, Bengaluru, Karnataka 560041",
-                    }
-                area = addr.get("quarter") or addr.get("suburb") or addr.get("neighbourhood") or addr.get("locality") or addr.get("village") or addr.get("road") or ""
+                area = (
+                    addr.get("suburb")
+                    or addr.get("neighbourhood")
+                    or addr.get("quarter")
+                    or addr.get("residential")
+                    or addr.get("locality")
+                    or addr.get("village")
+                    or addr.get("road")
+                    or addr.get("city_district")
+                    or ""
+                )
                 city = addr.get("city") or addr.get("town") or addr.get("municipality") or addr.get("city_district") or ""
                 district = addr.get("district") or addr.get("state_district") or addr.get("county") or ""
                 state = addr.get("state") or ""
                 country = addr.get("country") or "India"
-                disp = data.get("display_name") or f"{area}, {city}, {state} {pincode}".strip(", ")
+                
+                parts = [p for p in [area or city, city, state] if p]
+                # Avoid adjacent duplicate words
+                clean_parts = []
+                for p in parts:
+                    if not clean_parts or clean_parts[-1].lower() != p.lower():
+                        clean_parts.append(p)
+                disp = ", ".join(clean_parts)
+                if pincode:
+                    disp += f" - {pincode}"
+                
                 return {
                     "area": area or city,
+                    "accurate_area": area or city,
                     "city": city,
                     "district": district,
                     "state": state,
@@ -3814,33 +3793,23 @@ def reverse_geocode_api(lat: float, lng: float):
             if response.status == 200:
                 data = json.loads(response.read().decode())
                 pincode = data.get("postcode") or ""
-                city_val = (data.get("city") or "").lower()
-                locality_val = (data.get("locality") or "").lower()
-                if pincode == "560041" or "bengaluru" in city_val or "bangalore" in city_val or "jayanagar" in locality_val:
-                    return {
-                        "area": "2, 1478/1, 18th Main Kalyanmandap, 40th Cross Rd, 4th T Block East, Jayanagar",
-                        "accurate_area": "2, 1478/1, 18th Main Kalyanmandap, 40th Cross Rd, 4th T Block East, Jayanagar",
-                        "building": "2, 1478/1",
-                        "landmark": "18th Main Kalyanmandap",
-                        "street": "40th Cross Rd",
-                        "suburb": "4th T Block East",
-                        "locality": "Jayanagar",
-                        "city": "Bengaluru",
-                        "district": "Bengaluru South",
-                        "state": "Karnataka",
-                        "region": "Karnataka",
-                        "pincode": "560041",
-                        "country": "India",
-                        "formatted_address": "2, 1478/1, 18th Main Kalyanmandap, 40th Cross Rd, 4th T Block East, Jayanagar, Bengaluru, Karnataka 560041",
-                        "display_address": "2, 1478/1, 18th Main Kalyanmandap, 40th Cross Rd, 4th T Block East, Jayanagar, Bengaluru, Karnataka 560041",
-                    }
                 area = data.get("locality") or ""
                 city = data.get("city") or ""
                 state = data.get("principalSubdivision") or ""
                 country = data.get("countryName") or "India"
-                disp = f"{area}, {city}, {state} {pincode}".strip(", ")
+                
+                parts = [p for p in [area or city, city, state] if p]
+                clean_parts = []
+                for p in parts:
+                    if not clean_parts or clean_parts[-1].lower() != p.lower():
+                        clean_parts.append(p)
+                disp = ", ".join(clean_parts)
+                if pincode:
+                    disp += f" - {pincode}"
+                
                 return {
                     "area": area or city,
+                    "accurate_area": area or city,
                     "city": city,
                     "district": "",
                     "state": state,
@@ -3855,6 +3824,7 @@ def reverse_geocode_api(lat: float, lng: float):
 
     return {
         "area": "",
+        "accurate_area": "",
         "city": "",
         "district": "",
         "state": "",
