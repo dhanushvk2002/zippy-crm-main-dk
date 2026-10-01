@@ -24,6 +24,12 @@ import {
   Sparkles,
   Building,
   Building2,
+  Bell,
+  LogIn,
+  AlertCircle,
+  X,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import {
   fetchList,
@@ -36,6 +42,7 @@ import {
   API_BASE,
 } from "../api.js";
 import logo from "../assets/zenve-zippy-logo.png";
+import { playChime } from "../notificationSound.js";
 import "./SalesCRM.css";
 import SalesCrmLoginModal from "./SalesCrmLoginModal.jsx";
 import PlanView from "./planView.jsx";
@@ -3886,8 +3893,14 @@ function PlanTargetPanel({ planStats, monthLabel, onGoToPlan }) {
 function TeamPlanTargetPanel({ execsInScope, monthKey, monthLabel, onGoToPlan, onTeamStatsLoaded }) {
   const [teamPlans, setTeamPlans] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(5);
   const activeMonth = monthKey || PLAN_MONTH_KEY;
   const activeMonthLabel = monthLabel || formatMonthLabel(activeMonth);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [execsInScope, activeMonth]);
 
   useEffect(() => {
     let cancelled = false;
@@ -3931,7 +3944,7 @@ function TeamPlanTargetPanel({ execsInScope, monthKey, monthLabel, onGoToPlan, o
           const tDone = results.reduce((s, r) => s + (r.stats?.completed || 0), 0);
           const hasAny = results.some((r) => r.stats?.has_plan);
           const pct = tTarget > 0 ? Math.round((tDone / tTarget) * 100) : 0;
-          onTeamStatsLoaded({ totalTarget: tTarget, totalDone: tDone, hasAnyPlan: hasAny, pct });
+          onTeamStatsLoaded({ totalTarget: tTarget, totalDone: tDone, hasAnyPlan: hasAny, pct, results });
         }
       }
     });
@@ -3949,6 +3962,30 @@ function TeamPlanTargetPanel({ execsInScope, monthKey, monthLabel, onGoToPlan, o
     : overallPct >= 50
       ? "oklch(70% .16 75)"
       : "var(--destructive)";
+
+  const totalExecs = teamPlans.length;
+  const effectivePageSize = pageSize === "all" ? Math.max(1, totalExecs) : Number(pageSize);
+  const totalPages = Math.max(1, Math.ceil(totalExecs / effectivePageSize));
+  const validCurrentPage = Math.min(currentPage, totalPages);
+
+  const displayedPlans = useMemo(() => {
+    if (pageSize === "all") return teamPlans;
+    const start = (validCurrentPage - 1) * effectivePageSize;
+    return teamPlans.slice(start, start + effectivePageSize);
+  }, [teamPlans, validCurrentPage, effectivePageSize, pageSize]);
+
+  const pageNumbers = useMemo(() => {
+    if (totalPages <= 5) {
+      return Array.from({ length: totalPages }, (_, i) => i + 1);
+    }
+    if (validCurrentPage <= 3) {
+      return [1, 2, 3, "...", totalPages];
+    }
+    if (validCurrentPage >= totalPages - 2) {
+      return [1, "...", totalPages - 2, totalPages - 1, totalPages];
+    }
+    return [1, "...", validCurrentPage, "...", totalPages];
+  }, [validCurrentPage, totalPages]);
 
   return (
     <div className="panel pln-target-panel">
@@ -4017,51 +4054,127 @@ function TeamPlanTargetPanel({ execsInScope, monthKey, monthLabel, onGoToPlan, o
         ) : teamPlans.length === 0 ? (
           <p className="pln-hint" style={{ padding: ".5rem 0" }}>No executives in scope.</p>
         ) : (
-          teamPlans.map(({ exec, stats }) => {
-            const statusCls = {
-              Approved: "pln-planstatus-approved",
-              Submitted: "pln-planstatus-submitted",
-              Draft: "pln-planstatus-draft",
-              Rejected: "pln-planstatus-rejected",
-              "In Progress": "pln-planstatus-in-progress",
-              Completed: "pln-planstatus-completed",
-            }[stats.plan_status] ?? "pln-planstatus-draft";
+          <>
+            {displayedPlans.map(({ exec, stats }) => {
+              const statusCls = {
+                Approved: "pln-planstatus-approved",
+                Submitted: "pln-planstatus-submitted",
+                Draft: "pln-planstatus-draft",
+                Rejected: "pln-planstatus-rejected",
+                "In Progress": "pln-planstatus-in-progress",
+                Completed: "pln-planstatus-completed",
+              }[stats.plan_status] ?? "pln-planstatus-draft";
 
-            return (
-              <div key={exec.id} className="pln-team-exec-row">
-                <div className="pln-team-exec-info">
-                  <div className="person-avatar">{exec.name?.charAt(0) || "?"}</div>
-                  <div>
-                    <strong>{exec.name}</strong>
-                    <small>{exec.region || exec.city || "—"}</small>
+              return (
+                <div key={exec.id} className="pln-team-exec-row">
+                  <div className="pln-team-exec-info">
+                    <div className="person-avatar">{exec.name?.charAt(0) || "?"}</div>
+                    <div>
+                      <strong>{exec.name}</strong>
+                      <small>{exec.region || exec.city || "—"}</small>
+                    </div>
                   </div>
-                </div>
-                <div className="pln-team-exec-stats">
-                  <span>
-                    <strong>{stats.completed}</strong> / {stats.total_doctors || 0} ({stats.completion_pct}%)
-                  </span>
-                  <div className="pln-team-exec-bar">
-                    <div
-                      className="pln-team-exec-fill"
-                      style={{
-                        width: `${Math.min(100, stats.completion_pct)}%`,
-                        background: stats.completion_pct >= 80 ? "var(--chart-1)" : stats.completion_pct >= 50 ? "oklch(70% .16 75)" : "var(--primary)"
-                      }}
-                    />
-                  </div>
-                </div>
-                <div className="pln-team-exec-badge-wrap">
-                  {stats.has_plan ? (
-                    <span className={"pln-planstatus " + statusCls}>
-                      {stats.plan_status}
+                  <div className="pln-team-exec-stats">
+                    <span>
+                      <strong>{stats.completed}</strong> / {stats.total_doctors || 0} ({stats.completion_pct}%)
                     </span>
-                  ) : (
-                    <span className="doc-status-badge inactive">No Plan</span>
+                    <div className="pln-team-exec-bar">
+                      <div
+                        className="pln-team-exec-fill"
+                        style={{
+                          width: `${Math.min(100, stats.completion_pct)}%`,
+                          background: stats.completion_pct >= 80 ? "var(--chart-1)" : stats.completion_pct >= 50 ? "oklch(70% .16 75)" : "var(--primary)"
+                        }}
+                      />
+                    </div>
+                  </div>
+                  <div className="pln-team-exec-badge-wrap">
+                    {stats.has_plan ? (
+                      <span className={"pln-planstatus " + statusCls}>
+                        {stats.plan_status}
+                      </span>
+                    ) : (
+                      <span className="doc-status-badge inactive">No Plan</span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+
+            {totalExecs > 0 && (
+              <div className="pln-team-pagination-bar">
+                <div className="pln-team-page-info">
+                  <span>
+                    Showing <strong>{(validCurrentPage - 1) * effectivePageSize + 1}</strong>–<strong>{Math.min(validCurrentPage * effectivePageSize, totalExecs)}</strong> of <strong>{totalExecs}</strong>
+                  </span>
+                  {totalPages > 1 && (
+                    <span className="pln-team-page-pill">Page {validCurrentPage} of {totalPages}</span>
                   )}
                 </div>
+
+                {totalPages > 1 && (
+                  <div className="pln-team-page-controls">
+                    <button
+                      type="button"
+                      className="pln-page-nav-btn"
+                      disabled={validCurrentPage === 1}
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      title="Previous Page"
+                    >
+                      <ChevronLeft size={13} />
+                      <span>Prev</span>
+                    </button>
+
+                    <div className="pln-page-numbers">
+                      {pageNumbers.map((p, idx) =>
+                        p === "..." ? (
+                          <span key={`dots-${idx}`} className="pln-page-dots">…</span>
+                        ) : (
+                          <button
+                            key={p}
+                            type="button"
+                            className={`pln-page-num-btn ${validCurrentPage === p ? "active" : ""}`}
+                            onClick={() => setCurrentPage(p)}
+                          >
+                            {p}
+                          </button>
+                        )
+                      )}
+                    </div>
+
+                    <button
+                      type="button"
+                      className="pln-page-nav-btn"
+                      disabled={validCurrentPage === totalPages}
+                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                      title="Next Page"
+                    >
+                      <span>Next</span>
+                      <ChevronRight size={13} />
+                    </button>
+                  </div>
+                )}
+
+                <div className="pln-team-page-size">
+                  <label htmlFor="pln_exec_size">Per page:</label>
+                  <select
+                    id="pln_exec_size"
+                    value={pageSize}
+                    onChange={(e) => {
+                      setPageSize(e.target.value === "all" ? "all" : Number(e.target.value));
+                      setCurrentPage(1);
+                    }}
+                  >
+                    <option value={4}>4</option>
+                    <option value={5}>5</option>
+                    <option value={10}>10</option>
+                    <option value={20}>20</option>
+                    <option value="all">All ({totalExecs})</option>
+                  </select>
+                </div>
               </div>
-            );
-          })
+            )}
+          </>
         )}
       </div>
     </div>
@@ -4071,8 +4184,8 @@ function TeamPlanTargetPanel({ execsInScope, monthKey, monthLabel, onGoToPlan, o
 /* ─────────────────────────────────────────────────────────
    EXECUTIVE DASHBOARD
 ───────────────────────────────────────────────────────── */
-function ExecutiveDashboard({ data, execId, planStats, monthLabel, onGoToPlan }) {
-  const { executives, coverage, tasks, doctors, products } = data;
+function ExecutiveDashboard({ data, execId, planStats, monthLabel, onGoToPlan, onGoToAttendance }) {
+  const { executives, coverage, tasks, doctors, products, alerts } = data;
   const exec = executives.find((e) => e.id === execId) || executives[0];
   const myPincodes = new Set(coverage.filter((c) => c.executive_id === exec?.id).map((c) => c.pincode));
   const myTasks = tasks.filter((t) => !t.pincode || myPincodes.has(t.pincode));
@@ -4123,6 +4236,7 @@ function ExecutiveDashboard({ data, execId, planStats, monthLabel, onGoToPlan })
         <Stat icon="⚕" title="Doctors In Area" value={pincodeRows.reduce((s, r) => s + r.doctorCount, 0)} text="Across my pin codes" type="red" />
       </div>
 
+
       {/* ── Top Grid: Tasks by Priority side-by-side with Plan Target Panel ── */}
       <div className="two-columns">
         <Chart title="My Tasks by Priority" categories={["Low", "Medium", "High"]} targets={totals} achieved={doneByPriority} />
@@ -4145,59 +4259,224 @@ function ExecutiveDashboard({ data, execId, planStats, monthLabel, onGoToPlan })
 }
 
 /* ─────────────────────────────────────────────────────────
+   EXECUTIVE PERFORMANCE TABLE (With Pagination Controls)
+───────────────────────────────────────────────────────── */
+function ExecutivePerformanceTable({ rows }) {
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 6;
+  const totalRecords = rows.length;
+  const totalPages = Math.max(1, Math.ceil(totalRecords / pageSize));
+  const validPage = Math.min(currentPage, totalPages);
+
+  // Auto-reset to page 1 whenever row count or region filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [rows.length]);
+
+  const displayedRows = useMemo(() => {
+    const start = (validPage - 1) * pageSize;
+    return rows.slice(start, start + pageSize);
+  }, [rows, validPage, pageSize]);
+
+  return (
+    <div className="panel table-panel">
+      <div className="panel-title" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <h2>Executive Performance</h2>
+        {totalRecords > 0 && (
+          <span className="pln-team-page-pill" style={{ fontSize: "0.7rem" }}>
+            {totalRecords} Executive{totalRecords !== 1 ? "s" : ""}
+          </span>
+        )}
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Executive</th>
+            <th>Target Visits</th>
+            <th>Done</th>
+            <th>%</th>
+          </tr>
+        </thead>
+        <tbody>
+          {displayedRows.length === 0 ? (
+            <tr>
+              <td colSpan={4} style={{ color: "#7f8b98", textAlign: "center", padding: "1.5rem" }}>
+                No executives found in this region
+              </td>
+            </tr>
+          ) : (
+            displayedRows.map((row, i) => {
+              const pctVal = parseInt(row[3]) || 0;
+              const barColor = pctVal >= 70 ? "#10b981" : pctVal >= 40 ? "#f59e0b" : "#0d9488";
+              return (
+                <tr key={i}>
+                  <td><strong>{row[0]}</strong></td>
+                  <td>{row[1]}</td>
+                  <td><span style={{ color: "#059669", fontWeight: 700 }}>{row[2]}</span></td>
+                  <td>
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                      <div style={{ flex: 1, height: "6px", background: "var(--secondary, #f1f5f9)", borderRadius: "99px", overflow: "hidden", minWidth: "40px" }}>
+                        <div style={{ width: `${Math.min(100, pctVal)}%`, height: "100%", background: barColor, borderRadius: "inherit" }} />
+                      </div>
+                      <span style={{ fontWeight: 700, minWidth: "34px", fontSize: "0.75rem" }}>{row[3]}</span>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })
+          )}
+        </tbody>
+      </table>
+
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="pln-team-pagination-bar" style={{ marginTop: "0.5rem" }}>
+          <div className="pln-team-page-info">
+            <span>
+              Showing <strong>{(validPage - 1) * pageSize + 1}</strong>–<strong>{Math.min(validPage * pageSize, totalRecords)}</strong> of <strong>{totalRecords}</strong>
+            </span>
+            <span className="pln-team-page-pill">Page {validPage} of {totalPages}</span>
+          </div>
+
+          <div className="pln-team-page-controls">
+            <button
+              type="button"
+              className="pln-page-nav-btn"
+              disabled={validPage === 1}
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              title="Previous Page"
+            >
+              <ChevronLeft size={13} />
+              <span>Prev</span>
+            </button>
+
+            <div className="pln-page-numbers">
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  className={`pln-page-num-btn ${validPage === p ? "active" : ""}`}
+                  onClick={() => setCurrentPage(p)}
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
+
+            <button
+              type="button"
+              className="pln-page-nav-btn"
+              disabled={validPage === totalPages}
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              title="Next Page"
+            >
+              <span>Next</span>
+              <ChevronRight size={13} />
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────
    TEAM DASHBOARD (Managers & Regional Managers)
 ───────────────────────────────────────────────────────── */
-function TeamDashboard({ data, region, scopeLabel, monthKey, monthLabel, onGoToPlan }) {
-  const { executives, coverage, tasks, doctors } = data;
-  const execsInScope = region ? executives.filter((e) => e.region === region) : executives;
+function TeamDashboard({ data, region, scopeLabel, monthKey, monthLabel, onGoToPlan, onGoToAttendance }) {
+  const { executives, coverage, tasks, doctors, alerts } = data;
+
+  const normalizeReg = (r) => (r || "").trim().toLowerCase().replace(/[\s_-]+/g, "");
+
+  const execsInScope = useMemo(() => {
+    if (!region) return executives;
+    const rNorm = normalizeReg(region);
+    return executives.filter((e) => normalizeReg(e.region) === rNorm);
+  }, [executives, region]);
+
   const [teamStatsSummary, setTeamStatsSummary] = useState(null);
 
-  const execStats = execsInScope.map((exec) => {
-    const pincodes = new Set(coverage.filter((c) => c.executive_id === exec.id).map((c) => c.pincode));
-    const myTasks = tasks.filter((t) => t.pincode && pincodes.has(t.pincode));
-    const done = myTasks.filter((t) => t.status === "done").length;
-    const pct = myTasks.length > 0 ? Math.round((done / myTasks.length) * 100) : 0;
-    return { exec, pincodes, taskCount: myTasks.length, done, pct };
-  });
-  const scopePincodes = [...new Set(coverage.filter((c) => execsInScope.some((e) => e.id === c.executive_id)).map((c) => c.pincode))];
-  const scopeTasks = tasks.filter((t) => !t.pincode || scopePincodes.includes(t.pincode));
-  const totalDone = scopeTasks.filter((t) => t.status === "done").length;
-  const totalOpen = scopeTasks.length - totalDone;
-  const overallPct = scopeTasks.length > 0 ? Math.round((totalDone / scopeTasks.length) * 100) : 0;
-  const scopeDoctors = doctors.filter((d) => scopePincodes.includes(d.pincode)).length;
-  const tableRows = execStats.slice(0, 6).map((r) => [r.exec.name, r.taskCount, r.done, `${r.pct}%`]);
-  const categories = execStats.slice(0, 6).map((r) => r.exec.name);
-  const targets = execStats.slice(0, 6).map((r) => r.taskCount);
-  const achieved = execStats.slice(0, 6).map((r) => r.done);
+  // Derived metrics from actual team plans loaded in TeamPlanTargetPanel
+  const totalPlannedVisits = teamStatsSummary?.totalTarget || 0;
+  const totalDoneVisits = teamStatsSummary?.totalDone || 0;
+  const totalPendingVisits = Math.max(0, totalPlannedVisits - totalDoneVisits);
+  const totalInProgress = useMemo(() => {
+    if (!teamStatsSummary?.results) return 0;
+    return teamStatsSummary.results.filter(
+      (r) => (parseInt(r.stats?.completion_pct) || 0) > 0 && (parseInt(r.stats?.completion_pct) || 0) < 100
+    ).length;
+  }, [teamStatsSummary]);
+  const overallPct = teamStatsSummary?.pct || 0;
+
+  // Real rows for Executive Performance Table
+  const performanceRows = useMemo(() => {
+    if (teamStatsSummary?.results && teamStatsSummary.results.length > 0) {
+      return teamStatsSummary.results.map((r) => [
+        r.exec.name,
+        r.stats?.total_doctors || r.stats?.planned_visits || 0,
+        r.stats?.completed || 0,
+        `${r.stats?.completion_pct ?? 0}%`,
+      ]);
+    }
+    return execsInScope.map((exec) => [exec.name, 0, 0, "0%"]);
+  }, [teamStatsSummary, execsInScope]);
+
+  // Chart data from actual loaded executive stats
+  const chartData = useMemo(() => {
+    const list = teamStatsSummary?.results || [];
+    const slice = list.slice(0, 6);
+    return {
+      categories: slice.length ? slice.map((r) => r.exec.name) : (execsInScope.slice(0, 6).map((e) => e.name) || ["—"]),
+      targets: slice.length ? slice.map((r) => r.stats?.total_doctors || r.stats?.planned_visits || 0) : [0],
+      achieved: slice.length ? slice.map((r) => r.stats?.completed || 0) : [0],
+    };
+  }, [teamStatsSummary, execsInScope]);
 
   return (
     <>
       <div className="stats">
         <Stat icon="♙" title="My Executives" value={execsInScope.length} text={scopeLabel} type="blue" />
-        <Stat icon="◎" title="Total Tasks" value={scopeTasks.length} text="This period" type="green" />
+        <Stat icon="◎" title="Total Plan Visits" value={totalPlannedVisits} text={monthLabel || "This Month"} type="green" />
         {teamStatsSummary?.hasAnyPlan ? (
           <Stat
             icon="🗓"
             title="Team Plan Completion"
-            value={`${teamStatsSummary.pct}%`}
-            text={`${teamStatsSummary.totalDone} / ${teamStatsSummary.totalTarget} visits`}
+            value={`${overallPct}%`}
+            text={`${totalDoneVisits} / ${totalPlannedVisits} visits`}
             type="orange"
           />
         ) : (
-          <Stat icon="▣" title="Pin Codes" value={scopePincodes.length} text="Covered" type="orange" />
+          <Stat icon="▣" title="Doctors in Territory" value={doctors.length} text="Covered" type="orange" />
         )}
-        <Stat icon="₹" title="Task Completion" value={`${overallPct}%`} text={`${scopeDoctors} doctors in scope`} type="red" />
+        <Stat icon="₹" title="Visit Completion" value={`${overallPct}%`} text={`${totalDoneVisits} completed`} type="red" />
       </div>
 
       {/* ── Top Grid: Team Target vs Achievement side-by-side with Team Plan Target Panel ── */}
       <div className="two-columns">
-        <Chart title="Team Target vs Achievement" categories={categories.length ? categories : ["—"]} targets={targets.length ? targets : [0]} achieved={achieved.length ? achieved : [0]} />
-        <TeamPlanTargetPanel execsInScope={execsInScope} monthKey={monthKey} monthLabel={monthLabel} onGoToPlan={onGoToPlan} onTeamStatsLoaded={setTeamStatsSummary} />
+        <Chart
+          title="Team Target vs Achievement"
+          categories={chartData.categories}
+          targets={chartData.targets}
+          achieved={chartData.achieved}
+        />
+        <TeamPlanTargetPanel
+          execsInScope={execsInScope}
+          monthKey={monthKey}
+          monthLabel={monthLabel}
+          onGoToPlan={onGoToPlan}
+          onTeamStatsLoaded={setTeamStatsSummary}
+        />
       </div>
 
       <div className="two-columns">
-        <Achievement percentage={`${overallPct}%`} achieved={totalDone} progress={0} pending={totalOpen} />
-        <DashTable title="Executive Performance" headers={["Executive", "Tasks", "Done", "%"]} rows={tableRows} />
+        <Achievement
+          percentage={`${overallPct}%`}
+          achieved={totalDoneVisits}
+          progress={totalInProgress}
+          pending={totalPendingVisits}
+        />
+        <ExecutivePerformanceTable rows={performanceRows} />
       </div>
     </>
   );
@@ -4220,7 +4499,7 @@ const ROLE_TITLES = {
 
 const SECTION_TITLES = {
   attendance: "Attendance & Shift Punch",
-  attendance_report: "Sales Executive Attendance Report",
+  attendance_report: "Attendance Report",
   dashboard: "Dashboard",
   doctors: "Doctors",
   plan: "Plan",
@@ -4270,6 +4549,128 @@ export default function SalesCrm({ role, initialUser, onSwitchRole, onExit }) {
     // Default: executives start at Attendance, managers/regional start at Dashboard
     return (role === ROLES.MANAGER || role === ROLES.REGIONAL) ? "dashboard" : "attendance";
   });
+
+  const [bellOpen, setBellOpen] = useState(false);
+  const [liveToast, setLiveToast] = useState(null);
+  const [readAlertIds, setReadAlertIds] = useState(() => {
+    try {
+      return new Set(JSON.parse(localStorage.getItem("zenve_read_alert_ids") || "[]"));
+    } catch (e) {
+      return new Set();
+    }
+  });
+  const bellRef = useRef(null);
+
+  // Close bell dropdown on outside click
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (bellRef.current && !bellRef.current.contains(e.target)) {
+        setBellOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const knownAlertKeysRef = useRef(new Set());
+
+  // Listen for real-time punch alerts broadcasted anywhere in app
+  useEffect(() => {
+    function onPunchAlert(e) {
+      const alertData = e.detail;
+      if (!alertData) return;
+      playChime();
+      setLiveToast({
+        id: Date.now(),
+        name: alertData.executive_name,
+        code: alertData.executive_code,
+        type: alertData.punch_type,
+        time: alertData.punch_time,
+        location: alertData.location,
+      });
+      const timer = setTimeout(() => {
+        setLiveToast(null);
+      }, 7000);
+      return () => clearTimeout(timer);
+    }
+    window.addEventListener("crm_attendance_punch_alert", onPunchAlert);
+    return () => window.removeEventListener("crm_attendance_punch_alert", onPunchAlert);
+  }, []);
+
+  // Background polling to catch attendance punches from other devices/sessions
+  useEffect(() => {
+    let isMounted = true;
+    async function pollPunchAlerts() {
+      try {
+        const fresh = await fetchList("executive_alerts").catch(() => []);
+        if (!isMounted || !fresh || fresh.length === 0) return;
+
+        if (knownAlertKeysRef.current.size > 0) {
+          const brandNew = fresh.filter((a) => !knownAlertKeysRef.current.has(a.id));
+          if (brandNew.length > 0) {
+            const topOne = brandNew[0];
+            playChime();
+            setLiveToast({
+              id: Date.now(),
+              name: topOne.executive_name || topOne.title,
+              code: topOne.executive_code || "",
+              type: topOne.punch_type || (topOne.title?.toLowerCase().includes("in") ? "Punch In" : "Punch Out"),
+              time: topOne.punch_time || "Just now",
+              location: topOne.location || topOne.message || "Field Location",
+            });
+            setTimeout(() => setLiveToast(null), 7000);
+            if (typeof data.reload === "function") data.reload();
+          }
+        }
+
+        fresh.forEach((a) => knownAlertKeysRef.current.add(a.id));
+      } catch (e) {}
+    }
+
+    if (data.alerts && data.alerts.length > 0) {
+      data.alerts.forEach((a) => knownAlertKeysRef.current.add(a.id));
+    }
+
+    const interval = setInterval(pollPunchAlerts, 8000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [data]);
+
+  const allRecentAlerts = useMemo(() => {
+    let localAlerts = [];
+    try {
+      localAlerts = JSON.parse(localStorage.getItem("zenve_crm_attendance_alerts") || "[]");
+    } catch (e) {}
+    const merged = [...localAlerts, ...(data.alerts || [])];
+    const seen = new Set();
+    const res = [];
+    for (const a of merged) {
+      const k = a.id ? `id_${a.id}` : `${a.executive_name || a.title}_${a.punch_time}_${a.punch_type}`;
+      if (!seen.has(k)) {
+        seen.add(k);
+        res.push(a);
+      }
+    }
+    return res;
+  }, [data.alerts]);
+
+  const unreadCount = useMemo(() => {
+    return allRecentAlerts.filter((a) => {
+      const idKey = a.id ? `id_${a.id}` : `${a.executive_name}_${a.punch_time}`;
+      return !readAlertIds.has(idKey) && !a.is_read;
+    }).length;
+  }, [allRecentAlerts, readAlertIds]);
+
+  function handleMarkAllAlertsRead() {
+    const allIds = allRecentAlerts.map((a) => a.id ? `id_${a.id}` : `${a.executive_name}_${a.punch_time}`);
+    const updatedSet = new Set([...readAlertIds, ...allIds]);
+    setReadAlertIds(updatedSet);
+    try {
+      localStorage.setItem("zenve_read_alert_ids", JSON.stringify([...updatedSet]));
+    } catch (e) {}
+  }
 
   const handleSelectSection = (sec) => {
     setActiveSection(sec);
@@ -4353,10 +4754,24 @@ export default function SalesCrm({ role, initialUser, onSwitchRole, onExit }) {
   // usePlanStats is a lightweight hook: just one GET /plan-stats/{id} call
   const { stats: planStats } = usePlanStats(execId, selectedMonth);
 
-  const regions = useMemo(
-    () => [...new Set(data.executives.map((e) => e.region).filter(Boolean))],
-    [data.executives]
-  );
+  const normalizeRegionStr = (r) => (r || "").trim().toLowerCase().replace(/[\s_-]+/g, "");
+
+  const regions = useMemo(() => {
+    const raw = data.executives.map((e) => e.region).filter(Boolean);
+    const seen = new Set();
+    const list = [];
+    raw.forEach((r) => {
+      const norm = normalizeRegionStr(r);
+      if (!seen.has(norm)) {
+        seen.add(norm);
+        if (norm.includes("tamil")) list.push("Tamil Nadu");
+        else if (norm.includes("karnat")) list.push("Karnataka");
+        else if (norm.includes("assam")) list.push("Assam");
+        else list.push(r.trim());
+      }
+    });
+    return list.sort();
+  }, [data.executives]);
 
   const currentTableKey = ROLE_TABLE_KEY[role];
   const currentRecord = useMemo(() => {
@@ -4546,6 +4961,8 @@ export default function SalesCrm({ role, initialUser, onSwitchRole, onExit }) {
               </select>
             </div>
 
+
+
             <div
               className="header-user-status-pill"
               title={currentRecord ? `${currentRecord.name} — view profile` : "No profile selected"}
@@ -4572,6 +4989,46 @@ export default function SalesCrm({ role, initialUser, onSwitchRole, onExit }) {
 
           </div>
         </header>
+
+        {/* ── Floating Live Punch Alert Toast ── */}
+        {liveToast && (
+          <div
+            className="live-punch-toast"
+            onClick={() => {
+              setActiveSection("dashboard");
+              setLiveToast(null);
+            }}
+          >
+            <div className="live-punch-toast-icon">
+              <Bell size={18} className="live-toast-bell-bounce" />
+            </div>
+            <div className="live-punch-toast-body">
+              <div className="live-punch-toast-title">
+                <span>⚡ Real-Time Attendance Alert</span>
+                <span className={`punch-badge-mini ${liveToast.type?.toLowerCase().includes("in") ? "badge-mini-in" : "badge-mini-out"}`}>
+                  {liveToast.type}
+                </span>
+              </div>
+              <div className="live-punch-toast-msg">
+                <strong>{liveToast.name}</strong> {liveToast.code ? `(${liveToast.code})` : ""} punched {liveToast.type} at {liveToast.time}
+              </div>
+              <div className="live-punch-toast-loc" title={liveToast.location}>
+                <MapPin size={11} /> <span>{liveToast.location}</span>
+              </div>
+            </div>
+            <button
+              type="button"
+              className="live-punch-toast-close"
+              onClick={(e) => {
+                e.stopPropagation();
+                setLiveToast(null);
+              }}
+              title="Dismiss"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        )}
 
         <section className="content">
           {activeSection === "attendance" && (
@@ -4603,6 +5060,7 @@ export default function SalesCrm({ role, initialUser, onSwitchRole, onExit }) {
                   planStats={planStats}
                   monthLabel={selectedMonthLabel}
                   onGoToPlan={() => setActiveSection("plan")}
+                  onGoToAttendance={() => handleSelectSection("attendance")}
                 />
               )}
               {!data.loading && !data.error && role === ROLES.MANAGER && (
@@ -4613,6 +5071,7 @@ export default function SalesCrm({ role, initialUser, onSwitchRole, onExit }) {
                   monthKey={selectedMonth}
                   monthLabel={selectedMonthLabel}
                   onGoToPlan={() => setActiveSection("approvals")}
+                  onGoToAttendance={() => handleSelectSection("attendance_report")}
                 />
               )}
               {!data.loading && !data.error && role === ROLES.REGIONAL && (
@@ -4623,6 +5082,7 @@ export default function SalesCrm({ role, initialUser, onSwitchRole, onExit }) {
                   monthKey={selectedMonth}
                   monthLabel={selectedMonthLabel}
                   onGoToPlan={() => setActiveSection("approvals")}
+                  onGoToAttendance={() => handleSelectSection("attendance_report")}
                 />
               )}
             </>

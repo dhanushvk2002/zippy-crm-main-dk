@@ -799,6 +799,14 @@
   font-weight: 600;
   color: #0d9488;
   margin-top: 1px;
+  max-width: 175px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.attend-loc-sub svg {
+  flex-shrink: 0;
 }
 
 .attend-reset-btn {
@@ -2186,4 +2194,203 @@
   color: #38bdf8;
   border-color: #38bdf8;
 }
+
+/* ─────────────────────────────────────────────────────────
+   PAGINATION BAR & HEADER COUNT BADGE FOR ATTENDANCE
+───────────────────────────────────────────────────────── */
+.attend-header-actions-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.attend-count-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.73rem;
+  font-weight: 700;
+  color: #0d9488;
+  background: #f0fdfa;
+  border: 1px solid #ccfbf1;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  letter-spacing: 0.01em;
+}
+
+.attend-pagination-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding: 0.75rem 1.25rem;
+  background: #f8fafc;
+  border-top: 1px solid var(--border, #e2e8f0);
+}
+
+.attend-page-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.78rem;
+  color: var(--muted-foreground, #64748b);
+  flex-wrap: wrap;
+}
+
+.attend-page-info strong {
+  color: var(--foreground, #0f172a);
+  font-weight: 700;
+}
+
+.attend-page-counter-pill {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #0d9488;
+  background: #f0fdfa;
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid #ccfbf1;
+}
+
+.attend-page-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex-wrap: wrap;
+}
+
+.attend-page-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background: #ffffff;
+  border: 1px solid var(--border, #cbd5e1);
+  color: #334155;
+  border-radius: 6px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  min-width: 32px;
+  height: 32px;
+  padding: 0 8px;
+}
+
+.attend-page-btn:hover:not(:disabled) {
+  background: #0d9488;
+  color: #ffffff;
+  border-color: #0d9488;
+}
+
+.attend-page-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  background: #f1f5f9;
+}
+
+.attend-page-btn.num-btn.active {
+  background: #0d9488;
+  color: #ffffff;
+  border-color: #0d9488;
+  font-weight: 700;
+  box-shadow: 0 2px 6px rgba(13, 148, 136, 0.3);
+}
+
+.attend-page-numbers {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.attend-page-dots {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  color: #94a3b8;
+  font-weight: 700;
+  font-size: 0.8rem;
+  user-select: none;
+}
+
+.attend-page-size-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  color: var(--muted-foreground, #64748b);
+}
+
+.attend-page-size-select {
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border, #cbd5e1);
+  background: #ffffff;
+  font-size: 0.76rem;
+  color: var(--foreground, #0f172a);
+  cursor: pointer;
+  outline: none;
+}
+
+.attend-page-size-select:focus {
+  border-color: #0d9488;
+}
+
+/* Pagination Dark Theme Overrides */
+[data-theme="dark"] .attend-count-badge,
+.dark .attend-count-badge {
+  background: rgba(13, 148, 136, 0.15);
+  color: #2dd4bf;
+  border-color: rgba(13, 148, 136, 0.3);
+}
+
+[data-theme="dark"] .attend-pagination-bar,
+.dark .attend-pagination-bar {
+  background: #0d1527;
+  border-color: rgba(51, 65, 85, 0.7);
+}
+
+[data-theme="dark"] .attend-page-counter-pill,
+.dark .attend-page-counter-pill {
+  background: rgba(13, 148, 136, 0.15);
+  color: #2dd4bf;
+  border-color: rgba(13, 148, 136, 0.3);
+}
+
+[data-theme="dark"] .attend-page-btn,
+.dark .attend-page-btn {
+  background: #1e293b;
+  border-color: rgba(51, 65, 85, 0.8);
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .attend-page-btn:hover:not(:disabled),
+.dark .attend-page-btn:hover:not(:disabled) {
+  background: #0d9488;
+  color: #ffffff;
+  border-color: #0d9488;
+}
+
+[data-theme="dark"] .attend-page-btn:disabled,
+.dark .attend-page-btn:disabled {
+  background: #111827;
+  border-color: rgba(51, 65, 85, 0.4);
+  color: #475569;
+}
+
+[data-theme="dark"] .attend-page-btn.num-btn.active,
+.dark .attend-page-btn.num-btn.active {
+  background: #0d9488;
+  color: #ffffff;
+}
+
+[data-theme="dark"] .attend-page-size-select,
+.dark .attend-page-size-select {
+  background: #1e293b;
+  border-color: rgba(51, 65, 85, 0.8);
+  color: #f8fafc;
+}
+
 

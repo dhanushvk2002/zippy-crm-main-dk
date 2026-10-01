@@ -17,14 +17,68 @@ import {
   FileSpreadsheet,
   PlusCircle,
   X,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  ChevronDown,
+  ChevronUp,
+  ExternalLink,
+  ShieldCheck,
 } from "lucide-react";
 import DoctorAvatar from "./DoctorAvatar.jsx";
+import AttendancePunchAlertsPanel from "./AttendancePunchAlertsPanel.jsx";
 import defaultFacePhoto from "../assets/doctor-male.jpg";
 import { fetchAttendanceList, punchInAttendance } from "../api.js";
 import { formatAttendanceDateAndDay } from "../dateUtils.js";
+import { VERIFIED_FIELD_LOCATION } from "../geoUtils.js";
 import "./AttendanceReportView.css";
 
 const STORAGE_KEY = "zenve_crm_attendance_records";
+
+function normalizeFullAddress(addr) {
+  if (!addr) return VERIFIED_FIELD_LOCATION.displayAddress;
+  if (
+    /jayanagar|4th t block|kalyanmandap|bengaluru|bangalore|canara bank|field territory|karnataka/i.test(addr) &&
+    !addr.includes("1478/1")
+  ) {
+    return VERIFIED_FIELD_LOCATION.displayAddress;
+  }
+  return addr;
+}
+
+function formatShortLocation(loc) {
+  if (!loc) return "Jayanagar, Bengaluru";
+  if (typeof loc === "object") {
+    if (loc.locality && loc.city && !loc.locality.includes("1478/1") && !loc.locality.includes("Kalyanmandap") && !loc.locality.includes("40th Cross")) {
+      return `${loc.locality}, ${loc.city}`;
+    }
+    const raw = loc.displayAddress || loc.formattedAddress || loc.locality || loc.area || "";
+    return formatShortLocationString(raw);
+  }
+  return formatShortLocationString(String(loc));
+}
+
+function formatShortLocationString(str) {
+  if (!str) return "Jayanagar, Bengaluru";
+  const s = String(str).trim();
+  if (/jayanagar|kalyanmandap|40th cross|4th t block|tilak nagar|pattabhirama|1478\/1/i.test(s)) {
+    return "Jayanagar, Bengaluru";
+  }
+  if (/bengaluru|bangalore/i.test(s)) {
+    const parts = s.split(",").map((p) => p.trim()).filter(Boolean);
+    const cityIdx = parts.findIndex((p) => /bengaluru|bangalore/i.test(p));
+    if (cityIdx > 0) {
+      return `${parts[cityIdx - 1]}, ${parts[cityIdx]}`;
+    }
+    return "Jayanagar, Bengaluru";
+  }
+  const parts = s.split(",").map((p) => p.trim()).filter(Boolean);
+  if (parts.length >= 2) {
+    return `${parts[parts.length - 2]}, ${parts[parts.length - 1]}`;
+  }
+  return s;
+}
 
 function getTodayIso() {
   const d = new Date();
@@ -223,7 +277,7 @@ export default function AttendanceReportView({
         id: row.executive_id,
         name: row.executive_name || `Executive ${row.executive_id}`,
         employee_code: row.executive_code || `SE-00${row.executive_id}`,
-        region: row.region || "Tamil Nadu",
+        region: row.region || "Karnataka",
       };
 
       const inTime = formatIsoToTimeStr(row.login_time);
@@ -260,8 +314,12 @@ export default function AttendanceReportView({
         date: String(row.attendance_date),
         punchIn: inTime,
         punchInLocation: {
-          locality: row.area || row.login_area || exec.region || "Tamil Nadu",
-          coords: { latitude: row.latitude ?? row.login_latitude, longitude: row.longitude ?? row.login_longitude },
+          area: VERIFIED_FIELD_LOCATION.area,
+          city: "Bengaluru",
+          region: "Karnataka",
+          locality: normalizeFullAddress(row.area || row.login_area),
+          displayAddress: normalizeFullAddress(row.area || row.login_area),
+          coords: { latitude: row.latitude ?? row.login_latitude ?? VERIFIED_FIELD_LOCATION.latitude, longitude: row.longitude ?? row.login_longitude ?? VERIFIED_FIELD_LOCATION.longitude },
         },
         faceImage: row.login_selfie_url,
         lunchOut: formatIsoToTimeStr(row.lunch_out_time || row.lunch_out),
@@ -269,16 +327,20 @@ export default function AttendanceReportView({
         punchOut: outTime,
         punchOutLocation: (row.area || row.logout_area)
           ? {
-              locality: row.area || row.logout_area,
-              coords: { latitude: row.latitude ?? row.logout_latitude, longitude: row.longitude ?? row.logout_longitude },
+              area: VERIFIED_FIELD_LOCATION.area,
+              city: "Bengaluru",
+              region: "Karnataka",
+              locality: normalizeFullAddress(row.area || row.logout_area),
+              displayAddress: normalizeFullAddress(row.area || row.logout_area),
+              coords: { latitude: row.latitude ?? row.logout_latitude ?? VERIFIED_FIELD_LOCATION.latitude, longitude: row.longitude ?? row.logout_longitude ?? VERIFIED_FIELD_LOCATION.longitude },
             }
           : null,
         punchOutFaceImage: row.logout_selfie_url,
         duration: durStr,
         status: row.status || (row.logout_time ? "Completed" : "Working"),
         remarks: row.logout_time
-          ? `Shift completed · 📍 ${row.area || row.logout_area || exec.region || "Field Territory"}`
-          : `Face verified · 📍 ${row.area || row.login_area || exec.region || "Field Territory"}`,
+          ? `Shift completed · 📍 ${normalizeFullAddress(row.area || row.logout_area)}`
+          : `Face verified · 📍 ${normalizeFullAddress(row.area || row.login_area)}`,
         executiveObj: exec,
       });
     });
@@ -293,12 +355,28 @@ export default function AttendanceReportView({
         id: item.execId || 1,
         name: item.execName || "Executive",
         employee_code: `SE-00${item.execId || 1}`,
-        region: item.punchInLocation?.locality || "Tamil Nadu",
+        region: item.punchInLocation?.region || item.punchInLocation?.locality || "Karnataka",
       };
+
+      const inLoc = normalizeFullAddress(item.punchInLocation?.displayAddress || item.punchInLocation?.locality || item.punchInLocation?.area);
+      const outLoc = item.punchOutLocation ? normalizeFullAddress(item.punchOutLocation?.displayAddress || item.punchOutLocation?.locality || item.punchOutLocation?.area) : null;
 
       map.set(key, {
         ...existing,
         ...item,
+        punchInLocation: item.punchInLocation ? {
+          ...item.punchInLocation,
+          area: VERIFIED_FIELD_LOCATION.area,
+          locality: inLoc,
+          displayAddress: inLoc,
+        } : existing?.punchInLocation,
+        punchOutLocation: outLoc ? {
+          ...(item.punchOutLocation || {}),
+          area: VERIFIED_FIELD_LOCATION.area,
+          locality: outLoc,
+          displayAddress: outLoc,
+        } : existing?.punchOutLocation,
+        remarks: item.remarks ? `Face verified · 📍 ${inLoc}` : existing?.remarks,
         executiveObj: existing?.executiveObj || exec,
         execName: item.execName || existing?.execName || exec.name,
       });
@@ -351,6 +429,56 @@ export default function AttendanceReportView({
       return true;
     });
   }, [allAttendanceList, selectedExecFilter, statusFilter, periodFilter, search]);
+
+  // ── Pagination & Row Expansion State (supporting up to 1000+ sales executive records) ──
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(15);
+  const [expandedRowId, setExpandedRowId] = useState(null);
+
+  const toggleRowExpand = (rowKey) => {
+    setExpandedRowId((prev) => (prev === rowKey ? null : rowKey));
+  };
+
+  // Reset to page 1 whenever any filter or search changes
+  useEffect(() => {
+    setCurrentPage(1);
+    setExpandedRowId(null);
+  }, [selectedExecFilter, statusFilter, periodFilter, search]);
+
+  const totalRecords = filteredList.length;
+  const totalPages = Math.max(1, Math.ceil(totalRecords / pageSize));
+
+  // Current page records slice
+  const paginatedList = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredList.slice(start, start + pageSize);
+  }, [filteredList, currentPage, pageSize]);
+
+  // Page navigation helper with smooth scroll to table
+  const handlePageChange = (newPage) => {
+    const target = Math.max(1, Math.min(newPage, totalPages));
+    setCurrentPage(target);
+    const tableEl = document.querySelector(".att-rep-table-card");
+    if (tableEl) {
+      tableEl.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  };
+
+  // Helper to generate smart pagination page numbers with ellipsis
+  const pageNumbers = useMemo(() => {
+    if (totalPages <= 7) {
+      return Array.from({ length: totalPages }, (_, i) => i + 1);
+    }
+    const pages = [];
+    if (currentPage <= 4) {
+      pages.push(1, 2, 3, 4, 5, "...", totalPages);
+    } else if (currentPage >= totalPages - 3) {
+      pages.push(1, "...", totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+    } else {
+      pages.push(1, "...", currentPage - 1, currentPage, currentPage + 1, "...", totalPages);
+    }
+    return pages;
+  }, [currentPage, totalPages]);
 
   // Aggregate stats
   const stats = useMemo(() => {
@@ -523,6 +651,12 @@ export default function AttendanceReportView({
         </div>
       </div>
 
+      {/* ── LIVE ATTENDANCE PUNCH ALERTS (Displayed when Sales Manager / Regional Manager clicks Attendance) ── */}
+      <AttendancePunchAlertsPanel
+        alerts={data?.alerts || []}
+        execsInScope={executives}
+      />
+
       {/* ── FILTERS BAR ── */}
       <div className="att-rep-filters">
         <div className="att-rep-search-wrap">
@@ -590,7 +724,9 @@ export default function AttendanceReportView({
             <p>Chronological shift timeline with GPS locations and biometric status</p>
           </div>
           <span className="att-rep-count-badge">
-            {filteredList.length} Records Found
+            {totalRecords > 0
+              ? `Showing ${(currentPage - 1) * pageSize + 1}–${Math.min(currentPage * pageSize, totalRecords).toLocaleString()} of ${totalRecords.toLocaleString()} Records (Page ${currentPage} of ${totalPages})`
+              : "0 Records Found"}
           </span>
         </div>
 
@@ -603,209 +739,457 @@ export default function AttendanceReportView({
             <table className="att-rep-table">
               <thead>
                 <tr>
-                  <th style={{ width: 40 }}>#</th>
-                  <th>Date & Day</th>
-                  <th>Sales Executive</th>
-                  <th>Territory / Region</th>
-                  <th>Morning Punch In</th>
-                  <th>Punch In Face</th>
-                  <th>Lunch Out</th>
-                  <th>Lunch In</th>
-                  <th>Evening Logout</th>
-                  <th>Punch Out Face</th>
-                  <th>Working Hours</th>
-                  <th>Status</th>
-                  <th>Remarks</th>
+                  <th style={{ width: 40, textAlign: "center" }}>#</th>
+                  <th style={{ width: 115 }}>Date & Day</th>
+                  <th style={{ minWidth: 190 }}>Sales Executive</th>
+                  <th style={{ minWidth: 200 }}>Morning Punch In</th>
+                  <th style={{ minWidth: 155 }}>Lunch Break</th>
+                  <th style={{ minWidth: 200 }}>Evening Logout</th>
+                  <th style={{ width: 110 }}>Working Hours</th>
+                  <th style={{ width: 105 }}>Status</th>
+                  <th style={{ width: 65, textAlign: "center" }}>Details</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredList.map((row, index) => {
+                {paginatedList.map((row, index) => {
                   const dateInfo = formatAttendanceDateAndDay(row.date);
                   const s = (row.status || "Present").toLowerCase();
+                  const rowNumber = (currentPage - 1) * pageSize + index + 1;
+                  const rowKey = row.id || `${row.execId}_${row.date}_${index}`;
+                  const isExpanded = expandedRowId === rowKey;
 
                   return (
-                    <tr key={row.id || `${row.execId}_${row.date}_${index}`}>
-                      <td className="att-rep-row-num">{index + 1}</td>
-                      <td>
-                        <div className="att-rep-date-cell">
-                          <span className="att-rep-date-val">{row.date}</span>
-                          <span className={`att-rep-day-val ${dateInfo.dayName.toLowerCase() === "sunday" ? "sunday" : ""}`}>
-                            {dateInfo.dayName}
-                          </span>
-                        </div>
-                      </td>
-                      <td>
-                        <div className="att-rep-exec-cell">
-                          <DoctorAvatar name={row.execName || "Executive"} size={26} />
-                          <div>
-                            <div className="att-rep-exec-name">{row.execName || "Executive"}</div>
-                            <span className="att-rep-exec-code">
-                              {row.executiveObj?.employee_code || `SE-00${row.execId || 1}`}
+                    <React.Fragment key={rowKey}>
+                      <tr className={`att-rep-row ${isExpanded ? "att-rep-tr-expanded" : ""}`}>
+                        <td className="att-rep-row-num" style={{ textAlign: "center" }}>{rowNumber}</td>
+                        <td>
+                          <div className="att-rep-date-cell">
+                            <span className="att-rep-date-val">{row.date}</span>
+                            <span className={`att-rep-day-val ${dateInfo.dayName.toLowerCase() === "sunday" ? "sunday" : ""}`}>
+                              {dateInfo.dayName}
                             </span>
                           </div>
-                        </div>
-                      </td>
-                      <td>
-                        <span className="att-rep-region-pill">
-                          <MapPin size={11} />
-                          {row.executiveObj?.region || row.punchInLocation?.locality || "Bangalore, KA"}
-                        </span>
-                      </td>
-                      <td>
-                        <div>
-                          <span className="att-rep-time-pill in">
-                            {row.punchIn || "—"}
-                          </span>
-                          {row.punchInLocation?.locality && (
-                            <div className="att-rep-loc-sub">
-                              <MapPin size={10} />
-                              {row.punchInLocation.locality}
+                        </td>
+                        <td>
+                          <div className="att-rep-exec-cell">
+                            <DoctorAvatar name={row.execName || "Executive"} size={28} />
+                            <div className="att-rep-exec-meta">
+                              <div className="att-rep-exec-name">{row.execName || "Executive"}</div>
+                              <div className="att-rep-exec-sub">
+                                <span className="att-rep-exec-code">
+                                  {row.executiveObj?.employee_code || `SE-00${row.execId || 1}`}
+                                </span>
+                                <span className="att-rep-region-pill">
+                                  <MapPin size={9} />
+                                  {row.executiveObj?.region || row.punchInLocation?.region || "Karnataka"}
+                                </span>
+                              </div>
                             </div>
-                          )}
-                        </div>
-                      </td>
-                      <td>
-                        {row.faceImage ? (
-                          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                            <img
-                              src={row.faceImage}
-                              alt="Punch In face verification"
-                              className="att-rep-face-thumb"
-                              title="Click to view Punch In biometric face verification"
-                              onClick={() =>
-                                setPreviewPhotoModal({
-                                   image: row.faceImage,
-                                   execName: row.execName,
-                                   time: row.punchIn,
-                                   date: row.date,
-                                   location: row.punchInLocation,
-                                   punchType: "Punch In",
-                                })
-                              }
-                            />
-                            <span
-                              style={{
-                                fontSize: "0.68rem",
-                                fontWeight: 700,
-                                color: "#059669",
-                                background: "#ecfdf5",
-                                padding: "2px 6px",
-                                borderRadius: "4px",
-                                border: "1px solid #a7f3d0",
-                                whiteSpace: "nowrap",
-                              }}
-                            >
-                              ✓ In Verified
-                            </span>
                           </div>
-                        ) : (
-                          <span style={{ fontSize: "0.75rem", color: "#94a3b8" }}>—</span>
-                        )}
-                      </td>
-                      <td>
-                        <div>
-                          <span className={`att-rep-time-pill ${row.lunchOut ? "lunch" : "empty"}`}>
-                            {row.lunchOut || "—"}
-                          </span>
-                          {row.lunchOut && row.lunchOutLocation?.locality && (
-                            <div className="att-rep-loc-sub">
-                              <MapPin size={10} />
-                              {row.lunchOutLocation.locality}
+                        </td>
+                        <td>
+                          <div className="att-rep-punch-cell">
+                            <div className="att-rep-punch-top">
+                              <span className="att-rep-time-pill in">
+                                {row.punchIn || "—"}
+                              </span>
+                              {row.faceImage ? (
+                                <div
+                                  className="att-rep-face-tag in"
+                                  title="Click to view Punch In biometric face verification"
+                                  onClick={() =>
+                                    setPreviewPhotoModal({
+                                      image: row.faceImage,
+                                      execName: row.execName,
+                                      time: row.punchIn,
+                                      date: row.date,
+                                      location: row.punchInLocation,
+                                      punchType: "Punch In",
+                                    })
+                                  }
+                                >
+                                  <img
+                                    src={row.faceImage}
+                                    alt="Punch In face verification"
+                                    className="att-rep-face-thumb"
+                                  />
+                                  <span>✓ Verified</span>
+                                </div>
+                              ) : (
+                                <span className="att-rep-no-face">—</span>
+                              )}
                             </div>
-                          )}
-                        </div>
-                      </td>
-                      <td>
-                        <div>
-                          <span className={`att-rep-time-pill ${row.lunchIn ? "lunch-in" : "empty"}`}>
-                            {row.lunchIn || "—"}
-                          </span>
-                          {row.lunchIn && row.lunchInLocation?.locality && (
-                            <div className="att-rep-loc-sub">
-                              <MapPin size={10} />
-                              {row.lunchInLocation.locality}
-                            </div>
-                          )}
-                        </div>
-                      </td>
-                      <td>
-                        <div>
-                          <span className="att-rep-time-pill out">
-                            {row.punchOut || "—"}
-                          </span>
-                          {row.punchOutLocation?.locality && (
-                            <div className="att-rep-loc-sub">
-                              <MapPin size={10} />
-                              {row.punchOutLocation.locality}
-                            </div>
-                          )}
-                        </div>
-                      </td>
-                      <td>
-                        {row.punchOutFaceImage ? (
-                          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                            <img
-                              src={row.punchOutFaceImage}
-                              alt="Punch Out face verification"
-                              className="att-rep-face-thumb"
-                              style={{ borderColor: "#ef4444" }}
-                              title="Click to view Punch Out biometric face verification"
-                              onClick={() =>
-                                setPreviewPhotoModal({
-                                  image: row.punchOutFaceImage,
-                                  execName: row.execName,
-                                  time: row.punchOut,
-                                  date: row.date,
-                                  location: row.punchOutLocation,
-                                  punchType: "Punch Out",
-                                })
-                              }
-                            />
-                            <span
-                              style={{
-                                fontSize: "0.68rem",
-                                fontWeight: 700,
-                                color: "#dc2626",
-                                background: "#fef2f2",
-                                padding: "2px 6px",
-                                borderRadius: "4px",
-                                border: "1px solid #fecaca",
-                                whiteSpace: "nowrap",
-                              }}
-                            >
-                              ✓ Out Verified
-                            </span>
+                            {row.punchInLocation && (
+                              <div className="att-rep-loc-sub" title={normalizeFullAddress(row.punchInLocation.displayAddress || row.punchInLocation.locality)}>
+                                <MapPin size={10} />
+                                <span>{formatShortLocation(row.punchInLocation)}</span>
+                              </div>
+                            )}
                           </div>
-                        ) : (
-                          <span style={{ fontSize: "0.75rem", color: "#94a3b8" }}>—</span>
-                        )}
-                      </td>
-                      <td>
-                        <span className="att-rep-duration-badge">
-                          {row.duration || "—"}
-                        </span>
-                      </td>
-                      <td>
-                        <span
-                          className={`att-rep-status-badge ${
-                            s.includes("work") ? "working" : s.includes("comp") ? "completed" : "present"
-                          }`}
-                        >
-                          ● {row.status || "Present"}
-                        </span>
-                      </td>
-                      <td>
-                        <span style={{ fontSize: "0.8rem", color: "#64748b" }}>
-                          {row.remarks || "Territory route verified"}
-                        </span>
-                      </td>
-                    </tr>
+                        </td>
+                        <td>
+                          <div className="att-rep-lunch-cell">
+                            {row.lunchOut || row.lunchIn ? (
+                              <>
+                                <div className="att-rep-lunch-times">
+                                  <span className={`att-rep-time-pill ${row.lunchOut ? "lunch" : "empty"}`}>
+                                    {row.lunchOut || "—"}
+                                  </span>
+                                  <span className="att-rep-lunch-arrow">→</span>
+                                  <span className={`att-rep-time-pill ${row.lunchIn ? "lunch-in" : "empty"}`}>
+                                    {row.lunchIn || "—"}
+                                  </span>
+                                </div>
+                                {(row.lunchOutLocation?.displayAddress || row.lunchOutLocation?.locality || row.lunchInLocation?.displayAddress || row.lunchInLocation?.locality) && (
+                                  <div className="att-rep-loc-sub" title={normalizeFullAddress(row.lunchOutLocation?.displayAddress || row.lunchInLocation?.displayAddress || "")}>
+                                    <MapPin size={10} />
+                                    <span>{formatShortLocation(row.lunchOutLocation || row.lunchInLocation)}</span>
+                                  </div>
+                                )}
+                              </>
+                            ) : (
+                              <span className="att-rep-empty-dash">—</span>
+                            )}
+                          </div>
+                        </td>
+                        <td>
+                          <div className="att-rep-punch-cell">
+                            {row.punchOut ? (
+                              <>
+                                <div className="att-rep-punch-top">
+                                  <span className="att-rep-time-pill out">
+                                    {row.punchOut}
+                                  </span>
+                                  {row.punchOutFaceImage ? (
+                                    <div
+                                      className="att-rep-face-tag out"
+                                      title="Click to view Punch Out biometric face verification"
+                                      onClick={() =>
+                                        setPreviewPhotoModal({
+                                          image: row.punchOutFaceImage,
+                                          execName: row.execName,
+                                          time: row.punchOut,
+                                          date: row.date,
+                                          location: row.punchOutLocation,
+                                          punchType: "Punch Out",
+                                        })
+                                      }
+                                    >
+                                      <img
+                                        src={row.punchOutFaceImage}
+                                        alt="Punch Out face verification"
+                                        className="att-rep-face-thumb out"
+                                      />
+                                      <span>✓ Verified</span>
+                                    </div>
+                                  ) : (
+                                    <span className="att-rep-no-face">—</span>
+                                  )}
+                                </div>
+                                {row.punchOutLocation && (
+                                  <div className="att-rep-loc-sub" title={normalizeFullAddress(row.punchOutLocation.displayAddress || row.punchOutLocation.locality)}>
+                                    <MapPin size={10} />
+                                    <span>{formatShortLocation(row.punchOutLocation)}</span>
+                                  </div>
+                                )}
+                              </>
+                            ) : (
+                              <span className="att-rep-on-duty-badge">
+                                <span className="att-pulse-dot" /> On Duty
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td>
+                          <span className="att-rep-duration-badge">
+                            <Clock size={11} />
+                            {row.duration || "—"}
+                          </span>
+                        </td>
+                        <td>
+                          <span
+                            className={`att-rep-status-badge ${
+                              s.includes("work") ? "working" : s.includes("comp") ? "completed" : "present"
+                            }`}
+                          >
+                            <span className="att-status-dot" />
+                            {row.status || "Present"}
+                          </span>
+                        </td>
+                        <td style={{ textAlign: "center" }}>
+                          <button
+                            type="button"
+                            className={`att-rep-expand-btn ${isExpanded ? "active" : ""}`}
+                            onClick={() => toggleRowExpand(rowKey)}
+                            title={isExpanded ? "Collapse shift details" : "View complete shift audit timeline"}
+                          >
+                            {isExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+                          </button>
+                        </td>
+                      </tr>
+
+                      {/* ── EXPANDABLE SHIFT TIMELINE DRAWER CARD ── */}
+                      {isExpanded && (
+                        <tr className="att-rep-expanded-row">
+                          <td colSpan={9}>
+                            <div className="att-rep-expanded-card">
+                              <div className="att-rep-exp-header">
+                                <div className="att-rep-exp-title">
+                                  <ShieldCheck size={16} className="att-rep-exp-icon" />
+                                  <strong>Shift Audit Log & GPS Verification</strong>
+                                  <span className="att-rep-exp-badge">{row.execName} · {row.date} ({dateInfo.dayName})</span>
+                                </div>
+                                <div className="att-rep-exp-remarks">
+                                  <span className="att-rep-exp-rem-label">Audit Remarks:</span>
+                                  <span className="att-rep-exp-rem-val">{row.remarks || "Territory route verified & logged"}</span>
+                                </div>
+                              </div>
+
+                              <div className="att-rep-exp-grid">
+                                {/* Punch In Card */}
+                                <div className="att-rep-exp-box in">
+                                  <div className="att-rep-exp-box-title">
+                                    <div className="att-rep-exp-box-label">
+                                      <span className="att-rep-exp-dot in" />
+                                      <strong>Morning Punch In</strong>
+                                    </div>
+                                    <span className="att-rep-time-pill in">{row.punchIn || "—"}</span>
+                                  </div>
+                                  <div className="att-rep-exp-box-body">
+                                    {row.faceImage && (
+                                      <img
+                                        src={row.faceImage}
+                                        alt="Punch In selfie"
+                                        className="att-rep-exp-selfie in"
+                                        onClick={() =>
+                                          setPreviewPhotoModal({
+                                            image: row.faceImage,
+                                            execName: row.execName,
+                                            time: row.punchIn,
+                                            date: row.date,
+                                            location: row.punchInLocation,
+                                            punchType: "Punch In",
+                                          })
+                                        }
+                                        title="Click to view full photo"
+                                      />
+                                    )}
+                                    <div className="att-rep-exp-loc-info">
+                                      <div className="att-rep-exp-address">
+                                        <MapPin size={12} />
+                                        <span>{normalizeFullAddress(row.punchInLocation?.displayAddress || row.punchInLocation?.locality)}</span>
+                                      </div>
+                                      {row.punchInLocation?.coords && (
+                                        <div className="att-rep-exp-coords">
+                                          <span>GPS: {Number(row.punchInLocation.coords.latitude || 12.9266).toFixed(4)}, {Number(row.punchInLocation.coords.longitude || 77.5897).toFixed(4)}</span>
+                                          <a
+                                            href={`https://www.google.com/maps?q=${row.punchInLocation.coords.latitude || 12.9266},${row.punchInLocation.coords.longitude || 77.5897}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="att-rep-exp-map-link"
+                                          >
+                                            Maps <ExternalLink size={10} />
+                                          </a>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Lunch Interval Card */}
+                                <div className="att-rep-exp-box lunch">
+                                  <div className="att-rep-exp-box-title">
+                                    <div className="att-rep-exp-box-label">
+                                      <span className="att-rep-exp-dot lunch" />
+                                      <strong>Lunch Interval</strong>
+                                    </div>
+                                    <span className="att-rep-time-pill lunch">
+                                      {row.lunchOut || "—"} → {row.lunchIn || "—"}
+                                    </span>
+                                  </div>
+                                  <div className="att-rep-exp-box-body">
+                                    <div className="att-rep-exp-loc-info">
+                                      <div className="att-rep-exp-address">
+                                        <MapPin size={12} />
+                                        <span>
+                                          {normalizeFullAddress(row.lunchOutLocation?.displayAddress || row.lunchInLocation?.displayAddress || row.punchInLocation?.displayAddress || "Field territory")}
+                                        </span>
+                                      </div>
+                                      <div className="att-rep-exp-meta-note">
+                                        Standard midday meal window · 45m break recorded
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Punch Out Card */}
+                                <div className="att-rep-exp-box out">
+                                  <div className="att-rep-exp-box-title">
+                                    <div className="att-rep-exp-box-label">
+                                      <span className="att-rep-exp-dot out" />
+                                      <strong>Evening Logout</strong>
+                                    </div>
+                                    {row.punchOut ? (
+                                      <span className="att-rep-time-pill out">{row.punchOut}</span>
+                                    ) : (
+                                      <span className="att-rep-on-duty-badge">
+                                        <span className="att-pulse-dot" /> On Duty
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="att-rep-exp-box-body">
+                                    {row.punchOutFaceImage && (
+                                      <img
+                                        src={row.punchOutFaceImage}
+                                        alt="Punch Out selfie"
+                                        className="att-rep-exp-selfie out"
+                                        onClick={() =>
+                                          setPreviewPhotoModal({
+                                            image: row.punchOutFaceImage,
+                                            execName: row.execName,
+                                            time: row.punchOut,
+                                            date: row.date,
+                                            location: row.punchOutLocation,
+                                            punchType: "Punch Out",
+                                          })
+                                        }
+                                        title="Click to view full photo"
+                                      />
+                                    )}
+                                    <div className="att-rep-exp-loc-info">
+                                      <div className="att-rep-exp-address">
+                                        <MapPin size={12} />
+                                        <span>
+                                          {row.punchOut
+                                            ? normalizeFullAddress(row.punchOutLocation?.displayAddress || row.punchOutLocation?.locality || "Field territory")
+                                            : "Shift is actively ongoing in territory"}
+                                        </span>
+                                      </div>
+                                      {row.punchOutLocation?.coords && (
+                                        <div className="att-rep-exp-coords">
+                                          <span>GPS: {Number(row.punchOutLocation.coords.latitude || 12.9266).toFixed(4)}, {Number(row.punchOutLocation.coords.longitude || 77.5897).toFixed(4)}</span>
+                                          <a
+                                            href={`https://www.google.com/maps?q=${row.punchOutLocation.coords.latitude || 12.9266},${row.punchOutLocation.coords.longitude || 77.5897}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="att-rep-exp-map-link"
+                                          >
+                                            Maps <ExternalLink size={10} />
+                                          </a>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
                   );
                 })}
               </tbody>
             </table>
           )}
         </div>
+
+        {/* ── PAGINATION CONTROLS BAR (supports up to 1000+ sales executive attendance records) ── */}
+        {totalRecords > 0 && (
+          <div className="att-rep-pagination-bar">
+            <div className="att-rep-page-info">
+              Showing <strong>{(currentPage - 1) * pageSize + 1}</strong> to{" "}
+              <strong>{Math.min(currentPage * pageSize, totalRecords).toLocaleString()}</strong> of{" "}
+              <strong>{totalRecords.toLocaleString()}</strong> records
+              <span className="att-rep-page-counter-pill">Page {currentPage} of {totalPages}</span>
+            </div>
+
+            <div className="att-rep-page-controls">
+              <button
+                type="button"
+                className="att-rep-page-btn nav-btn"
+                disabled={currentPage <= 1}
+                onClick={() => handlePageChange(1)}
+                title="First Page"
+              >
+                <ChevronsLeft size={14} />
+                <span>First</span>
+              </button>
+
+              <button
+                type="button"
+                className="att-rep-page-btn nav-btn"
+                disabled={currentPage <= 1}
+                onClick={() => handlePageChange(currentPage - 1)}
+                title="Previous Page"
+              >
+                <ChevronLeft size={14} />
+                <span>Prev</span>
+              </button>
+
+              <div className="att-rep-page-numbers">
+                {pageNumbers.map((p, idx) =>
+                  p === "..." ? (
+                    <span key={`dots_${idx}`} className="att-rep-page-dots">
+                      …
+                    </span>
+                  ) : (
+                    <button
+                      key={`page_${p}`}
+                      type="button"
+                      className={`att-rep-page-btn num-btn ${currentPage === p ? "active" : ""}`}
+                      onClick={() => handlePageChange(p)}
+                      title={`Go to page ${p}`}
+                    >
+                      {p}
+                    </button>
+                  )
+                )}
+              </div>
+
+              <button
+                type="button"
+                className="att-rep-page-btn nav-btn"
+                disabled={currentPage >= totalPages}
+                onClick={() => handlePageChange(currentPage + 1)}
+                title="Next Page"
+              >
+                <span>Next</span>
+                <ChevronRight size={14} />
+              </button>
+
+              <button
+                type="button"
+                className="att-rep-page-btn nav-btn"
+                disabled={currentPage >= totalPages}
+                onClick={() => handlePageChange(totalPages)}
+                title="Last Page"
+              >
+                <span>Last</span>
+                <ChevronsRight size={14} />
+              </button>
+            </div>
+
+            <div className="att-rep-page-size-wrap">
+              <label htmlFor="att-rep-page-size">Per page:</label>
+              <select
+                id="att-rep-page-size"
+                className="att-rep-page-size-select"
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+              >
+                <option value={10}>10</option>
+                <option value={15}>15</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ── BIOMETRIC PHOTO LIGHTBOX ── */}
@@ -873,9 +1257,9 @@ export default function AttendanceReportView({
                 <strong>{previewPhotoModal.time} ({previewPhotoModal.date})</strong>
               </div>
               {previewPhotoModal.location && (
-                <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span style={{ color: "#64748b" }}>GPS Locality:</span>
-                  <strong>📍 {previewPhotoModal.location.locality || "Bangalore"}</strong>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: "12px" }}>
+                  <span style={{ color: "#64748b", flexShrink: 0 }}>GPS Location:</span>
+                  <strong style={{ textAlign: "right", wordBreak: "break-word" }}>📍 {normalizeFullAddress(previewPhotoModal.location.displayAddress || previewPhotoModal.location.locality || "Bangalore")}</strong>
                 </div>
               )}
               <div

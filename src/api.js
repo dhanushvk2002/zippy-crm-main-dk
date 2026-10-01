@@ -548,12 +548,17 @@ export const TABLE_CONFIG = {
     path: "/executive-alerts",
     fields: [
       { key: "title", type: "text", required: true },
+      { key: "executive_name", type: "text" },
+      { key: "executive_code", type: "text" },
+      { key: "punch_type", type: "text" },
+      { key: "punch_time", type: "text" },
+      { key: "location", type: "text" },
+      { key: "message", type: "text" },
       { key: "severity", type: "text" },
       { key: "entity_type", type: "text" },
       { key: "pincode", type: "text" },
       { key: "is_read", type: "bool", default: false },
-      {key: "created_at", type: "datetime", readOnly: true },
-
+      { key: "created_at", type: "datetime", readOnly: true },
     ],
   },
 };
@@ -755,3 +760,13 @@ export async function deleteAttendanceRecord(attendanceId) {
   });
   return handleResponse(res);
 }
+
+export async function checkFaceImage(imageDataUrl) {
+  const res = await fetch(`${API_BASE}/attendance/check-face`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ image: imageDataUrl }),
+  });
+  return handleResponse(res);
+}
+

@@ -1,5 +1,7 @@
-import { useState, useEffect, useRef } from "react";
-import { Search, Plus } from "lucide-react";
+import { useState, useEffect, useRef, useMemo } from "react";
+import { Search, Plus, Bell, Clock, MapPin, LogIn, LogOut } from "lucide-react";
+import { fetchList } from "../api.js";
+import { playChime } from "../notificationSound.js";
 
 export default function TopBar({
   title,
@@ -16,18 +18,114 @@ export default function TopBar({
 }) {
   // State to handle opening and closing the dropdown list panel
   const [salesMenuOpen, setSalesMenuOpen] = useState(false);
-  const dropdownRef = useRef(null);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [alerts, setAlerts] = useState([]);
+  const [readIds, setReadIds] = useState(() => {
+    try {
+      return new Set(JSON.parse(localStorage.getItem("zenve_read_alert_ids") || "[]"));
+    } catch (e) {
+      return new Set();
+    }
+  });
 
-  // Closes the menu automatically if you click anywhere else on the screen
+  const dropdownRef = useRef(null);
+  const notifRef = useRef(null);
+  const knownAlertIdsRef = useRef(new Set());
+
+  // Closes menus automatically if you click anywhere else on the screen
   useEffect(() => {
     function handleClickOutside(event) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setSalesMenuOpen(false);
       }
+      if (notifRef.current && !notifRef.current.contains(event.target)) {
+        setNotifOpen(false);
+      }
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  // Load and poll attendance alerts
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadAlerts(isInitial = false) {
+      try {
+        const serverAlerts = await fetchList("executive_alerts").catch(() => []);
+        let localAlerts = [];
+        try {
+          localAlerts = JSON.parse(localStorage.getItem("zenve_crm_attendance_alerts") || "[]");
+        } catch (e) {}
+
+        const combined = [...localAlerts, ...(serverAlerts || [])];
+        const seen = new Set();
+        const unique = [];
+        for (const item of combined) {
+          const key = item.id ? `id_${item.id}` : `${item.executive_name || item.title}_${item.punch_time}_${item.punch_type}`;
+          if (!seen.has(key)) {
+            seen.add(key);
+            unique.push(item);
+          }
+        }
+
+        if (isMounted) {
+          // Check for newly arrived alert to chime
+          if (!isInitial && knownAlertIdsRef.current.size > 0) {
+            const hasNew = unique.some((u) => {
+              const k = u.id ? `id_${u.id}` : `${u.executive_name}_${u.punch_time}`;
+              return !knownAlertIdsRef.current.has(k);
+            });
+            if (hasNew) {
+              playChime();
+            }
+          }
+
+          unique.forEach((u) => {
+            const k = u.id ? `id_${u.id}` : `${u.executive_name}_${u.punch_time}`;
+            knownAlertIdsRef.current.add(k);
+          });
+
+          setAlerts(unique);
+        }
+      } catch (err) {
+        // fail silently
+      }
+    }
+
+    loadAlerts(true);
+    const interval = setInterval(() => loadAlerts(false), 8000);
+
+    function onRealtimePunch(e) {
+      if (e.detail) {
+        playChime();
+        setAlerts((prev) => [e.detail, ...prev.filter((p) => p.id !== e.detail.id)]);
+      }
+    }
+    window.addEventListener("crm_attendance_punch_alert", onRealtimePunch);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+      window.removeEventListener("crm_attendance_punch_alert", onRealtimePunch);
+    };
+  }, []);
+
+  const unreadCount = useMemo(() => {
+    return alerts.filter((a) => {
+      const idKey = a.id ? `id_${a.id}` : `${a.executive_name}_${a.punch_time}`;
+      return !readIds.has(idKey) && !a.is_read;
+    }).length;
+  }, [alerts, readIds]);
+
+  function handleMarkAllRead() {
+    const all = alerts.map((a) => (a.id ? `id_${a.id}` : `${a.executive_name}_${a.punch_time}`));
+    const updated = new Set([...readIds, ...all]);
+    setReadIds(updated);
+    try {
+      localStorage.setItem("zenve_read_alert_ids", JSON.stringify([...updated]));
+    } catch (e) {}
+  }
 
   function handleRoleClick(view) {
     setSalesMenuOpen(false); // Closes the dropdown panel smoothly
@@ -69,21 +167,19 @@ export default function TopBar({
           </button>
         ))}
 
-                {/* Sales CRM Dropdown Container Layout */}
+        {/* Sales CRM Dropdown Container Layout */}
         <div className="zzc-sales-menu-wrap" ref={dropdownRef}>
-          {/* Swapped <a> for <button> to match sizes, and forced non-bold text */}
           <button
             className={"zzc-btn zzc-btn-outline" + (salesMenuOpen ? " active" : "")}
             style={{ fontWeight: "normal", display: "inline-flex", alignItems: "center" }}
             onClick={(e) => {
               e.preventDefault();
-              setSalesMenuOpen((prev) => !prev); // Toggles open/close state on click
+              setSalesMenuOpen((prev) => !prev);
             }}
           >
             Sales CRM <span className="zzc-caret" style={{ marginLeft: "6px", fontSize: "10px" }}>▼</span>
           </button>
 
-          {/* Conditional dropdown panel containing your 3 team actions */}
           {salesMenuOpen && (
             <div className="zzc-sales-menu">
               <button onClick={() => handleRoleClick("executive")}>
@@ -98,6 +194,8 @@ export default function TopBar({
             </div>
           )}
         </div>
+
+
         
         <a href="#" className="zzc-btn-link">Console</a>
       </div>

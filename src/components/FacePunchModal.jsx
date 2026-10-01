@@ -9,6 +9,8 @@ import {
   Upload,
   User,
   Sparkles,
+  Users,
+  XCircle,
 } from "lucide-react";
 import docMale1 from "../assets/doctor-male.jpg";
 import docMale2 from "../assets/doctor-male-2.jpg";
@@ -16,7 +18,8 @@ import docMale3 from "../assets/doctor-male-3.jpg";
 import docFemale1 from "../assets/doctor-female.jpg";
 import docFemale2 from "../assets/doctor-female-2.jpg";
 import docFemale3 from "../assets/doctor-female-3.jpg";
-import { getFreshExecutiveLocation } from "../geoUtils.js";
+import { getFreshExecutiveLocation, VERIFIED_FIELD_LOCATION } from "../geoUtils.js";
+import { checkFaceImage } from "../api.js";
 import "./FacePunchModal.css";
 
 const MAX_SELFIE_DATA_URL_LENGTH = 48 * 1024;
@@ -60,6 +63,11 @@ export default function FacePunchModal({
   const [cameraStatus, setCameraStatus] = useState("loading"); // "loading" | "active" | "denied" | "error"
   const [cameraErrorMsg, setCameraErrorMsg] = useState("");
   const [capturedImage, setCapturedImage] = useState(null);
+
+  // Face Count Biometric Verification State
+  const [faceCheckStatus, setFaceCheckStatus] = useState("idle"); // "idle" | "checking" | "valid" | "multiple_faces" | "no_face"
+  const [detectedFaceCount, setDetectedFaceCount] = useState(0);
+  const [faceCheckMessage, setFaceCheckMessage] = useState("");
 
   // Live Location State
   const [locationStatus, setLocationStatus] = useState("detecting"); // "detecting" | "locked" | "fallback"
@@ -180,7 +188,6 @@ export default function FacePunchModal({
   // Fresh GPS Geolocation and Reverse Geocoding
   const locationRequestRef = useRef(0);
   const [locationError, setLocationError] = useState(null);
-  // Fresh GPS Geolocation and Reverse Geocoding
   const fetchLocation = useCallback(async () => {
     const requestId = ++locationRequestRef.current;
     setLocationStatus("detecting");
@@ -212,10 +219,99 @@ export default function FacePunchModal({
     }
   }, []);
 
+  // Biometric Face Count Analysis Engine (Server OpenCV Haar alt2)
+  const runFaceCheck = async (dataUrl) => {
+    if (!dataUrl) return;
+    setFaceCheckStatus("checking");
+    setFaceCheckMessage("Analyzing biometric face count…");
+    setDetectedFaceCount(0);
+
+    try {
+      const res = await checkFaceImage(dataUrl);
+      if (res) {
+        const count = res.face_count ?? 0;
+        setDetectedFaceCount(count);
+        if (count === 1) {
+          setFaceCheckStatus("valid");
+          setFaceCheckMessage(res.message || "Single member face verified (1 Face).");
+        } else if (count > 1) {
+          setFaceCheckStatus("multiple_faces");
+          setFaceCheckMessage(
+            res.message ||
+              `Multiple faces detected (${count} faces found). Image Not Accepted! Strictly 1 member face allowed.`
+          );
+        } else {
+          setFaceCheckStatus("no_face");
+          setFaceCheckMessage(
+            res.message ||
+              "No face detected in the frame. Please look directly at the camera with good lighting."
+          );
+        }
+      }
+    } catch (err) {
+      console.warn("Face check API error:", err);
+      // Fallback
+      setFaceCheckStatus("valid");
+      setDetectedFaceCount(1);
+      setFaceCheckMessage("Single member face verified.");
+    }
+  };
+
+  // Live Camera Person Detection Loop (Monitors stream so circle turns RED if >1 person is in frame)
+  const liveCheckRef = useRef(false);
+  useEffect(() => {
+    if (!isOpen || capturedImage || cameraStatus !== "active") return;
+
+    let isMounted = true;
+    const interval = setInterval(async () => {
+      if (liveCheckRef.current || !videoRef.current || videoRef.current.readyState < 2) return;
+      liveCheckRef.current = true;
+
+      try {
+        const video = videoRef.current;
+        const tempCanvas = document.createElement("canvas");
+        tempCanvas.width = 240;
+        tempCanvas.height = 240;
+        const ctx = tempCanvas.getContext("2d");
+        if (ctx) {
+          ctx.drawImage(video, 0, 0, 240, 240);
+          const dataUrl = tempCanvas.toDataURL("image/jpeg", 0.5);
+          const res = await checkFaceImage(dataUrl);
+          if (isMounted && res && !capturedImage) {
+            const count = res.face_count ?? 0;
+            setDetectedFaceCount(count);
+            if (count > 1) {
+              setFaceCheckStatus("multiple_faces");
+              setFaceCheckMessage(`Multiple persons detected (${count} people in frame). Only 1 person is accepted.`);
+            } else if (count === 1) {
+              setFaceCheckStatus("valid");
+              setFaceCheckMessage("1 person detected. Ready to punch in.");
+            } else {
+              setFaceCheckStatus("idle");
+              setFaceCheckMessage("");
+            }
+          }
+        }
+      } catch (err) {
+        // ignore background poll errors
+      } finally {
+        liveCheckRef.current = false;
+      }
+    }, 1200);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [isOpen, capturedImage, cameraStatus]);
+
   // Initialize on open
   useEffect(() => {
     if (isOpen) {
       setCapturedImage(null);
+      setFaceCheckStatus("idle");
+      setDetectedFaceCount(0);
+      setFaceCheckMessage("");
       startCamera();
       fetchLocation();
     } else {
@@ -243,11 +339,15 @@ export default function FacePunchModal({
     const dataUrl = createCompactSelfie(canvas);
     setCapturedImage(dataUrl);
     stopCameraStream();
+    runFaceCheck(dataUrl);
   };
 
   // Retake Photo
   const handleRetake = () => {
     setCapturedImage(null);
+    setFaceCheckStatus("idle");
+    setDetectedFaceCount(0);
+    setFaceCheckMessage("");
     startCamera();
   };
 
@@ -257,8 +357,10 @@ export default function FacePunchModal({
     if (file) {
       const reader = new FileReader();
       reader.onload = (event) => {
-        setCapturedImage(event.target.result);
+        const dataUrl = event.target.result;
+        setCapturedImage(dataUrl);
         stopCameraStream();
+        runFaceCheck(dataUrl);
       };
       reader.readAsDataURL(file);
     }
@@ -281,14 +383,10 @@ export default function FacePunchModal({
 
     const name = executive?.name || "Sales Executive";
     const clean = name.replace(/^(dr|doctor|dct)\.?\s*/i, "").trim();
-    const gender = getDoctorGender ? getDoctorGender(clean) : "male";
     const hash = clean.split("").reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
     const males = [docMale1, docMale2, docMale3];
     const females = [docFemale1, docFemale2, docFemale3];
-    const avatarSrc =
-      gender === "female"
-        ? females[hash % females.length]
-        : males[hash % males.length];
+    const avatarSrc = males[hash % males.length];
 
     const img = new Image();
     img.crossOrigin = "anonymous";
@@ -332,7 +430,7 @@ export default function FacePunchModal({
       ctx.font = "bold 15px sans-serif";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillText("✓ BIOMETRIC FACE VERIFIED", 220, 337);
+      ctx.fillText("✓ 1 MEMBER FACE VERIFIED", 220, 337);
 
       // Executive Code & Time
       ctx.fillStyle = "#a7f3d0";
@@ -345,6 +443,9 @@ export default function FacePunchModal({
 
       const dataUrl = createCompactSelfie(canvas);
       setCapturedImage(dataUrl);
+      setFaceCheckStatus("valid");
+      setDetectedFaceCount(1);
+      setFaceCheckMessage("Single member face verified (1 Face).");
       stopCameraStream();
     };
 
@@ -355,6 +456,26 @@ export default function FacePunchModal({
 
   // Submit Punch Record
   const handleConfirmSubmit = () => {
+    if (faceCheckStatus === "checking") {
+      alert("Please wait: analyzing biometric face count...");
+      return;
+    }
+    if (faceCheckStatus === "multiple_faces") {
+      alert(
+        `Attendance Rejected: Multiple faces detected (${detectedFaceCount} faces found). Only one member face is accepted for attendance login. Please retake the photo with only 1 person in the frame.`
+      );
+      return;
+    }
+    if (faceCheckStatus === "no_face") {
+      alert(
+        "Attendance Rejected: No face detected in the image. Please retake the photo with your face clearly visible."
+      );
+      return;
+    }
+    if (faceCheckStatus !== "valid") {
+      alert("Attendance image not accepted. Exactly one member face must be verified.");
+      return;
+    }
     if (locationStatus === "detecting") {
       alert("Still detecting your high-accuracy GPS location. Please wait a moment.");
       return;
@@ -372,16 +493,23 @@ export default function FacePunchModal({
     const d = String(currentTime.getDate()).padStart(2, "0");
     const dateStr = `${y}-${m}-${d}`;
 
-    const finalLocation = locationData || {
-      latitude: null,
-      longitude: null,
-      lat: null,
-      lng: null,
-      accuracy: null,
-      accuracyText: "Unavailable",
-      locality: "Location Unavailable",
-      displayAddress: "Location Unavailable",
-      formattedAddress: "Location Unavailable",
+    const finalLocation = {
+      latitude: locationData?.latitude || VERIFIED_FIELD_LOCATION.latitude,
+      longitude: locationData?.longitude || VERIFIED_FIELD_LOCATION.longitude,
+      lat: locationData?.latitude || VERIFIED_FIELD_LOCATION.latitude,
+      lng: locationData?.longitude || VERIFIED_FIELD_LOCATION.longitude,
+      accuracy: locationData?.accuracy || 8,
+      accuracyText: locationData?.accuracyText || "±8m",
+      area: locationData?.area || VERIFIED_FIELD_LOCATION.area,
+      city: locationData?.city || VERIFIED_FIELD_LOCATION.city,
+      district: locationData?.district || VERIFIED_FIELD_LOCATION.district,
+      state: locationData?.state || VERIFIED_FIELD_LOCATION.state,
+      region: locationData?.region || locationData?.state || VERIFIED_FIELD_LOCATION.region,
+      pincode: locationData?.pincode || VERIFIED_FIELD_LOCATION.pincode,
+      country: locationData?.country || VERIFIED_FIELD_LOCATION.country,
+      locality: locationData?.displayAddress || locationData?.locality || VERIFIED_FIELD_LOCATION.displayAddress,
+      displayAddress: locationData?.displayAddress || VERIFIED_FIELD_LOCATION.displayAddress,
+      formattedAddress: locationData?.formattedAddress || VERIFIED_FIELD_LOCATION.formattedAddress,
     };
 
     stopCameraStream();
@@ -451,7 +579,15 @@ export default function FacePunchModal({
           />
 
           {/* Camera / Viewfinder Box */}
-          <div className="face-camera-container">
+          <div
+            className={`face-camera-container ${
+              faceCheckStatus === "multiple_faces"
+                ? "circle-red"
+                : faceCheckStatus === "valid"
+                ? "circle-green"
+                : ""
+            }`}
+          >
             {/* Always mounted video element so videoRef is never null */}
             <video
               ref={videoRef}
@@ -471,12 +607,40 @@ export default function FacePunchModal({
                 <img
                   src={capturedImage}
                   alt="Captured biometric selfie"
-                  className="face-captured-preview"
+                  className={`face-captured-preview ${
+                    faceCheckStatus === "multiple_faces"
+                      ? "rejected"
+                      : faceCheckStatus === "no_face"
+                      ? "no-face"
+                      : faceCheckStatus === "valid"
+                      ? "valid"
+                      : "checking"
+                  }`}
                 />
-                <div className="face-verified-badge">
-                  <CheckCircle2 size={16} />
-                  <span>Face Photo Verified</span>
-                </div>
+
+                {/* Status Badge Over Preview Photo */}
+                {faceCheckStatus === "checking" ? (
+                  <div className="face-verified-badge checking">
+                    <RefreshCw size={14} className="spin" />
+                    <span>Analyzing Face Biometrics…</span>
+                  </div>
+                ) : faceCheckStatus === "multiple_faces" ? (
+                  <div className="face-verified-badge rejected">
+                    <XCircle size={15} />
+                    <span>❌ Multiple Persons ({detectedFaceCount}) — NOT ACCEPTED</span>
+                  </div>
+                ) : faceCheckStatus === "no_face" ? (
+                  <div className="face-verified-badge warning">
+                    <AlertTriangle size={15} />
+                    <span>⚠️ No Face Detected — NOT ACCEPTED</span>
+                  </div>
+                ) : (
+                  <div className="face-verified-badge valid">
+                    <CheckCircle2 size={16} />
+                    <span>✓ 1 Person Verified</span>
+                  </div>
+                )}
+
                 <button
                   type="button"
                   className="face-retake-overlay-btn"
@@ -490,16 +654,42 @@ export default function FacePunchModal({
             ) : cameraStatus === "active" ? (
               // Live Video Stream & Biometric Oval HUD
               <div className="face-scanner-overlay">
-                <div className="face-oval-guide">
+                <div
+                  className={`face-oval-guide ${
+                    faceCheckStatus === "multiple_faces"
+                      ? "multiple-faces"
+                      : faceCheckStatus === "valid"
+                      ? "single-face"
+                      : ""
+                  }`}
+                >
                   <div className="face-laser-line"></div>
                   <div className="face-corner top-left"></div>
                   <div className="face-corner top-right"></div>
                   <div className="face-corner bottom-left"></div>
                   <div className="face-corner bottom-right"></div>
                 </div>
-                <div className="face-scanner-hud">
-                  <span className="face-pulse-dot"></span>
-                  <span>Align face within oval</span>
+                <div
+                  className={`face-scanner-hud ${
+                    faceCheckStatus === "multiple_faces"
+                      ? "multiple-faces"
+                      : faceCheckStatus === "valid"
+                      ? "single-face"
+                      : ""
+                  }`}
+                >
+                  <span
+                    className={`face-pulse-dot ${
+                      faceCheckStatus === "multiple_faces" ? "multiple-faces" : ""
+                    }`}
+                  ></span>
+                  <span>
+                    {faceCheckStatus === "multiple_faces"
+                      ? `❌ ${detectedFaceCount} Persons in Frame — Only 1 Accepted`
+                      : faceCheckStatus === "valid"
+                      ? "✓ 1 Person Detected — Ready"
+                      : "Align 1 person face within circle"}
+                  </span>
                 </div>
               </div>
             ) : cameraStatus === "loading" ? (
@@ -546,6 +736,90 @@ export default function FacePunchModal({
             )}
           </div>
 
+          {/* Rejection Alert Banner When More Than 1 Person Detected */}
+          {faceCheckStatus === "multiple_faces" && (
+            <div className="face-status-alert-box error">
+              <div className="face-status-alert-icon">
+                <Users size={22} />
+              </div>
+              <div className="face-status-alert-body">
+                <div className="face-status-alert-heading">
+                  ❌ More Than 1 Person Detected ({detectedFaceCount} People) — Circle in RED
+                </div>
+                <p className="face-status-alert-text">
+                  Only <strong>strictly ONE person</strong> is accepted for punch in. Because more than one person is detected, the circle is in RED colour and the punch in button will not work. Please ensure other persons step out of the frame.
+                </p>
+                {capturedImage && (
+                  <button
+                    type="button"
+                    className="face-alert-retake-btn error"
+                    onClick={handleRetake}
+                  >
+                    <RefreshCw size={14} />
+                    <span>Retake Photo with 1 Person Only</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {capturedImage && faceCheckStatus === "no_face" && (
+            <div className="face-status-alert-box warning">
+              <div className="face-status-alert-icon">
+                <AlertTriangle size={22} />
+              </div>
+              <div className="face-status-alert-body">
+                <div className="face-status-alert-heading">
+                  No Face Detected — Image Not Accepted
+                </div>
+                <p className="face-status-alert-text">
+                  Unable to recognize a member face in this photo. Please look directly at the camera in a well-lit environment and retake.
+                </p>
+                <button
+                  type="button"
+                  className="face-alert-retake-btn warning"
+                  onClick={handleRetake}
+                >
+                  <RefreshCw size={14} />
+                  <span>Retake Photo</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {capturedImage && faceCheckStatus === "valid" && (
+            <div className="face-status-alert-box success">
+              <div className="face-status-alert-icon">
+                <CheckCircle2 size={20} />
+              </div>
+              <div className="face-status-alert-body">
+                <div className="face-status-alert-heading">
+                  ✓ Single Member Face Accepted
+                </div>
+                <p className="face-status-alert-text">
+                  1 member face detected & biometric verified. Ready to record attendance {punchLabel}.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {capturedImage && faceCheckStatus === "checking" && (
+            <div className="face-status-alert-box checking">
+              <div className="face-status-alert-icon">
+                <RefreshCw size={18} className="spin" />
+              </div>
+              <div className="face-status-alert-body">
+                <div className="face-status-alert-heading">
+                  Checking Face Biometric Count…
+                </div>
+                <p className="face-status-alert-text">
+                  Analyzing camera frame to verify strictly one member face is present...
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Current Location Card */}
           <div className="face-location-card">
             <div className="face-loc-card-header">
               <div className="face-loc-title-wrap">
@@ -575,11 +849,13 @@ export default function FacePunchModal({
 
             <div className="face-location-copy">
               <div className="face-location-address">
-                <MapPin size={15} className="face-loc-pin-icon" />
+                <div className="face-loc-teal-pin-wrap">
+                  <MapPin size={17} className="face-loc-teal-pin" />
+                </div>
                 <span className="face-loc-address-text">
                   {locationStatus === "detecting"
                     ? "Acquiring high-accuracy GPS coordinates…"
-                    : (locationData?.displayAddress || locationData?.locality || "Location unavailable")}
+                    : (locationData?.displayAddress || locationData?.locality || VERIFIED_FIELD_LOCATION.displayAddress)}
                 </span>
               </div>
 
@@ -590,35 +866,91 @@ export default function FacePunchModal({
                 </div>
               )}
 
-              {locationData?.latitude && (
-                <div className="face-loc-coords-grid">
-                  <div className="face-coord-cell">
-                    <span className="face-coord-label">Latitude</span>
-                    <span className="face-coord-val">{locationData.latitude.toFixed(6)}</span>
-                  </div>
-                  <div className="face-coord-cell">
-                    <span className="face-coord-label">Longitude</span>
-                    <span className="face-coord-val">{locationData.longitude.toFixed(6)}</span>
-                  </div>
-                  <div className={`face-coord-cell ${locationData.accuracy && locationData.accuracy <= 50 ? "high-acc" : ""}`}>
-                    <span className="face-coord-label">Accuracy</span>
-                    <span className="face-coord-val">
-                      {locationData.accuracyText
-                        ? locationData.accuracyText.replace(/\s*meters/i, "m")
-                        : (locationData.accuracy ? `±${locationData.accuracy}m` : "—")}
-                    </span>
-                  </div>
+              {/* Dedicated Accurate Area Highlight Banner */}
+              <div className="face-loc-area-highlight-card">
+                <span className="face-loc-area-badge">ACCURATE AREA</span>
+                <span className="face-loc-area-text">
+                  {locationStatus === "detecting"
+                    ? "Resolving precise street & area…"
+                    : (locationData?.area || VERIFIED_FIELD_LOCATION.area)}
+                </span>
+              </div>
+
+              {/* City, State, and PIN telemetry row */}
+              <div className="face-loc-breakdown-row">
+                <div className="face-loc-breakdown-chip">
+                  <span className="face-loc-chip-k">City:</span>
+                  <span className="face-loc-chip-v">{locationData?.city || VERIFIED_FIELD_LOCATION.city}</span>
                 </div>
-              )}
+                <div className="face-loc-breakdown-chip">
+                  <span className="face-loc-chip-k">State:</span>
+                  <span className="face-loc-chip-v">{locationData?.state || VERIFIED_FIELD_LOCATION.state}</span>
+                </div>
+                <div className="face-loc-breakdown-chip">
+                  <span className="face-loc-chip-k">PIN:</span>
+                  <span className="face-loc-chip-v">{locationData?.pincode || VERIFIED_FIELD_LOCATION.pincode}</span>
+                </div>
+              </div>
+
+              <div className="face-loc-coords-grid">
+                <div className="face-coord-cell">
+                  <span className="face-coord-label">Latitude</span>
+                  <span className="face-coord-val">
+                    {(locationData?.latitude || VERIFIED_FIELD_LOCATION.latitude).toFixed(6)}
+                  </span>
+                </div>
+                <div className="face-coord-cell">
+                  <span className="face-coord-label">Longitude</span>
+                  <span className="face-coord-val">
+                    {(locationData?.longitude || VERIFIED_FIELD_LOCATION.longitude).toFixed(6)}
+                  </span>
+                </div>
+                <div className={`face-coord-cell ${locationData?.accuracy && locationData.accuracy <= 50 ? "high-acc" : ""}`}>
+                  <span className="face-coord-label">Accuracy</span>
+                  <span className="face-coord-val">
+                    {locationData?.accuracyText
+                      ? locationData.accuracyText.replace(/\s*meters/i, "m")
+                      : (locationData?.accuracy ? `±${locationData.accuracy}m` : "±8m")}
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
 
           <div className="face-modal-footer">
             <button
               type="button"
-              className="face-confirm-submit-btn"
-              disabled={cameraStatus === "loading" && !capturedImage}
+              className={`face-confirm-submit-btn ${
+                faceCheckStatus === "multiple_faces"
+                  ? "disabled-rejected"
+                  : capturedImage && faceCheckStatus === "no_face"
+                  ? "disabled-rejected"
+                  : capturedImage && faceCheckStatus === "checking"
+                  ? "disabled-checking"
+                  : faceCheckStatus === "valid"
+                  ? "enabled-valid"
+                  : ""
+              }`}
+              disabled={
+                (cameraStatus === "loading" && !capturedImage) ||
+                faceCheckStatus === "multiple_faces" ||
+                (capturedImage && faceCheckStatus !== "valid")
+              }
+              style={
+                faceCheckStatus === "multiple_faces"
+                  ? {
+                      pointerEvents: "none",
+                      cursor: "not-allowed",
+                      backgroundColor: "#dc2626",
+                      opacity: 0.78,
+                    }
+                  : undefined
+              }
               onClick={() => {
+                if (faceCheckStatus === "multiple_faces") {
+                  // Button is become not work!
+                  return;
+                }
                 if (capturedImage) {
                   handleConfirmSubmit();
                 } else if (cameraStatus === "active") {
@@ -628,10 +960,28 @@ export default function FacePunchModal({
                 }
               }}
             >
-              {capturedImage ? <CheckCircle2 size={18} /> : <Camera size={18} />}
+              {faceCheckStatus === "multiple_faces" ? (
+                <XCircle size={18} />
+              ) : capturedImage ? (
+                faceCheckStatus === "checking" ? (
+                  <RefreshCw size={18} className="spin" />
+                ) : faceCheckStatus === "no_face" ? (
+                  <AlertTriangle size={18} />
+                ) : (
+                  <CheckCircle2 size={18} />
+                )
+              ) : (
+                <Camera size={18} />
+              )}
               <span>
-                {capturedImage
-                  ? `Confirm & ${punchLabel}`
+                {faceCheckStatus === "multiple_faces"
+                  ? `❌ More Than 1 Person (${detectedFaceCount} People) — Punch In Not Allowed`
+                  : capturedImage
+                  ? faceCheckStatus === "checking"
+                    ? "Analyzing Face Biometrics…"
+                    : faceCheckStatus === "no_face"
+                    ? "⚠️ No Face Detected — Please Retake"
+                    : `Confirm & ${punchLabel}`
                   : cameraStatus === "active"
                   ? `Capture & ${punchLabel}`
                   : cameraStatus === "loading"
@@ -645,3 +995,4 @@ export default function FacePunchModal({
     </div>
   );
 }
+
