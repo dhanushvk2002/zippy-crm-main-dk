@@ -1,122 +1,34 @@
 import os
-import re
+import requests
 import shutil
-import hashlib
-import hmac
-import secrets
-import json
-import urllib.request
-import time as _time
-import base64
-import cv2
-import numpy as np
-from typing import Optional
-from datetime import datetime, date, time, timezone, timedelta
-from zoneinfo import ZoneInfo
-
-IST = timezone(timedelta(hours=5, minutes=30))
-
-def parse_ist_datetime(val):
-    if not val:
-        return datetime.now(IST).replace(tzinfo=None)
-    if isinstance(val, str):
-        try:
-            val = datetime.fromisoformat(val.replace("Z", "+00:00"))
-        except Exception:
-            return datetime.now(IST).replace(tzinfo=None)
-    if isinstance(val, datetime):
-        if val.tzinfo is not None:
-            return val.astimezone(IST).replace(tzinfo=None)
-        return val
-    return datetime.now(IST).replace(tzinfo=None)
-
-from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Response, Request
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Response
 from fastapi.staticfiles import StaticFiles
-from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from sqlalchemy import (
-    create_engine, Integer, Column, String, Boolean, Float,
-    Date, DateTime, Time, ForeignKey, text, Text, UniqueConstraint, LargeBinary
-)
-from sqlalchemy.orm import declarative_base, sessionmaker, Session
-
-DATABASE_URL = "mysql+pymysql://root:root@127.0.0.1:3306/pets-ms"
-engine = create_engine(DATABASE_URL, echo=True, pool_pre_ping=True)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+from sqlalchemy import create_engine, Integer,Column
+from sqlalchemy import String,Boolean,Float,Date,DateTime,Time,ForeignKey,text,Text,UniqueConstraint,LargeBinary
+from sqlalchemy.orm import declarative_base,sessionmaker,Session
+from typing import Optional, Any
+from datetime import datetime,date,time,timedelta,timezone
+from zoneinfo import ZoneInfo
+DATABASE_URL = "mysql+pymysql://root:root@127.0.0.1:3306/pet_management"
+engine = create_engine( DATABASE_URL,echo=True,pool_pre_ping=True)
+SessionLocal = sessionmaker(autocommit=False,autoflush=False,bind=engine)
 Base = declarative_base()
+from fastapi.middleware.cors import CORSMiddleware
 
-app = FastAPI(title="Pet Management API", version="1.0.0") 
+app = FastAPI(title= "Pet Management API",version= "1.0.0") 
 
 # Add CORS middleware to allow the frontend to communicate with the backend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "http://localhost:8000",
-        "http://127.0.0.1:8000",
-        "*"
-    ],
-    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:[0-9]+)?$",
+    allow_origins=["*"],  # Allows all origins (e.g., localhost:5173)  
     allow_credentials=True,
     allow_methods=["*"],  # Allows all methods (GET, POST, PUT, DELETE, etc.)    
     allow_headers=["*"],  # Allows all headers
 )
 
-@app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception):
-    origin = request.headers.get("origin", "*") or "*"
-    return JSONResponse(
-        status_code=500,
-        content={"detail": str(exc)},
-        headers={
-            "Access-Control-Allow-Origin": origin,
-            "Access-Control-Allow-Credentials": "true",
-            "Access-Control-Allow-Methods": "*",
-            "Access-Control-Allow-Headers": "*",
-        }
-    )
-
 os.makedirs("uploads", exist_ok=True)
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
-# ---------------------------------------------------------
-# PASSWORD HELPERS (PBKDF2-SHA256, stdlib only - no new pip install)
-# ---------------------------------------------------------
-PASSWORD_MIN_LENGTH = 6
-_PBKDF2_ITERATIONS = 200_000
-
-def hash_password(password: str) -> str:
-    salt = secrets.token_hex(16)
-    digest = hashlib.pbkdf2_hmac(
-        "sha256", password.encode("utf-8"), bytes.fromhex(salt), _PBKDF2_ITERATIONS
-    ).hex()
-    return f"pbkdf2_sha256${_PBKDF2_ITERATIONS}${salt}${digest}"
-
-def verify_password(password: str, stored) -> bool:
-    if not stored:
-        return False
-    try:
-        algo, iterations, salt, digest = stored.split("$")
-        if algo != "pbkdf2_sha256":
-            return False
-        check = hashlib.pbkdf2_hmac(
-            "sha256", password.encode("utf-8"), bytes.fromhex(salt), int(iterations)
-        ).hex()
-        return hmac.compare_digest(check, digest)
-    except Exception:
-        return False
-
-def validate_new_password(password: Optional[str]) -> str:
-    if not password or len(password) < PASSWORD_MIN_LENGTH:
-        raise HTTPException(
-            status_code=422,
-            detail=f"Password must be at least {PASSWORD_MIN_LENGTH} characters",
-        )
-    return password
-
 def yes_no_to_bool(value):
     if isinstance(value, bool):
         return value
@@ -127,103 +39,22 @@ def yes_no_to_bool(value):
         if value == "no":
             return False      
     raise HTTPException(status_code=422,detail="Value must be Yes or No")
-def plan_response(obj):
-    data = {
-        k: v for k, v in obj.__dict__.items()
-        if k != "_sa_instance_state" and not isinstance(v, (bytes, bytearray))
-    }
+def plan_response(obj):  
+    data = {k: v for k, v in obj.__dict__.items() if k != "_sa_instance_state"}
     for k, v in data.items():
-        if isinstance(v, (datetime, date, time)):
+        if isinstance(v, datetime):
+            data[k] = v.isoformat()
+        elif isinstance(v, date):
             data[k] = v.isoformat()
     return data
 def model_response(obj):
-    data = {}
-    if hasattr(obj, "__table__"):
-        for c in obj.__table__.columns.keys():
-            if c != "password_hash":
-                data[c] = getattr(obj, c, None)
-    else:
-        data = {
-            key: value
-            for key, value in obj.__dict__.items()
-            if key not in ("_sa_instance_state", "password_hash") and not isinstance(value, (bytes, bytearray))
-        }
-
-    if getattr(obj, "__tablename__", None) in ("sales_executives", "regional_managers", "sales_managers"):
-        password_value = getattr(obj, "password_value", None)
-        has_password = bool(getattr(obj, "password_hash", None))
-        data["password_display"] = password_value or ("Reset required" if has_password else "Not set")
+    data = {
+        key: value
+        for key, value in obj.__dict__.items()
+        if key != "_sa_instance_state"   
+    }
     if "is_active" in data:
         data["is_active"] = "Yes" if data["is_active"] else "No"
-    for k, v in data.items():
-        if isinstance(v, (datetime, date, time)):
-            data[k] = v.isoformat()
-    if hasattr(obj, "__tablename__") and obj.__tablename__ == "attendance":
-        login_lat = data.get("login_latitude") if data.get("login_latitude") is not None else data.get("latitude")
-        login_lng = data.get("login_longitude") if data.get("login_longitude") is not None else data.get("longitude")
-        login_ar = data.get("login_area") or data.get("area")
-        logout_lat = data.get("logout_latitude")
-        logout_lng = data.get("logout_longitude")
-        logout_ar = data.get("logout_area")
-
-        data["login_latitude"] = login_lat
-        data["login_longitude"] = login_lng
-        data["login_area"] = login_ar
-        data["login_city"] = data.get("login_city") or data.get("city")
-        data["login_state"] = data.get("login_state") or data.get("state")
-        data["login_country"] = data.get("login_country") or data.get("country") or "India"
-        data["login_pincode"] = data.get("login_pincode") or data.get("pincode")
-        data["login_full_address"] = data.get("login_full_address") or data.get("full_address") or login_ar
-        data["login_accuracy"] = data.get("login_accuracy") if data.get("login_accuracy") is not None else data.get("location_accuracy")
-        data["login_location_timestamp"] = data.get("login_location_timestamp") or data.get("location_timestamp")
-
-        data["logout_latitude"] = logout_lat
-        data["logout_longitude"] = logout_lng
-        data["logout_area"] = logout_ar
-        data["logout_city"] = data.get("logout_city")
-        data["logout_state"] = data.get("logout_state")
-        data["logout_country"] = data.get("logout_country") or "India"
-        data["logout_pincode"] = data.get("logout_pincode")
-        data["logout_full_address"] = data.get("logout_full_address")
-        data["logout_accuracy"] = data.get("logout_accuracy")
-        data["logout_location_timestamp"] = data.get("logout_location_timestamp")
-
-        data["latitude"] = login_lat
-        data["longitude"] = login_lng
-        data["area"] = login_ar
-        data["city"] = data.get("city") or data.get("login_city")
-        data["state"] = data.get("state") or data.get("login_state")
-        data["country"] = data.get("country") or data.get("login_country") or "India"
-        data["pincode"] = data.get("pincode") or data.get("login_pincode")
-        data["full_address"] = data.get("full_address") or data.get("login_full_address") or login_ar
-        data["location_accuracy"] = data.get("location_accuracy") if data.get("location_accuracy") is not None else data.get("login_accuracy")
-        data["location_timestamp"] = data.get("location_timestamp")
-
-        data["lunch_out_time"] = data.get("lunch_out_time")
-        data["lunch_in_time"] = data.get("lunch_in_time")
-        data["lunch_out"] = data.get("lunch_out_time")
-        data["lunch_in"] = data.get("lunch_in_time")
-        data["lunch_out_latitude"] = data.get("lunch_out_latitude")
-        data["lunch_out_longitude"] = data.get("lunch_out_longitude")
-        data["lunch_out_area"] = data.get("lunch_out_area")
-        data["lunch_out_city"] = data.get("lunch_out_city")
-        data["lunch_out_state"] = data.get("lunch_out_state")
-        data["lunch_out_country"] = data.get("lunch_out_country") or "India"
-        data["lunch_out_pincode"] = data.get("lunch_out_pincode")
-        data["lunch_out_full_address"] = data.get("lunch_out_full_address")
-        data["lunch_out_accuracy"] = data.get("lunch_out_accuracy")
-        data["lunch_out_location_timestamp"] = data.get("lunch_out_location_timestamp")
-
-        data["lunch_in_latitude"] = data.get("lunch_in_latitude")
-        data["lunch_in_longitude"] = data.get("lunch_in_longitude")
-        data["lunch_in_area"] = data.get("lunch_in_area")
-        data["lunch_in_city"] = data.get("lunch_in_city")
-        data["lunch_in_state"] = data.get("lunch_in_state")
-        data["lunch_in_country"] = data.get("lunch_in_country") or "India"
-        data["lunch_in_pincode"] = data.get("lunch_in_pincode")
-        data["lunch_in_full_address"] = data.get("lunch_in_full_address")
-        data["lunch_in_accuracy"] = data.get("lunch_in_accuracy")
-        data["lunch_in_location_timestamp"] = data.get("lunch_in_location_timestamp")
     return data
 def get_db():
     db = SessionLocal()
@@ -285,6 +116,8 @@ class Doctor(Base):
     __tablename__ = "doctors"
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(150), nullable=False)
+    email = Column(String(100))
+    password = Column(String(100))
     qualification = Column(String(300))
     specializations = Column(String(500))
     pincode = Column(String(20))
@@ -292,10 +125,10 @@ class Doctor(Base):
     phone = Column(String(30))
     experience_years = Column(Integer)
     consultation_fee = Column(Float)
-    verification_status = Column(String(50), default="pending")
-    is_active = Column(Boolean, default=True)
-    digital_signature = Column(Text, nullable=True)
-    clinic_images = Column(Text, nullable=True)
+    verification_status: Any = Column(String(50), default="pending")
+    is_active: Any = Column(Boolean, default=True)
+    profile_image = Column(Text)
+    signature_image = Column(Text)
 class ClinicHospital(Base):
     __tablename__ = "clinics_hospitals"
     id = Column(Integer, primary_key=True, index=True)
@@ -304,7 +137,7 @@ class ClinicHospital(Base):
     phone = Column(String(30))
     emergency_available = Column(Boolean, default=False)
     open_24x7 = Column(Boolean, default=False)
-    verification_status = Column(String(50), default="pending")
+    verification_status: Any = Column(String(50), default="pending")
     rating = Column(Float)
 class AvailabilitySlot(Base):
     __tablename__ = "availability_slots"
@@ -317,14 +150,14 @@ class AvailabilitySlot(Base):
     is_active = Column(Boolean, default=True)
 class DoctorDocument(Base):
     __tablename__ = "doctor_documents"
-    id = Column(Integer, primary_key=True, index=True)
-    doctor_id = Column(Integer,ForeignKey("doctors.id"),nullable=False)
-    document_type = Column(String(100), nullable=False)
-    status = Column(String(50), default="pending")
-    file_path = Column(String(500), nullable=True)
-    file_data = Column(LargeBinary(length=(2**32)-1), nullable=True)
-    content_type = Column(String(100), nullable=True)
-    created_at = Column(DateTime,default=lambda: datetime.now(ZoneInfo("Asia/Kolkata")).replace(tzinfo=None))
+    id: Any = Column(Integer, primary_key=True, index=True)
+    doctor_id: Any = Column(Integer,ForeignKey("doctors.id"),nullable=False)
+    document_type: Any = Column(String(100), nullable=False)
+    status: Any = Column(String(50), default="pending")
+    file_path: Any = Column(String(500), nullable=True)
+    file_data: Any = Column(LargeBinary(length=(2**32)-1), nullable=True)
+    content_type: Any = Column(String(100), nullable=True)
+    created_at: Any = Column(DateTime,default=lambda: datetime.now(ZoneInfo("Asia/Kolkata")).replace(tzinfo=None))
 class Appointment(Base):
     __tablename__ = "appointments"
     id = Column(Integer, primary_key=True, index=True)
@@ -350,6 +183,9 @@ class Prescription(Base):
     doctor_id = Column(Integer, ForeignKey("doctors.id"), nullable=False)
     pet_id = Column(Integer, ForeignKey("pets.id"), nullable=False)
     valid_until = Column(Date)
+    doc_name = Column(String(150))
+    pet_name = Column(String(150))
+    owner_name = Column(String(150))
     created_at = Column(DateTime,default=lambda: datetime.now(ZoneInfo("Asia/Kolkata")).replace(tzinfo=None))
 class ServiceProvider(Base):
     __tablename__ = "service_providers"
@@ -457,7 +293,7 @@ class Order(Base):
     total_amount = Column(Float, default=0)
     status = Column(String(50), default="pending")
     payment_status = Column(String(50), default="pending")
-    placed_at = Column(DateTime, default=lambda: datetime.now(ZoneInfo("Asia/Kolkata")).replace(tzinfo=None))
+    placed_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 class OrderItem(Base):
     __tablename__ = "order_items"
     id = Column(Integer, primary_key=True, index=True)
@@ -585,10 +421,9 @@ class RegionalManager(Base):
     code = Column(String(100), unique=True, nullable=False)
     phone = Column(String(30))
     email = Column(String(100))
+    password = Column(String(100))
     region = Column(String(150))
-    is_active = Column(Boolean, default=True)
-    password_hash = Column(String(255), nullable=True)
-    password_value = Column(Text, nullable=True)
+    is_active: Any = Column(Boolean, default=True)
 class SalesManager(Base):
     __tablename__ = "sales_managers"
     id = Column(Integer, primary_key=True, index=True)
@@ -596,10 +431,9 @@ class SalesManager(Base):
     code = Column(String(100), unique=True, nullable=False)
     phone = Column(String(30))
     email = Column(String(100))
+    password = Column(String(100))
     region = Column(String(150))
-    is_active = Column(Boolean, default=True)
-    password_hash = Column(String(255), nullable=True)
-    password_value = Column(Text, nullable=True)
+    is_active: Any = Column(Boolean, default=True)
 class SalesExecutive(Base):
     __tablename__ = "sales_executives"
     id = Column(Integer, primary_key=True, index=True)
@@ -607,20 +441,94 @@ class SalesExecutive(Base):
     code = Column(String(100), unique=True, nullable=False)
     phone = Column(String(30))
     email = Column(String(100))
+    password = Column(String(100))
     region = Column(String(150))
     city = Column(String(150))
     monthly_target = Column(Float, default=0)
-    is_active = Column(Boolean, default=True)
-    password_hash = Column(String(255), nullable=True)  # used for executive dashboard login
-    password_value = Column(Text, nullable=True)
+    is_active: Any = Column(Boolean, default=True)
+
+class Attendance(Base):
+    __tablename__ = "attendance"
+    id = Column(Integer, primary_key=True, index=True)
+    executive_id = Column(Integer, ForeignKey("sales_executives.id"), nullable=False)
+    attendance_date = Column(Date, nullable=False)
+    login_time = Column(DateTime)
+    logout_time = Column(DateTime)
+    login_latitude = Column(Float)
+    login_longitude = Column(Float)
+    login_area = Column(String(255))
+    logout_latitude = Column(Float)
+    logout_longitude = Column(Float)
+    logout_area = Column(String(255))
+    login_selfie_url = Column(Text)
+    logout_selfie_url = Column(Text)
+    lunch_out_time = Column(DateTime)
+    lunch_in_time = Column(DateTime)
+    lunch_out_latitude = Column(Float)
+    lunch_out_longitude = Column(Float)
+    lunch_out_area = Column(String(255))
+    lunch_in_latitude = Column(Float)
+    lunch_in_longitude = Column(Float)
+    lunch_in_area = Column(String(255))
+    lunch_out_selfie_url = Column(Text)
+    lunch_in_selfie_url = Column(Text)
+    login_accuracy: Any = Column(Float, nullable=True)
+    login_city: Any = Column(String(150), nullable=True)
+    login_district: Any = Column(String(150), nullable=True)
+    login_state: Any = Column(String(150), nullable=True)
+    login_pincode: Any = Column(String(20), nullable=True)
+
+    punch_in_time: Any = Column(DateTime, nullable=True)
+    punch_in_latitude: Any = Column(Float, nullable=True)
+    punch_in_longitude: Any = Column(Float, nullable=True)
+    punch_in_accuracy: Any = Column(Float, nullable=True)
+    punch_in_area: Any = Column(String(255), nullable=True)
+    punch_in_city: Any = Column(String(150), nullable=True)
+    punch_in_district: Any = Column(String(150), nullable=True)
+    punch_in_state: Any = Column(String(150), nullable=True)
+    punch_in_pincode: Any = Column(String(20), nullable=True)
+
+    logout_accuracy: Any = Column(Float, nullable=True)
+    logout_city: Any = Column(String(150), nullable=True)
+    logout_district: Any = Column(String(150), nullable=True)
+    logout_state: Any = Column(String(150), nullable=True)
+    logout_pincode: Any = Column(String(20), nullable=True)
+
+    punch_out_time: Any = Column(DateTime, nullable=True)
+    punch_out_latitude: Any = Column(Float, nullable=True)
+    punch_out_longitude: Any = Column(Float, nullable=True)
+    punch_out_accuracy: Any = Column(Float, nullable=True)
+    punch_out_area: Any = Column(String(255), nullable=True)
+    punch_out_city: Any = Column(String(150), nullable=True)
+    punch_out_district: Any = Column(String(150), nullable=True)
+    punch_out_state: Any = Column(String(150), nullable=True)
+    punch_out_pincode: Any = Column(String(20), nullable=True)
+
+    lunch_out_accuracy: Any = Column(Float, nullable=True)
+    lunch_out_city: Any = Column(String(150), nullable=True)
+    lunch_out_district: Any = Column(String(150), nullable=True)
+    lunch_out_state: Any = Column(String(150), nullable=True)
+    lunch_out_pincode: Any = Column(String(20), nullable=True)
+
+    lunch_in_accuracy: Any = Column(Float, nullable=True)
+    lunch_in_city: Any = Column(String(150), nullable=True)
+    lunch_in_district: Any = Column(String(150), nullable=True)
+    lunch_in_state: Any = Column(String(150), nullable=True)
+    lunch_in_pincode: Any = Column(String(20), nullable=True)
+
+    total_working_minutes = Column(Integer)
+    status: Any = Column(String(50), default="LOGGED_IN")
+    created_at = Column(DateTime, default=lambda: datetime.now(ZoneInfo("Asia/Kolkata")).replace(tzinfo=None))
+    updated_at = Column(DateTime, default=lambda: datetime.now(ZoneInfo("Asia/Kolkata")).replace(tzinfo=None), onupdate=lambda: datetime.now(ZoneInfo("Asia/Kolkata")).replace(tzinfo=None))
+
 class PincodeCoverage(Base):
     __tablename__ = "pincode_coverages"
-    id = Column(Integer, primary_key=True, index=True)
-    executive_id = Column(Integer,ForeignKey("sales_executives.id"),nullable=False)
-    pincode = Column(String(20), nullable=False)
-    city = Column(String(150))
-    state = Column(String(150))
-    created_at = Column(DateTime,default=lambda: datetime.now(ZoneInfo("Asia/Kolkata")).replace(tzinfo=None))
+    id: Any = Column(Integer, primary_key=True, index=True)
+    executive_id: Any = Column(Integer,ForeignKey("sales_executives.id"),nullable=False)
+    pincode: Any = Column(String(20), nullable=False)
+    city: Any = Column(String(150))
+    state: Any = Column(String(150))
+    created_at: Any = Column(DateTime,default=lambda: datetime.now(ZoneInfo("Asia/Kolkata")).replace(tzinfo=None))
 class ExecutiveTask(Base):
     __tablename__ = "executive_tasks"
     id = Column(Integer, primary_key=True, index=True)
@@ -640,12 +548,6 @@ class ExecutiveAlert(Base):
     pincode = Column(String(20))
     is_read = Column(Boolean, default=False)
     created_at = Column(DateTime,default=lambda: datetime.now(ZoneInfo("Asia/Kolkata")).replace(tzinfo=None))
-    message = Column(String(500))
-    executive_name = Column(String(255))
-    executive_code = Column(String(100))
-    location = Column(String(500))
-    punch_type = Column(String(50))
-    punch_time = Column(String(100))
 class MonthlyPlan(Base):
     __tablename__ = "monthly_plans"
     id = Column(Integer, primary_key=True, index=True)
@@ -656,11 +558,11 @@ class MonthlyPlan(Base):
     daily_target = Column(Integer, default=0)
     total_doctors = Column(Integer, default=0)
     planning_method = Column(String(20), default="auto") 
-    status = Column(String(30), default="Draft")
-    submitted_at = Column(DateTime, nullable=True)
-    approved_at = Column(DateTime, nullable=True)
-    approved_by = Column(String(150), nullable=True)
-    rejection_reason = Column(Text, nullable=True)
+    status: Any = Column(String(30), default="Draft")
+    submitted_at: Any = Column(DateTime, nullable=True)
+    approved_at: Any = Column(DateTime, nullable=True)
+    approved_by: Any = Column(String(150), nullable=True)
+    rejection_reason: Any = Column(Text, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(ZoneInfo("Asia/Kolkata")).replace(tzinfo=None))
     __table_args__ = (UniqueConstraint("executive_id", "month_key", name="uq_exec_month"),)
 class PlanVisit(Base):
@@ -671,7 +573,7 @@ class PlanVisit(Base):
     doctor_id = Column(Integer, ForeignKey("doctors.id"), nullable=False)
     scheduled_date = Column(Date, nullable=False)
     visit_time = Column(String(20), default="10:00 AM")
-    status = Column(String(30), default="Planned")
+    status: Any = Column(String(30), default="Planned")
     reschedule_reason = Column(String(200), nullable=True)
     rescheduled_from = Column(Date, nullable=True)
     cancel_requested = Column(Boolean, default=False)
@@ -696,8 +598,8 @@ class VisitReport(Base):
     next_action = Column(String(300))
     remarks = Column(Text)
     follow_up_required = Column(Boolean, default=True)
-    status = Column(String(30), default="Draft")
-    submitted_at = Column(DateTime, nullable=True)
+    status: Any = Column(String(30), default="Draft")
+    submitted_at: Any = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(ZoneInfo("Asia/Kolkata")).replace(tzinfo=None))
 class ExecutiveSubmissionReport(Base):
     __tablename__ = "executive_submission_reports"
@@ -723,7 +625,7 @@ class ExecutiveSubmissionReport(Base):
     reviewed_at = Column(DateTime, nullable=True)
     submitted_at = Column(DateTime, default=lambda: datetime.now(ZoneInfo("Asia/Kolkata")).replace(tzinfo=None))
     created_at = Column(DateTime, default=lambda: datetime.now(ZoneInfo("Asia/Kolkata")).replace(tzinfo=None))
-
+Base.metadata.create_all(bind=engine)
 class PetParentCreate(BaseModel):
     full_name: str
     email: str
@@ -771,6 +673,8 @@ class UserRoleCreate(BaseModel):
     role: str
 class DoctorCreate(BaseModel):
     name: str
+    email: Optional[str] = None
+    password: Optional[str] = None
     qualification: Optional[str] = None
     specializations: Optional[str] = None
     pincode: Optional[str] = None
@@ -780,8 +684,8 @@ class DoctorCreate(BaseModel):
     consultation_fee: Optional[float] = None
     verification_status: str = "pending"
     is_active: str = "Yes"
-    digital_signature: Optional[str] = None
-    clinic_images: Optional[str] = None
+    profile_image: Optional[str] = None
+    signature_image: Optional[str] = None
 class ClinicHospitalCreate(BaseModel):
     name: str
     facility_type: Optional[str] = None
@@ -820,6 +724,9 @@ class PrescriptionCreate(BaseModel):
     doctor_id: int
     pet_id: int
     valid_until: Optional[date] = None
+    doc_name: Optional[str] = None
+    pet_name: Optional[str] = None
+    owner_name: Optional[str] = None
 class ServiceProviderCreate(BaseModel):
     name: str
     provider_type: Optional[str] = None
@@ -985,30 +892,116 @@ class RegionalManagerCreate(BaseModel):
     code: str
     phone: Optional[str] = None
     email: Optional[str] = None
+    password: Optional[str] = None
     region: Optional[str] = None
     is_active: str = "Yes"
-    password: Optional[str] = None
 class SalesManagerCreate(BaseModel):
     name: str
     code: str
     phone: Optional[str] = None
     email: Optional[str] = None
+    password: Optional[str] = None
     region: Optional[str] = None
     is_active: str = "Yes"
-    password: Optional[str] = None
 class SalesExecutiveCreate(BaseModel):
     name: str
     code: str
     phone: Optional[str] = None
     email: Optional[str] = None
+    password: Optional[str] = None
     region: Optional[str] = None
     city: Optional[str] = None
     monthly_target: Optional[float] = 0
     is_active: str = "Yes"
-    password: Optional[str] = None  # required on create; blank on edit = keep current
-class ExecutiveLogin(BaseModel):
-    identifier: str
-    password: str
+
+class AttendanceBase(BaseModel):
+    login_latitude: Optional[float] = None
+    login_longitude: Optional[float] = None
+    logout_latitude: Optional[float] = None
+    logout_longitude: Optional[float] = None
+
+class AttendanceActionRequest(BaseModel):
+    sales_executive_id: Optional[int] = None
+    executive_id: Optional[int] = None
+    employee_id: Optional[int] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    accuracy: Optional[float] = None
+    location_accuracy: Optional[float] = None
+    area: Optional[str] = None
+    city: Optional[str] = None
+    district: Optional[str] = None
+    state: Optional[str] = None
+    pincode: Optional[str] = None
+    selfie_data: Optional[str] = None
+    selfie_url: Optional[str] = None
+    action: Optional[str] = None
+    punch_type: Optional[str] = None
+
+class AttendanceLoginRequest(BaseModel):
+    sales_executive_id: Optional[int] = None
+    executive_id: Optional[int] = None
+    employee_id: Optional[int] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    accuracy: Optional[float] = None
+    location_accuracy: Optional[float] = None
+    area: Optional[str] = None
+    city: Optional[str] = None
+    district: Optional[str] = None
+    state: Optional[str] = None
+    pincode: Optional[str] = None
+    selfie_data: Optional[str] = None
+    selfie_url: Optional[str] = None
+
+class AttendanceLogoutRequest(BaseModel):
+    sales_executive_id: Optional[int] = None
+    executive_id: Optional[int] = None
+    employee_id: Optional[int] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    accuracy: Optional[float] = None
+    location_accuracy: Optional[float] = None
+    area: Optional[str] = None
+    city: Optional[str] = None
+    district: Optional[str] = None
+    state: Optional[str] = None
+    pincode: Optional[str] = None
+    selfie_data: Optional[str] = None
+    selfie_url: Optional[str] = None
+
+class AttendanceLunchOutRequest(BaseModel):
+    sales_executive_id: Optional[int] = None
+    executive_id: Optional[int] = None
+    employee_id: Optional[int] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    accuracy: Optional[float] = None
+    location_accuracy: Optional[float] = None
+    area: Optional[str] = None
+    city: Optional[str] = None
+    district: Optional[str] = None
+    state: Optional[str] = None
+    pincode: Optional[str] = None
+    selfie_data: Optional[str] = None
+    selfie_url: Optional[str] = None
+
+class AttendanceLunchInRequest(BaseModel):
+    sales_executive_id: Optional[int] = None
+    executive_id: Optional[int] = None
+    employee_id: Optional[int] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    accuracy: Optional[float] = None
+    location_accuracy: Optional[float] = None
+    area: Optional[str] = None
+    city: Optional[str] = None
+    district: Optional[str] = None
+    state: Optional[str] = None
+    pincode: Optional[str] = None
+    selfie_data: Optional[str] = None
+    selfie_url: Optional[str] = None
+
 class PincodeCoverageCreate(BaseModel):
     executive_id: int
     pincode: str
@@ -1028,12 +1021,6 @@ class ExecutiveAlertCreate(BaseModel):
     entity_type: Optional[str] = None
     pincode: Optional[str] = None
     is_read: bool = False
-    message: Optional[str] = None
-    executive_name: Optional[str] = None
-    executive_code: Optional[str] = None
-    location: Optional[str] = None
-    punch_type: Optional[str] = None
-    punch_time: Optional[str] = None
 class MonthlyPlanCreate(BaseModel):
     executive_id: int
     month_key: str
@@ -1149,7 +1136,7 @@ async def upload_doctor_document(
     file_data = await file.read()
     content_type = file.content_type
     
-    doc = DoctorDocument(
+    doc: Any = DoctorDocument(
         doctor_id=doctor_id,
         document_type=document_type,
         status="Uploaded",
@@ -1160,9 +1147,7 @@ async def upload_doctor_document(
     db.commit()
     db.refresh(doc)
     
-    setattr(doc, "file_path", f"/documents/{doc.id}/file")
-    if document_type in ["signature", "digital_signature"]:
-        setattr(doctor, "digital_signature", f"/documents/{doc.id}/file")
+    doc.file_path = f"/documents/{doc.id}/file"
     db.commit()
     db.refresh(doc)
     
@@ -1175,13 +1160,9 @@ async def upload_doctor_document(
 @app.get("/documents/{document_id}/file")
 def get_document_file(document_id: int, db: Session = Depends(get_db)):
     doc = db.query(DoctorDocument).filter(DoctorDocument.id == document_id).first()
-    if doc is None:
+    if not doc or not doc.file_data:
         raise HTTPException(status_code=404, detail="Document file not found")
-    file_data = getattr(doc, "file_data", None)
-    if file_data is None:
-        raise HTTPException(status_code=404, detail="Document file not found")
-    content_type = getattr(doc, "content_type", None) or "application/octet-stream"
-    return Response(content=file_data, media_type=content_type)
+    return Response(content=doc.file_data, media_type=doc.content_type or "application/octet-stream")
 @app.post("/pet-parents")
 def create_pet_parent(
     data: PetParentCreate,
@@ -1197,7 +1178,7 @@ def create_pet_parent(
     db.refresh(parent)
     return model_response(parent)
 @app.get("/pet-parents")
-def get_pet_parents(db:Session=Depends(get_db)):
+def get_pet_parent(db:Session=Depends(get_db)):
     return [model_response(item) for item in db.query(PetParent).all()]
 @app.get("/pet-parents/{parent_id}")
 def get_pet_parent(
@@ -1555,6 +1536,8 @@ def delete_userrole(role_id: int,db: Session = Depends(get_db)):
 def create_doctor(data: DoctorCreate, db: Session = Depends(get_db)):
     doctor = Doctor(
         name=data.name,
+        email=data.email,
+        password=data.password,
         qualification=data.qualification,
         specializations=data.specializations,
         pincode=data.pincode,
@@ -1562,62 +1545,28 @@ def create_doctor(data: DoctorCreate, db: Session = Depends(get_db)):
         phone=data.phone,
         experience_years=data.experience_years,
         consultation_fee=data.consultation_fee,
-        verification_status=data.verification_status or "pending",
+        verification_status="pending",
         is_active=yes_no_to_bool(data.is_active),
-        digital_signature=data.digital_signature,
-        clinic_images=data.clinic_images
+        profile_image=data.profile_image,
+        signature_image=data.signature_image
     )
     db.add(doctor)
     db.commit()
     db.refresh(doctor)
 
-    # Process and store digital signature if provided as base64 data URL
-    if data.digital_signature and data.digital_signature.startswith("data:image"):
-        try:
-            import base64
-            parts = data.digital_signature.split(",", 1)
-            if len(parts) == 2:
-                header, encoded = parts
-                file_bytes = base64.b64decode(encoded)
-                content_type = "image/png"
-                if "data:image/" in header and ";" in header:
-                    content_type = header.split(";")[0].replace("data:", "")
-                sig_doc = DoctorDocument(
-                    doctor_id=doctor.id,
-                    document_type="signature",
-                    status="Uploaded",
-                    file_data=file_bytes,
-                    content_type=content_type
-                )
-                db.add(sig_doc)
-                db.commit()
-                db.refresh(sig_doc)
-                setattr(sig_doc, "file_path", f"/documents/{sig_doc.id}/file")
-                
-                sig_dir = os.path.join("uploads", "signatures")
-                os.makedirs(sig_dir, exist_ok=True)
-                sig_path = os.path.join(sig_dir, f"doctor_{doctor.id}_signature.png")
-                with open(sig_path, "wb") as f:
-                    f.write(file_bytes)
-                
-                setattr(doctor, "digital_signature", f"/documents/{sig_doc.id}/file")
-                db.commit()
-                db.refresh(doctor)
-        except Exception as sig_err:
-            print(f"Failed to save digital signature document: {sig_err}")
-
-    # Notify Zenve Admin Backend
+    # Notify Zenve Admin Backend and Doctor App
     import urllib.request
     import json
     try:
-        url = "http://localhost:8080/api/internal/doctors/executive-add"
+        doctor_app_url = "http://localhost:8080/api/internal/doctors/executive-add"
         headers = {
             "Content-Type": "application/json",
             "X-Internal-Secret": "change-this-shared-secret"
         }
         payload = {
             "fullName": data.name,
-            "email": "",
+            "email": data.email,
+            "password": data.password,
             "phone": data.phone,
             "qualification": data.qualification,
             "specializations": data.specializations,
@@ -1626,15 +1575,38 @@ def create_doctor(data: DoctorCreate, db: Session = Depends(get_db)):
             "pincode": data.pincode if data.pincode else None,
             "city": data.city
         }
-        req = urllib.request.Request(url, data=json.dumps(payload).encode('utf-8'), headers=headers, method='POST')
-        urllib.request.urlopen(req, timeout=5)
+        encoded_payload = json.dumps(payload).encode('utf-8')
+        
+        # Notify Doctor App
+        req_doctor = urllib.request.Request(doctor_app_url, data=encoded_payload, headers=headers, method='POST')
+        try:
+            urllib.request.urlopen(req_doctor, timeout=5)
+        except Exception as e:
+            print(f"Failed to notify doctor backend: {e}")
+
     except Exception as e:
-        print(f"Failed to notify admin backend: {e}")
+        print(f"Failed to process external notifications: {e}")
 
     return model_response(doctor)
+
+class StatusUpdate(BaseModel):
+    phone: str
+    status: str
+
+@app.post("/internal/doctors/status")
+def update_doctor_status(data: StatusUpdate, db: Session = Depends(get_db)):
+    doctor: Any = db.query(Doctor).filter(Doctor.phone == data.phone).first()
+    if not doctor:
+        raise HTTPException(status_code=404, detail="Doctor not found by phone")
+    
+    # Update verification status
+    doctor.verification_status = data.status
+    db.commit()
+    return {"message": "Status updated successfully"}
+
 @app.get("/doctors")
 def get_doctors(db: Session = Depends(get_db)):
-    return [model_response(item) for item in db.query(Doctor).all()]
+    return [model_response(item) for item in db.query(Doctor).filter(Doctor.verification_status.in_(["Approved", "approved", "verified"]), Doctor.is_active == True).all()]
 @app.get("/doctors/{doctor_id}")
 def get_doctor(doctor_id: int,db: Session = Depends(get_db)):
     doctor = db.query(Doctor).filter(
@@ -1666,13 +1638,24 @@ def delete_doctor(doctor_id: int,db: Session = Depends(get_db)):
     record = db.query(Doctor).filter(Doctor.id == doctor_id).first()
     if not record:
         raise HTTPException(status_code=404,detail="Doctor not found")
+    
+    doctor_email = record.email
+    
     try:
-        db.query(VisitReport).filter(VisitReport.doctor_id == doctor_id).delete(synchronize_session=False)
-        db.query(PlanVisit).filter(PlanVisit.doctor_id == doctor_id).delete(synchronize_session=False)
-        db.query(DoctorDocument).filter(DoctorDocument.doctor_id == doctor_id).delete(synchronize_session=False)
-        db.query(AvailabilitySlot).filter(AvailabilitySlot.doctor_id == doctor_id).delete(synchronize_session=False)
         db.delete(record)
         db.commit()
+
+        # Also delete the doctor account in the doctor app
+        if doctor_email:
+            try:
+                doctor_app_url = "http://localhost:8080"
+                requests.delete(
+                    f"{doctor_app_url}/api/internal/doctors/delete?email={doctor_email}",
+                    headers={"X-Internal-Secret": "change-this-shared-secret"}
+                )
+            except Exception as e:
+                print("Failed to delete doctor account from Doctor App:", e)
+
         return {
             "message": "Doctor deleted successfully",
             "id": doctor_id
@@ -3551,16 +3534,14 @@ def create_regional_manager(data: RegionalManagerCreate,db: Session = Depends(ge
     existing = db.query(RegionalManager).filter(RegionalManager.code == data.code).first()
     if existing:
         raise HTTPException(status_code=400,detail="Regional manager code already exists")
-    password = validate_new_password(data.password)
     manager = RegionalManager(
         name=data.name,
         code=data.code,
         phone=data.phone,
         email=data.email,
+        password=data.password,
         region=data.region,
-        is_active=yes_no_to_bool(data.is_active),
-        password_hash=hash_password(password),
-        password_value=password
+        is_active=yes_no_to_bool(data.is_active)
     )
     db.add(manager)
     db.commit()
@@ -3581,19 +3562,16 @@ def get_regional_manager(manager_id: int,db: Session = Depends(get_db)):
     return model_response(manager)
 @app.put("/regional-managers/{manager_id}")
 def update_regional_manager(manager_id: int,data: RegionalManagerCreate,db: Session = Depends(get_db)):
-    manager = db.query(RegionalManager).filter(RegionalManager.id == manager_id).first()
+    manager: Any = db.query(RegionalManager).filter(RegionalManager.id == manager_id).first()
     if not manager:
         raise HTTPException(status_code=404,detail="Regional manager not found")
-    update_data = data.model_dump(exclude_unset=True)
-    new_password = update_data.pop("password", None)
-    if new_password:
-        validate_new_password(new_password)
-        setattr(manager, "password_hash", hash_password(new_password))
-        setattr(manager, "password_value", new_password)
-    if "is_active" in update_data:
-        update_data["is_active"] = yes_no_to_bool(update_data["is_active"])
-    for field, value in update_data.items():
-        setattr(manager, field, value)
+    manager.name = data.name
+    manager.code = data.code
+    manager.phone = data.phone
+    manager.email = data.email
+    manager.password = data.password
+    manager.region = data.region
+    manager.is_active = yes_no_to_bool(data.is_active)
     db.commit()
     db.refresh(manager)
     return model_response(manager)
@@ -3613,16 +3591,14 @@ def create_sales_manager(data: SalesManagerCreate,db: Session = Depends(get_db))
     existing = db.query(SalesManager).filter(SalesManager.code == data.code).first()
     if existing:
         raise HTTPException(status_code=400,detail="Sales manager code already exists")
-    password = validate_new_password(data.password)
     manager = SalesManager(
         name=data.name,
         code=data.code,
         phone=data.phone,
         email=data.email,
+        password=data.password,
         region=data.region,
-        is_active=yes_no_to_bool(data.is_active),
-        password_hash=hash_password(password),
-        password_value=password
+        is_active=yes_no_to_bool(data.is_active)
     )
     db.add(manager)
     db.commit()
@@ -3643,19 +3619,16 @@ def get_sales_manager(manager_id: int,db: Session = Depends(get_db)):
     return model_response(manager)
 @app.put("/sales-managers/{manager_id}")
 def update_sales_manager(manager_id: int,data: SalesManagerCreate,db: Session = Depends(get_db)):
-    manager = db.query(SalesManager).filter(SalesManager.id == manager_id).first()
+    manager: Any = db.query(SalesManager).filter(SalesManager.id == manager_id).first()
     if not manager:
         raise HTTPException(status_code=404,detail="Sales manager not found")
-    update_data = data.model_dump(exclude_unset=True)
-    new_password = update_data.pop("password", None)
-    if new_password:
-        validate_new_password(new_password)
-        setattr(manager, "password_hash", hash_password(new_password))
-        setattr(manager, "password_value", new_password)
-    if "is_active" in update_data:
-        update_data["is_active"] = yes_no_to_bool(update_data["is_active"])
-    for field, value in update_data.items():
-        setattr(manager, field, value)
+    manager.name = data.name
+    manager.code = data.code
+    manager.phone = data.phone
+    manager.email = data.email
+    manager.password = data.password
+    manager.region = data.region
+    manager.is_active = yes_no_to_bool(data.is_active)
     db.commit()
     db.refresh(manager)
     return model_response(manager)
@@ -3670,27 +3643,14 @@ def delete_sales_manager(manager_id: int,db: Session = Depends(get_db)):
         "message": "Sales manager deleted successfully",
         "id": manager_id
     }
-def _ensure_unique_sales_executive_code(db: Session, code: str, exclude_id: Optional[int] = None):
-    query = db.query(SalesExecutive).filter(SalesExecutive.code == code)
-    if exclude_id is not None:
-        query = query.filter(SalesExecutive.id != exclude_id)
-    if query.first():
-        raise HTTPException(
-            status_code=409,
-            detail=f"Sales executive code '{code}' already exists. Please use a unique code.",
-        )
-
 @app.post("/sales-executives")
 def create_sales_executive(data: SalesExecutiveCreate,db: Session = Depends(get_db)):
-    _ensure_unique_sales_executive_code(db, data.code)
-    password = validate_new_password(data.password)
     executive = SalesExecutive(
-        password_hash=hash_password(password),
-        password_value=password,
         name=data.name,
         code=data.code,
         phone=data.phone,
         email=data.email,
+        password=data.password,
         region=data.region,
         city=data.city,
         monthly_target=data.monthly_target,
@@ -3717,13 +3677,7 @@ def update_sales_executive(executive_id: int,data: SalesExecutiveCreate,db: Sess
     executive = db.query(SalesExecutive).filter(SalesExecutive.id == executive_id).first()
     if not executive:
         raise HTTPException( status_code=404, detail="Sales executive not found")
-    _ensure_unique_sales_executive_code(db, data.code, exclude_id=executive_id)
     update_data = data.model_dump(exclude_unset=True)
-    new_password = update_data.pop("password", None)
-    if new_password:  # blank/None means "keep the current password"
-        validate_new_password(new_password)
-        setattr(executive, "password_hash", hash_password(new_password))
-        setattr(executive, "password_value", new_password)
     if "is_active" in update_data:
         update_data["is_active"] = yes_no_to_bool(
             update_data["is_active"]
@@ -3733,244 +3687,17 @@ def update_sales_executive(executive_id: int,data: SalesExecutiveCreate,db: Sess
     db.commit()
     db.refresh(executive)
     return model_response(executive)
-
-# Simple in-memory brute-force guard: 5 failed attempts / 5 minutes per identifier
-_LOGIN_FAILS = {}
-_LOGIN_MAX_FAILS = 5
-_LOGIN_WINDOW_SECONDS = 300
-
-@app.post("/sales-executives/login")
-def login_sales_executive(data: ExecutiveLogin, db: Session = Depends(get_db)):
-    ident = data.identifier.strip().lower()
-    if not ident or not data.password:
-        raise HTTPException(status_code=422, detail="Enter your username and password")
-
-    now = _time.time()
-    fails = [t for t in _LOGIN_FAILS.get(ident, []) if now - t < _LOGIN_WINDOW_SECONDS]
-    _LOGIN_FAILS[ident] = fails
-    if len(fails) >= _LOGIN_MAX_FAILS:
-        raise HTTPException(status_code=429, detail="Too many failed attempts. Try again in a few minutes.")
-
-    # Username can be name, employee code, email, email prefix, or phone.
-    # (Phones/names are not unique in the data, so check every candidate.)
-    candidates = [
-        e for e in db.query(SalesExecutive).all()
-        if ident in (
-            (e.name or "").strip().lower(),
-            (e.code or "").strip().lower(),
-            (e.email or "").strip().lower(),
-            (e.email or "").split("@")[0].strip().lower(),
-            str(e.phone or "").strip().lower(),
-        )
-    ]
-
-    if candidates and not any(c.password_hash for c in candidates):
-        raise HTTPException(
-            status_code=403,
-            detail="No password is set for this executive yet. Ask your admin to edit the executive and set one.",
-        )
-
-    for candidate in candidates:
-        if verify_password(data.password, candidate.password_hash):
-            if candidate.is_active is False:
-                raise HTTPException(status_code=403, detail="This executive account is inactive")
-            _LOGIN_FAILS.pop(ident, None)
-            return model_response(candidate)
-
-    _LOGIN_FAILS[ident].append(now)
-    raise HTTPException(status_code=401, detail="Incorrect username or password")
-
-@app.get("/reverse-geocode")
-def reverse_geocode_api(lat: float, lng: float):
-    # Try OpenStreetMap Nominatim first with proper user agent
-    try:
-        url = f"https://nominatim.openstreetmap.org/reverse?lat={lat}&lon={lng}&format=jsonv2&zoom=18&addressdetails=1&accept-language=en"
-        req = urllib.request.Request(url, headers={"User-Agent": "ZenveCRM/1.0 (contact@zenvecrm.com)"})
-        with urllib.request.urlopen(req, timeout=5) as response:
-            if response.status == 200:
-                data = json.loads(response.read().decode())
-                addr = data.get("address", {})
-                pincode = (addr.get("postcode") or addr.get("postalCode") or "").strip()
-                area_candidates = [
-                    addr.get("neighbourhood"),
-                    addr.get("suburb"),
-                    addr.get("locality"),
-                    addr.get("village"),
-                    addr.get("quarter"),
-                    addr.get("hamlet"),
-                    addr.get("residential"),
-                    addr.get("subdistrict"),
-                    addr.get("road"),
-                    addr.get("city_district"),
-                ]
-                area = next((c.strip() for c in area_candidates if c and isinstance(c, str) and c.strip()), "")
-
-                city_candidates = [
-                    addr.get("city"),
-                    addr.get("town"),
-                    addr.get("municipality"),
-                    addr.get("city_district"),
-                ]
-                city = next((c.strip() for c in city_candidates if c and isinstance(c, str) and c.strip()), "")
-
-                district_candidates = [
-                    addr.get("district"),
-                    addr.get("state_district"),
-                    addr.get("county"),
-                ]
-                district = next((c.strip() for c in district_candidates if c and isinstance(c, str) and c.strip()), "")
-
-                state = (addr.get("state") or "").strip()
-                country = (addr.get("country") or "India").strip()
-
-                if not city and district:
-                    city = district
-                if not area and city:
-                    area = city
-
-                parts = [p for p in [area, city, state] if p]
-                clean_parts = []
-                for p in parts:
-                    if not clean_parts or clean_parts[-1].lower() != p.lower():
-                        clean_parts.append(p)
-                disp = ", ".join(clean_parts)
-                full_addr = f"{disp} - {pincode}, {country}" if pincode else f"{disp}, {country}"
-                disp_with_pin = f"{disp} - {pincode}" if pincode else disp
-
-                return {
-                    "area": area,
-                    "accurate_area": area,
-                    "city": city,
-                    "district": district,
-                    "state": state,
-                    "region": state or city,
-                    "pincode": pincode,
-                    "country": country,
-                    "full_address": full_addr,
-                    "formatted_address": disp_with_pin,
-                    "display_address": disp_with_pin,
-                }
-    except Exception:
-        pass
-
-    # Try BigDataCloud fallback
-    try:
-        url = f"https://api.bigdatacloud.net/data/reverse-geocode-client?latitude={lat}&longitude={lng}&localityLanguage=en"
-        req = urllib.request.Request(url, headers={"User-Agent": "ZenveCRM/1.0 (contact@zenvecrm.com)"})
-        with urllib.request.urlopen(req, timeout=5) as response:
-            if response.status == 200:
-                data = json.loads(response.read().decode())
-                pincode = (data.get("postcode") or "").strip()
-                area = (data.get("locality") or "").strip()
-                locality_info = data.get("localityInfo") if isinstance(data.get("localityInfo"), dict) else {}
-                informative = locality_info.get("informative") if isinstance(locality_info.get("informative"), list) else []
-                if not area and informative:
-                    wanted_regex = re.compile(r"(neighbo|suburb|quarter|ward|locality|village|sub-?district|taluk|tehsil|mandal)", re.I)
-                    for item in reversed(informative):
-                        if isinstance(item, dict):
-                            desc = item.get("description") or ""
-                            name = (item.get("name") or "").strip()
-                            if name and wanted_regex.search(desc):
-                                area = name
-                                break
-
-                city = (data.get("city") or "").strip()
-                district = ""
-                administrative = locality_info.get("administrative") if isinstance(locality_info.get("administrative"), list) else []
-                if administrative:
-                    dist_regex = re.compile(r"district|county", re.I)
-                    for adm in administrative:
-                        if isinstance(adm, dict):
-                            desc = adm.get("description") or ""
-                            name = (adm.get("name") or "").strip()
-                            if name and dist_regex.search(desc):
-                                district = name
-                                break
-
-                state = (data.get("principalSubdivision") or "").strip()
-                country = (data.get("countryName") or "India").strip()
-
-                if not city and district:
-                    city = district
-                if not area and city:
-                    area = city
-
-                parts = [p for p in [area, city, state] if p]
-                clean_parts = []
-                for p in parts:
-                    if not clean_parts or clean_parts[-1].lower() != p.lower():
-                        clean_parts.append(p)
-                disp = ", ".join(clean_parts)
-                full_addr = f"{disp} - {pincode}, {country}" if pincode else f"{disp}, {country}"
-                disp_with_pin = f"{disp} - {pincode}" if pincode else disp
-
-                return {
-                    "area": area,
-                    "accurate_area": area,
-                    "city": city,
-                    "district": district,
-                    "state": state,
-                    "region": state or city,
-                    "pincode": pincode,
-                    "country": country,
-                    "full_address": full_addr,
-                    "formatted_address": disp_with_pin,
-                    "display_address": disp_with_pin,
-                }
-    except Exception:
-        pass
-
-    return {
-        "area": "",
-        "accurate_area": "",
-        "city": "",
-        "district": "",
-        "state": "",
-        "region": "",
-        "pincode": "",
-        "country": "India",
-        "full_address": "",
-        "formatted_address": "",
-        "display_address": "",
-    }
-
 @app.delete("/sales-executives/{executive_id}")
 def delete_sales_executive(executive_id: int,db: Session = Depends(get_db)):
     executive = db.query(SalesExecutive).filter(SalesExecutive.id == executive_id).first()
     if not executive:
         raise HTTPException(status_code=404,detail="Sales executive not found")
-    try:
-        plan_ids = [p.id for p in db.query(MonthlyPlan.id).filter(MonthlyPlan.executive_id == executive_id).all()]
-        visit_ids = [v.id for v in db.query(PlanVisit.id).filter(PlanVisit.executive_id == executive_id).all()]
-        if plan_ids:
-            plan_visit_ids = [v.id for v in db.query(PlanVisit.id).filter(PlanVisit.plan_id.in_(plan_ids)).all()]
-            visit_ids = list(set(visit_ids + plan_visit_ids))
-
-        if visit_ids:
-            db.query(VisitReport).filter(
-                (VisitReport.executive_id == executive_id) | (VisitReport.plan_visit_id.in_(visit_ids))
-            ).delete(synchronize_session=False)
-        else:
-            db.query(VisitReport).filter(VisitReport.executive_id == executive_id).delete(synchronize_session=False)
-
-        if visit_ids:
-            db.query(PlanVisit).filter(PlanVisit.id.in_(visit_ids)).delete(synchronize_session=False)
-        db.query(PlanVisit).filter(PlanVisit.executive_id == executive_id).delete(synchronize_session=False)
-
-        db.query(MonthlyPlan).filter(MonthlyPlan.executive_id == executive_id).delete(synchronize_session=False)
-        db.query(ExecutiveSubmissionReport).filter(ExecutiveSubmissionReport.executive_id == executive_id).delete(synchronize_session=False)
-        db.query(PincodeCoverage).filter(PincodeCoverage.executive_id == executive_id).delete(synchronize_session=False)
-        db.query(Attendance).filter(Attendance.executive_id == executive_id).delete(synchronize_session=False)
-
-        db.delete(executive)
-        db.commit()
-        return {
-            "message": "Sales executive and all associated records deleted successfully",
-            "id": executive_id
-        }
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
+    db.delete(executive)
+    db.commit()
+    return {
+        "message": "Sales executive deleted successfully",
+        "id": executive_id
+    }
 @app.post("/pincode-coverages")
 def create_pincode_coverage(data: PincodeCoverageCreate,db: Session = Depends(get_db)):
     executive = db.query(SalesExecutive).filter(SalesExecutive.id == data.executive_id).first()
@@ -3997,7 +3724,7 @@ def get_pincode_coverage(coverage_id: int,db: Session = Depends(get_db)):
     return model_response(coverage)
 @app.put("/pincode-coverages/{coverage_id}")
 def update_pincode_coverage(coverage_id: int,data: PincodeCoverageCreate,db: Session = Depends(get_db)):
-    coverage = db.query(PincodeCoverage).filter(PincodeCoverage.id == coverage_id).first()
+    coverage: Any = db.query(PincodeCoverage).filter(PincodeCoverage.id == coverage_id).first()
     if not coverage:
         raise HTTPException(
             status_code=404,
@@ -4006,9 +3733,10 @@ def update_pincode_coverage(coverage_id: int,data: PincodeCoverageCreate,db: Ses
     executive = db.query(SalesExecutive).filter(SalesExecutive.id == data.executive_id).first()
     if not executive:
         raise HTTPException(status_code=404,detail="Sales executive not found")
-    update_data = data.model_dump(exclude_unset=True)
-    for field, value in update_data.items():
-        setattr(coverage, field, value)
+    coverage.executive_id = data.executive_id
+    coverage.pincode = data.pincode
+    coverage.city = data.city
+    coverage.state = data.state
     db.commit()
     db.refresh(coverage)
     return model_response(coverage)
@@ -4079,13 +3807,7 @@ def create_executive_alert(data: ExecutiveAlertCreate,db: Session = Depends(get_
         severity=data.severity,
         entity_type=data.entity_type,
         pincode=data.pincode,
-        is_read=data.is_read,
-        message=data.message,
-        executive_name=data.executive_name,
-        executive_code=data.executive_code,
-        location=data.location,
-        punch_type=data.punch_type,
-        punch_time=data.punch_time
+        is_read=data.is_read
     )
     db.add(alert)
     db.commit()
@@ -4093,7 +3815,7 @@ def create_executive_alert(data: ExecutiveAlertCreate,db: Session = Depends(get_
     return model_response(alert)
 @app.get("/executive-alerts")
 def get_executive_alerts(db: Session = Depends(get_db)):
-    return [model_response(item) for item in db.query(ExecutiveAlert).order_by(ExecutiveAlert.id.desc()).all()]
+    return [model_response(item) for item in db.query(ExecutiveAlert).all()]
 @app.get("/executive-alerts/{alert_id}")
 def get_executive_alert(alert_id: int,db: Session = Depends(get_db)):
     alert = db.query(ExecutiveAlert).filter(ExecutiveAlert.id == alert_id).first()
@@ -4174,24 +3896,17 @@ def delete_monthly_plan(plan_id: int, db: Session = Depends(get_db)):
     plan = db.query(MonthlyPlan).filter(MonthlyPlan.id == plan_id).first()
     if not plan:
         raise HTTPException(status_code=404, detail="Monthly plan not found")
-    try:
-        visit_ids = [v.id for v in db.query(PlanVisit.id).filter(PlanVisit.plan_id == plan_id).all()]
-        if visit_ids:
-            db.query(VisitReport).filter(VisitReport.plan_visit_id.in_(visit_ids)).delete(synchronize_session=False)
-            db.query(PlanVisit).filter(PlanVisit.id.in_(visit_ids)).delete(synchronize_session=False)
-        db.delete(plan)
-        db.commit()
-        return {"message": "Monthly plan and visits deleted", "id": plan_id}
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
+    db.query(PlanVisit).filter(PlanVisit.plan_id == plan_id).delete()
+    db.delete(plan)
+    db.commit()
+    return {"message": "Monthly plan and visits deleted", "id": plan_id}
 @app.post("/monthly-plans/{plan_id}/submit")
 def submit_monthly_plan(plan_id: int, db: Session = Depends(get_db)):
-    plan = db.query(MonthlyPlan).filter(MonthlyPlan.id == plan_id).first()
+    plan: Any = db.query(MonthlyPlan).filter(MonthlyPlan.id == plan_id).first()
     if not plan:
         raise HTTPException(status_code=404, detail="Monthly plan not found")
-    setattr(plan, "status", "Submitted")
-    setattr(plan, "submitted_at", datetime.now(ZoneInfo("Asia/Kolkata")).replace(tzinfo=None))
+    plan.status = "Submitted"
+    plan.submitted_at = datetime.now(ZoneInfo("Asia/Kolkata")).replace(tzinfo=None)
     db.commit()
     db.refresh(plan)
     return plan_response(plan)
@@ -4214,25 +3929,25 @@ def _normalize_approvers(existing_str: Optional[str], new_approver: Optional[str
     return ", ".join(cleaned)
 @app.post("/monthly-plans/{plan_id}/approve")
 def approve_monthly_plan(plan_id: int,approved_by: Optional[str] = "Manager",db: Session = Depends(get_db),):
-    plan = db.query(MonthlyPlan).filter(MonthlyPlan.id == plan_id).first()
+    plan: Any = db.query(MonthlyPlan).filter(MonthlyPlan.id == plan_id).first()
     if not plan:
         raise HTTPException(status_code=404, detail="Monthly plan not found")
-    setattr(plan, "status", "Approved")
-    setattr(plan, "approved_at", datetime.now(ZoneInfo("Asia/Kolkata")).replace(tzinfo=None))
-    setattr(plan, "approved_by", _normalize_approvers(getattr(plan, "approved_by", None), approved_by))
-    setattr(plan, "rejection_reason", None)
+    plan.status = "Approved"
+    plan.approved_at = datetime.now(ZoneInfo("Asia/Kolkata")).replace(tzinfo=None)
+    plan.approved_by = _normalize_approvers(plan.approved_by, approved_by)
+    plan.rejection_reason = None
     db.commit()
     db.refresh(plan)
     return plan_response(plan)
 @app.post("/monthly-plans/{plan_id}/reject")
 def reject_monthly_plan(plan_id: int, body: RejectBody, db: Session = Depends(get_db)):
-    plan = db.query(MonthlyPlan).filter(MonthlyPlan.id == plan_id).first()
+    plan: Any = db.query(MonthlyPlan).filter(MonthlyPlan.id == plan_id).first()
     if not plan:
         raise HTTPException(status_code=404, detail="Monthly plan not found")
-    setattr(plan, "status", "Draft" if body.request_changes else "Rejected")
-    setattr(plan, "rejection_reason", body.reason)
-    setattr(plan, "approved_by", None)
-    setattr(plan, "approved_at", None)
+    plan.status = "Draft" if body.request_changes else "Rejected"
+    plan.rejection_reason = body.reason
+    plan.approved_by = None
+    plan.approved_at = None
     db.commit()
     db.refresh(plan)
     return plan_response(plan)
@@ -4305,19 +4020,14 @@ def delete_plan_visit(visit_id: int, db: Session = Depends(get_db)):
     visit = db.query(PlanVisit).filter(PlanVisit.id == visit_id).first()
     if not visit:
         raise HTTPException(status_code=404, detail="Plan visit not found")
-    try:
-        db.query(VisitReport).filter(VisitReport.plan_visit_id == visit_id).delete(synchronize_session=False)
-        db.delete(visit)
-        db.commit()
-        return {"message": "Plan visit deleted", "id": visit_id}
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
+    db.delete(visit)
+    db.commit()
+    return {"message": "Plan visit deleted", "id": visit_id}
 @app.post("/visit-reports")
 def create_visit_report(data: VisitReportCreate, db: Session = Depends(get_db)):
-    report = VisitReport(**data.model_dump())
-    if data.status == "Submitted" and getattr(report, "submitted_at", None) is None:
-        setattr(report, "submitted_at", datetime.now(ZoneInfo("Asia/Kolkata")).replace(tzinfo=None))
+    report: Any = VisitReport(**data.model_dump())
+    if data.status == "Submitted" and not report.submitted_at:
+        report.submitted_at = datetime.now(ZoneInfo("Asia/Kolkata")).replace(tzinfo=None)
     db.add(report)
     try:
         db.commit()
@@ -4358,7 +4068,7 @@ def update_visit_report(report_id: int, data: VisitReportUpdate, db: Session = D
     if not report:
         raise HTTPException(status_code=404, detail="Visit report not found")
     updates = data.model_dump(exclude_unset=True)
-    if updates.get("status") == "Submitted" and getattr(report, "submitted_at", None) is None:
+    if updates.get("status") == "Submitted" and not report.submitted_at:
         updates["submitted_at"] = datetime.now(ZoneInfo("Asia/Kolkata")).replace(tzinfo=None)
     for field, value in updates.items():
         setattr(report, field, value)
@@ -4392,17 +4102,15 @@ def get_plan_stats(executive_id: int,month_key: Optional[str] = None,db: Session
         return {"has_plan": False, "total_doctors": 0, "completed": 0, "pending": 0, "completion_pct": 0, "plan_status": None}
     visits = db.query(PlanVisit).filter(PlanVisit.plan_id == plan.id).all()
     total = len(visits)
-    completed = sum(1 for v in visits if getattr(v, "status", None) == "Completed")
+    completed = sum(1 for v in visits if v.status == "Completed")
     pending = total - completed
     pct = round((completed / total * 100)) if total > 0 else 0
-    plan_total_doctors = getattr(plan, "total_doctors", None)
-    total_docs = plan_total_doctors if plan_total_doctors is not None and plan_total_doctors > 0 else total
     return {
         "has_plan": True,
         "plan_id": plan.id,
         "month_key": plan.month_key,
         "month_label": plan.month_label,
-        "total_doctors": total_docs,
+        "total_doctors": plan.total_doctors,
         "working_days": plan.working_days,
         "daily_target": plan.daily_target,
         "planned_visits": total,
@@ -4454,13 +4162,13 @@ def get_submission_report(report_id: int, db: Session = Depends(get_db)):
     return plan_response(r)
 @app.put("/executive-submission-reports/{report_id}")
 def update_submission_report(report_id: int, data: ExecutiveSubmissionReportUpdate, db: Session = Depends(get_db)):
-    r = db.query(ExecutiveSubmissionReport).filter(ExecutiveSubmissionReport.id == report_id).first()
+    r: Any = db.query(ExecutiveSubmissionReport).filter(ExecutiveSubmissionReport.id == report_id).first()
     if not r:
         raise HTTPException(status_code=404, detail="Submission report not found")
     updates = data.model_dump(exclude_unset=True)
     for k, v in updates.items():
         setattr(r, k, v)
-    setattr(r, "reviewed_at", datetime.now(ZoneInfo("Asia/Kolkata")).replace(tzinfo=None))
+    r.reviewed_at = datetime.now(ZoneInfo("Asia/Kolkata")).replace(tzinfo=None)
     db.commit()
     db.refresh(r)
     return plan_response(r)
@@ -4473,1614 +4181,544 @@ def delete_submission_report(report_id: int, db: Session = Depends(get_db)):
     db.commit()
     return {"message": "Submission report deleted", "id": report_id}
 
-# =========================================================
-# ATTENDANCE MANAGEMENT (MySQL Table: attendance)
-# =========================================================
-
-# =========================================================
-# ATTENDANCE MANAGEMENT
-# =========================================================
-
-class Attendance(Base):
-    __tablename__ = "attendance"
-
-    id = Column( 
-        Integer,
-        primary_key=True,
-        index=True,
-        autoincrement=True
-    )
-
-    executive_id = Column(
-        Integer,
-        ForeignKey("sales_executives.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True
-    )
-
-    executive_name = Column(
-        String(255),
-        nullable=True
-    )
-
-    executive_code = Column(
-        String(100),
-        nullable=True
-    )
-
-    attendance_date = Column(
-        Date,
-        nullable=False
-    )
-
-    login_time = Column(
-        DateTime,
-        nullable=True
-    )
-
-    logout_time = Column(
-        DateTime,
-        nullable=True
-    )
-
-    lunch_out_time = Column(
-        DateTime,
-        nullable=True
-    )
-
-    lunch_in_time = Column(
-        DateTime,
-        nullable=True
-    )
-
-    lunch_out_latitude = Column(
-        Float,
-        nullable=True
-    )
-
-    lunch_out_longitude = Column(
-        Float,
-        nullable=True
-    )
-
-    lunch_out_area = Column(
-        String(255),
-        nullable=True
-    )
-
-    lunch_out_city = Column(
-        String(255),
-        nullable=True
-    )
-
-    lunch_out_district = Column(
-        String(255),
-        nullable=True
-    )
-
-    lunch_out_state = Column(
-        String(255),
-        nullable=True
-    )
-
-    lunch_out_accuracy = Column(
-        Float,
-        nullable=True
-    )
-
-    lunch_out_location_source = Column(
-        String(100),
-        nullable=True,
-        default="WINDOWS_LOCATION"
-    )
-
-    lunch_out_country = Column(
-        String(100),
-        nullable=True,
-        default="India"
-    )
-
-    lunch_out_pincode = Column(
-        String(20),
-        nullable=True
-    )
-
-    lunch_out_full_address = Column(
-        Text,
-        nullable=True
-    )
-
-    lunch_out_location_timestamp = Column(
-        DateTime,
-        nullable=True
-    )
-
-    lunch_in_latitude = Column(
-        Float,
-        nullable=True
-    )
-
-    lunch_in_longitude = Column(
-        Float,
-        nullable=True
-    )
-
-    lunch_in_area = Column(
-        String(255),
-        nullable=True
-    )
-
-    lunch_in_city = Column(
-        String(255),
-        nullable=True
-    )
-
-    lunch_in_district = Column(
-        String(255),
-        nullable=True
-    )
-
-    lunch_in_state = Column(
-        String(255),
-        nullable=True
-    )
-
-    lunch_in_accuracy = Column(
-        Float,
-        nullable=True
-    )
-
-    lunch_in_location_source = Column(
-        String(100),
-        nullable=True,
-        default="WINDOWS_LOCATION"
-    )
-
-    lunch_in_country = Column(
-        String(100),
-        nullable=True,
-        default="India"
-    )
-
-    lunch_in_pincode = Column(
-        String(20),
-        nullable=True
-    )
-
-    lunch_in_full_address = Column(
-        Text,
-        nullable=True
-    )
-
-    lunch_in_location_timestamp = Column(
-        DateTime,
-        nullable=True
-    )
-
-    # General / Latest GPS Location Fields
-    latitude = Column(
-        Float,
-        nullable=True
-    )
-
-    longitude = Column(
-        Float,
-        nullable=True
-    )
-
-    area = Column(
-        String(255),
-        nullable=True
-    )
-
-    city = Column(
-        String(255),
-        nullable=True
-    )
-
-    district = Column(
-        String(255),
-        nullable=True
-    )
-
-    state = Column(
-        String(255),
-        nullable=True
-    )
-
-    country = Column(
-        String(100),
-        nullable=True,
-        default="India"
-    )
-
-    pincode = Column(
-        String(20),
-        nullable=True
-    )
-
-    full_address = Column(
-        Text,
-        nullable=True
-    )
-
-    location_accuracy = Column(
-        Float,
-        nullable=True
-    )
-
-    location_source = Column(
-        String(100),
-        nullable=True,
-        default="WINDOWS_LOCATION"
-    )
-
-    location_timestamp = Column(
-        DateTime,
-        nullable=True
-    )
-
-    # Login Specific Location Fields
-    login_latitude = Column(
-        Float,
-        nullable=True
-    )
-
-    login_longitude = Column(
-        Float,
-        nullable=True
-    )
-
-    login_area = Column(
-        String(255),
-        nullable=True
-    )
-
-    login_city = Column(
-        String(255),
-        nullable=True
-    )
-
-    login_district = Column(
-        String(255),
-        nullable=True
-    )
-
-    login_state = Column(
-        String(255),
-        nullable=True
-    )
-
-    login_country = Column(
-        String(100),
-        nullable=True,
-        default="India"
-    )
-
-    login_pincode = Column(
-        String(20),
-        nullable=True
-    )
-
-    login_full_address = Column(
-        Text,
-        nullable=True
-    )
-
-    login_accuracy = Column(
-        Float,
-        nullable=True
-    )
-
-    login_location_source = Column(
-        String(100),
-        nullable=True,
-        default="WINDOWS_LOCATION"
-    )
-
-    login_location_timestamp = Column(
-        DateTime,
-        nullable=True
-    )
-
-    # Logout Specific Location Fields
-    logout_latitude = Column(
-        Float,
-        nullable=True
-    )
-
-    logout_longitude = Column(
-        Float,
-        nullable=True
-    )
-
-    logout_area = Column(
-        String(255),
-        nullable=True
-    )
-
-    logout_city = Column(
-        String(255),
-        nullable=True
-    )
-
-    logout_district = Column(
-        String(255),
-        nullable=True
-    )
-
-    logout_state = Column(
-        String(255),
-        nullable=True
-    )
-
-    logout_country = Column(
-        String(100),
-        nullable=True,
-        default="India"
-    )
-
-    logout_pincode = Column(
-        String(20),
-        nullable=True
-    )
-
-    logout_full_address = Column(
-        Text,
-        nullable=True
-    )
-
-    logout_accuracy = Column(
-        Float,
-        nullable=True
-    )
-
-    logout_location_source = Column(
-        String(100),
-        nullable=True,
-        default="WINDOWS_LOCATION"
-    )
-
-    logout_location_timestamp = Column(
-        DateTime,
-        nullable=True
-    )
-
-    login_selfie_url = Column(
-        Text,
-        nullable=True
-    )
-
-    logout_selfie_url = Column(
-        Text,
-        nullable=True
-    )
-
-    lunch_out_selfie_url = Column(
-        Text,
-        nullable=True
-    )
-
-    lunch_in_selfie_url = Column(
-        Text,
-        nullable=True
-    )
-
-    total_working_minutes = Column(
-        Integer,
-        nullable=True
-    )
-
-    status = Column(
-        String(50),
-        nullable=True,
-        default="Working"
-    )
-
-    created_at = Column(
-        DateTime,
-        default=lambda: datetime.now(
-            ZoneInfo("Asia/Kolkata")
-        ).replace(tzinfo=None)
-    )
-
-    updated_at = Column(
-        DateTime,
-        default=lambda: datetime.now(
-            ZoneInfo("Asia/Kolkata")
-        ).replace(tzinfo=None),
-        onupdate=lambda: datetime.now(
-            ZoneInfo("Asia/Kolkata")
-        ).replace(tzinfo=None)
-    )
-
-    __table_args__ = (
-        UniqueConstraint("executive_id", "attendance_date", name="uq_attendance_exec_date"),
-    )
-
-
-# =========================================================
-# CREATE ALL DATABASE TABLES
-# IMPORTANT: THIS MUST COME AFTER Attendance
-# =========================================================
-
-Base.metadata.create_all(bind=engine)
-
-# create_all() never alters existing tables, so ensure password columns exist
-# for executives and managers on already-created databases.
-def _ensure_executive_password_column():
-    from sqlalchemy import inspect as sa_inspect
+# --- Regional Managers ---
+@app.post("/regional-managers")
+def create_regional_manager(data: RegionalManagerCreate, db: Session = Depends(get_db)):
+    record = RegionalManager(
+        name=data.name, code=data.code, phone=data.phone, email=data.email, password=data.password, region=data.region, is_active=yes_no_to_bool(data.is_active)
+    )
+    db.add(record)
+    db.commit()
+    db.refresh(record)
+    return model_response(record)
+
+@app.get("/regional-managers")
+def get_regional_managers(db: Session = Depends(get_db)):
+    return [model_response(r) for r in db.query(RegionalManager).all()]
+
+@app.get("/regional-managers/{id}")
+def get_regional_manager(id: int, db: Session = Depends(get_db)):
+    record = db.query(RegionalManager).filter(RegionalManager.id == id).first()
+    if not record: raise HTTPException(404, "Not found")
+    return model_response(record)
+
+@app.put("/regional-managers/{id}")
+def update_regional_manager(id: int, data: RegionalManagerCreate, db: Session = Depends(get_db)):
+    record = db.query(RegionalManager).filter(RegionalManager.id == id).first()
+    if not record: raise HTTPException(404, "Not found")
+    update_data = data.model_dump(exclude_unset=True)
+    if "is_active" in update_data: update_data["is_active"] = yes_no_to_bool(update_data["is_active"])
+    for k, v in update_data.items(): setattr(record, k, v)
+    db.commit()
+    db.refresh(record)
+    return model_response(record)
+
+@app.delete("/regional-managers/{id}")
+def delete_regional_manager(id: int, db: Session = Depends(get_db)):
+    record = db.query(RegionalManager).filter(RegionalManager.id == id).first()
+    if not record: raise HTTPException(404, "Not found")
+    db.delete(record)
+    db.commit()
+    return {"message": "Deleted", "id": id}
+
+# --- Sales Managers ---
+@app.post("/sales-managers")
+def create_sales_manager(data: SalesManagerCreate, db: Session = Depends(get_db)):
+    record = SalesManager(
+        name=data.name, code=data.code, phone=data.phone, email=data.email, password=data.password, region=data.region, is_active=yes_no_to_bool(data.is_active)
+    )
+    db.add(record)
+    db.commit()
+    db.refresh(record)
+    return model_response(record)
+
+@app.get("/sales-managers")
+def get_sales_managers(db: Session = Depends(get_db)):
+    return [model_response(r) for r in db.query(SalesManager).all()]
+
+@app.get("/sales-managers/{id}")
+def get_sales_manager(id: int, db: Session = Depends(get_db)):
+    record = db.query(SalesManager).filter(SalesManager.id == id).first()
+    if not record: raise HTTPException(404, "Not found")
+    return model_response(record)
+
+@app.put("/sales-managers/{id}")
+def update_sales_manager(id: int, data: SalesManagerCreate, db: Session = Depends(get_db)):
+    record = db.query(SalesManager).filter(SalesManager.id == id).first()
+    if not record: raise HTTPException(404, "Not found")
+    update_data = data.model_dump(exclude_unset=True)
+    if "is_active" in update_data: update_data["is_active"] = yes_no_to_bool(update_data["is_active"])
+    for k, v in update_data.items(): setattr(record, k, v)
+    db.commit()
+    db.refresh(record)
+    return model_response(record)
+
+@app.delete("/sales-managers/{id}")
+def delete_sales_manager(id: int, db: Session = Depends(get_db)):
+    record = db.query(SalesManager).filter(SalesManager.id == id).first()
+    if not record: raise HTTPException(404, "Not found")
+    db.delete(record)
+    db.commit()
+    return {"message": "Deleted", "id": id}
+
+# --- Sales Executives ---
+@app.post("/sales-executives")
+def create_sales_exec(data: SalesExecutiveCreate, db: Session = Depends(get_db)):
+    record = SalesExecutive(
+        name=data.name, code=data.code, phone=data.phone, email=data.email, password=data.password, region=data.region, city=data.city, monthly_target=data.monthly_target, is_active=yes_no_to_bool(data.is_active)
+    )
+    db.add(record)
+    db.commit()
+    db.refresh(record)
+    return model_response(record)
+
+@app.get("/sales-executives")
+def get_sales_execs(db: Session = Depends(get_db)):
+    return [model_response(r) for r in db.query(SalesExecutive).all()]
+
+@app.get("/sales-executives/{id}")
+def get_sales_exec(id: int, db: Session = Depends(get_db)):
+    record = db.query(SalesExecutive).filter(SalesExecutive.id == id).first()
+    if not record: raise HTTPException(404, "Not found")
+    return model_response(record)
+
+@app.put("/sales-executives/{id}")
+def update_sales_exec(id: int, data: SalesExecutiveCreate, db: Session = Depends(get_db)):
+    record = db.query(SalesExecutive).filter(SalesExecutive.id == id).first()
+    if not record: raise HTTPException(404, "Not found")
+    update_data = data.model_dump(exclude_unset=True)
+    if "is_active" in update_data: update_data["is_active"] = yes_no_to_bool(update_data["is_active"])
+    for k, v in update_data.items(): setattr(record, k, v)
+    db.commit()
+    db.refresh(record)
+    return model_response(record)
+
+@app.delete("/sales-executives/{id}")
+def delete_sales_exec(id: int, db: Session = Depends(get_db)):
+    record = db.query(SalesExecutive).filter(SalesExecutive.id == id).first()
+    if not record: raise HTTPException(404, "Not found")
+    db.delete(record)
+    db.commit()
+    return {"message": "Deleted", "id": id}
+
+class SalesLoginRequest(BaseModel):
+    email: str
+    password: str
+
+@app.post("/sales-login")
+def sales_login(data: SalesLoginRequest, db: Session = Depends(get_db)):
+    exec = db.query(SalesExecutive).filter(SalesExecutive.email == data.email, SalesExecutive.password == data.password).first()
+    if exec: return {"role": "executive", "user": model_response(exec)}
+    
+    mgr = db.query(SalesManager).filter(SalesManager.email == data.email, SalesManager.password == data.password).first()
+    if mgr: return {"role": "manager", "user": model_response(mgr)}
+
+    reg = db.query(RegionalManager).filter(RegionalManager.email == data.email, RegionalManager.password == data.password).first()
+    if reg: return {"role": "regional", "user": model_response(reg)}
+
+    raise HTTPException(status_code=401, detail="Invalid email or password")
+
+
+# --- Attendance API & Location Geocoding ---
+import base64
+import uuid
+
+def reverse_geocode(lat: Optional[float], lon: Optional[float]) -> dict:
+    result = {
+        "area": "",
+        "city": "",
+        "district": "",
+        "state": "",
+        "pincode": "",
+        "country": "India"
+    }
+    if lat is None or lon is None:
+        return result
+
+    # 1. Try BigDataCloud Client API (fast, reliable administrative subdivisions)
     try:
-        inspector = sa_inspect(engine)
-        for table_name in ("sales_executives", "regional_managers", "sales_managers"):
-            cols = {c["name"] for c in inspector.get_columns(table_name)}
-            with engine.begin() as conn:
-                if "password_hash" not in cols:
-                    conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN password_hash VARCHAR(255) NULL"))
-                if "password_value" not in cols:
-                    conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN password_value TEXT NULL"))
-    except Exception as exc:
-        print("WARNING: could not add a manager password_hash column:", exc)
+        url = f"https://api.bigdatacloud.net/data/reverse-geocode-client?latitude={lat}&longitude={lon}&localityLanguage=en"
+        r = requests.get(url, timeout=5)
+        if r.status_code == 200:
+            data = r.json()
+            locality = data.get("locality") or ""
+            city = data.get("city") or ""
+            state = data.get("principalSubdivision") or ""
+            pincode = data.get("postcode") or ""
+            country = data.get("countryName") or "India"
 
-_ensure_executive_password_column()
+            district = ""
+            for item in data.get("localityInfo", {}).get("administrative", []):
+                name = item.get("name", "")
+                desc = item.get("description", "").lower()
+                if "district" in desc or "county" in desc:
+                    district = name
+                    break
 
-def _ensure_attendance_location_columns():
-    from sqlalchemy import inspect as sa_inspect
-    try:
-        inspector = sa_inspect(engine)
-        if "attendance" in inspector.get_table_names():
-            cols = {c["name"] for c in inspector.get_columns("attendance")}
-            col_definitions = [
-                ("latitude", "FLOAT NULL"),
-                ("longitude", "FLOAT NULL"),
-                ("area", "VARCHAR(255) NULL"),
-                ("city", "VARCHAR(255) NULL"),
-                ("district", "VARCHAR(255) NULL"),
-                ("state", "VARCHAR(255) NULL"),
-                ("country", "VARCHAR(100) NULL"),
-                ("pincode", "VARCHAR(20) NULL"),
-                ("full_address", "TEXT NULL"),
-                ("location_accuracy", "FLOAT NULL"),
-                ("location_source", "VARCHAR(100) NULL"),
-                ("login_latitude", "FLOAT NULL"),
-                ("login_longitude", "FLOAT NULL"),
-                ("login_area", "VARCHAR(255) NULL"),
-                ("login_city", "VARCHAR(255) NULL"),
-                ("login_district", "VARCHAR(255) NULL"),
-                ("login_state", "VARCHAR(255) NULL"),
-                ("login_country", "VARCHAR(100) NULL"),
-                ("login_pincode", "VARCHAR(20) NULL"),
-                ("login_full_address", "TEXT NULL"),
-                ("login_accuracy", "FLOAT NULL"),
-                ("login_location_source", "VARCHAR(100) NULL"),
-                ("logout_latitude", "FLOAT NULL"),
-                ("logout_longitude", "FLOAT NULL"),
-                ("logout_area", "VARCHAR(255) NULL"),
-                ("logout_city", "VARCHAR(255) NULL"),
-                ("logout_district", "VARCHAR(255) NULL"),
-                ("logout_state", "VARCHAR(255) NULL"),
-                ("logout_country", "VARCHAR(100) NULL"),
-                ("logout_pincode", "VARCHAR(20) NULL"),
-                ("logout_full_address", "TEXT NULL"),
-                ("logout_accuracy", "FLOAT NULL"),
-                ("logout_location_source", "VARCHAR(100) NULL"),
-                ("lunch_out_latitude", "FLOAT NULL"),
-                ("lunch_out_longitude", "FLOAT NULL"),
-                ("lunch_out_area", "VARCHAR(255) NULL"),
-                ("lunch_out_city", "VARCHAR(255) NULL"),
-                ("lunch_out_district", "VARCHAR(255) NULL"),
-                ("lunch_out_state", "VARCHAR(255) NULL"),
-                ("lunch_out_country", "VARCHAR(100) NULL"),
-                ("lunch_out_pincode", "VARCHAR(20) NULL"),
-                ("lunch_out_full_address", "TEXT NULL"),
-                ("lunch_out_accuracy", "FLOAT NULL"),
-                ("lunch_out_location_source", "VARCHAR(100) NULL"),
-                ("lunch_out_location_timestamp", "DATETIME NULL"),
-                ("lunch_in_latitude", "FLOAT NULL"),
-                ("lunch_in_longitude", "FLOAT NULL"),
-                ("lunch_in_area", "VARCHAR(255) NULL"),
-                ("lunch_in_city", "VARCHAR(255) NULL"),
-                ("lunch_in_district", "VARCHAR(255) NULL"),
-                ("lunch_in_state", "VARCHAR(255) NULL"),
-                ("lunch_in_country", "VARCHAR(100) NULL"),
-                ("lunch_in_pincode", "VARCHAR(20) NULL"),
-                ("lunch_in_full_address", "TEXT NULL"),
-                ("lunch_in_accuracy", "FLOAT NULL"),
-                ("lunch_in_location_source", "VARCHAR(100) NULL"),
-                ("lunch_in_location_timestamp", "DATETIME NULL"),
-                ("location_timestamp", "DATETIME NULL"),
-                ("login_location_timestamp", "DATETIME NULL"),
-                ("logout_location_timestamp", "DATETIME NULL"),
-                ("lunch_out_selfie_url", "TEXT NULL"),
-                ("lunch_in_selfie_url", "TEXT NULL"),
-            ]
-            with engine.begin() as conn:
-                for col_name, col_def in col_definitions:
-                    if col_name not in cols:
-                        conn.execute(text(f"ALTER TABLE attendance ADD COLUMN {col_name} {col_def}"))
-    except Exception as exc:
-        print("WARNING: could not ensure attendance location columns:", exc)
+            area = locality
+            if not area:
+                for item in reversed(data.get("localityInfo", {}).get("informative", [])):
+                    desc = item.get("description", "").lower()
+                    if any(w in desc for w in ["neighbourhood", "suburb", "locality", "village", "quarter"]):
+                        area = item.get("name", "")
+                        break
 
-_ensure_attendance_location_columns()
-
-class AttendancePunchIn(BaseModel):
-    sales_executive_id: Optional[int] = None
-    executive_id: Optional[int] = None
-    employee_id: Optional[int] = None
-    employee_name: Optional[str] = None
-    attendance_date: Optional[date] = None
-    punch_type: Optional[str] = "PUNCH_IN"
-    punch_time: Optional[datetime] = None
-    login_time: Optional[datetime] = None
-    latitude: Optional[float] = None
-    longitude: Optional[float] = None
-    area: Optional[str] = None
-    city: Optional[str] = None
-    district: Optional[str] = None
-    state: Optional[str] = None
-    country: Optional[str] = "India"
-    pincode: Optional[str] = None
-    full_address: Optional[str] = None
-    location_accuracy: Optional[float] = None
-    location_source: Optional[str] = "WINDOWS_LOCATION"
-    location_timestamp: Optional[datetime] = None
-    login_latitude: Optional[float] = None
-    login_longitude: Optional[float] = None
-    login_area: Optional[str] = None
-    login_city: Optional[str] = None
-    login_district: Optional[str] = None
-    login_state: Optional[str] = None
-    login_country: Optional[str] = None
-    login_pincode: Optional[str] = None
-    login_full_address: Optional[str] = None
-    login_accuracy: Optional[float] = None
-    login_location_source: Optional[str] = "WINDOWS_LOCATION"
-    login_location_timestamp: Optional[datetime] = None
-    lunch_out_time: Optional[datetime] = None
-    lunch_in_time: Optional[datetime] = None
-    lunch_out: Optional[str] = None
-    lunch_in: Optional[str] = None
-    login_selfie_url: Optional[str] = None
-    status: Optional[str] = "Working"
-
-
-class AttendancePunchOut(BaseModel):
-    sales_executive_id: Optional[int] = None
-    executive_id: Optional[int] = None
-    employee_id: Optional[int] = None
-    employee_name: Optional[str] = None
-    attendance_date: Optional[date] = None
-    punch_type: Optional[str] = "PUNCH_OUT"
-    punch_time: Optional[datetime] = None
-    logout_time: Optional[datetime] = None
-    latitude: Optional[float] = None
-    longitude: Optional[float] = None
-    area: Optional[str] = None
-    city: Optional[str] = None
-    district: Optional[str] = None
-    state: Optional[str] = None
-    country: Optional[str] = "India"
-    pincode: Optional[str] = None
-    full_address: Optional[str] = None
-    location_accuracy: Optional[float] = None
-    location_source: Optional[str] = "WINDOWS_LOCATION"
-    location_timestamp: Optional[datetime] = None
-    logout_latitude: Optional[float] = None
-    logout_longitude: Optional[float] = None
-    logout_area: Optional[str] = None
-    logout_city: Optional[str] = None
-    logout_district: Optional[str] = None
-    logout_state: Optional[str] = None
-    logout_country: Optional[str] = None
-    logout_pincode: Optional[str] = None
-    logout_full_address: Optional[str] = None
-    logout_accuracy: Optional[float] = None
-    logout_location_source: Optional[str] = "WINDOWS_LOCATION"
-    logout_location_timestamp: Optional[datetime] = None
-    lunch_out_time: Optional[datetime] = None
-    lunch_in_time: Optional[datetime] = None
-    lunch_out: Optional[str] = None
-    lunch_in: Optional[str] = None
-    logout_selfie_url: Optional[str] = None
-    total_working_minutes: Optional[int] = None
-    status: Optional[str] = "Completed"
-
-
-class AttendanceLunchPunch(BaseModel):
-    sales_executive_id: Optional[int] = None
-    executive_id: Optional[int] = None
-    employee_id: Optional[int] = None
-    employee_name: Optional[str] = None
-    attendance_date: Optional[date] = None
-    action: str  # "lunch_out" | "lunch_in"
-    punch_type: Optional[str] = None
-    punch_time: Optional[datetime] = None
-    latitude: Optional[float] = None
-    longitude: Optional[float] = None
-    area: Optional[str] = None
-    city: Optional[str] = None
-    district: Optional[str] = None
-    state: Optional[str] = None
-    country: Optional[str] = "India"
-    pincode: Optional[str] = None
-    full_address: Optional[str] = None
-    location_accuracy: Optional[float] = None
-    location_source: Optional[str] = "WINDOWS_LOCATION"
-    location_timestamp: Optional[datetime] = None
-    selfie_url: Optional[str] = None
-    lunch_selfie_url: Optional[str] = None
-
-
-class AttendanceCreate(BaseModel):
-    executive_id: Optional[int] = None
-    employee_id: Optional[int] = None
-    executive_name: Optional[str] = None
-    employee_name: Optional[str] = None
-    attendance_date: date
-    login_time: Optional[datetime] = None
-    logout_time: Optional[datetime] = None
-    lunch_out_time: Optional[datetime] = None
-    lunch_in_time: Optional[datetime] = None
-    lunch_out: Optional[str] = None
-    lunch_in: Optional[str] = None
-    latitude: Optional[float] = None
-    longitude: Optional[float] = None
-    area: Optional[str] = None
-    city: Optional[str] = None
-    state: Optional[str] = None
-    country: Optional[str] = "India"
-    pincode: Optional[str] = None
-    full_address: Optional[str] = None
-    location_accuracy: Optional[float] = None
-    location_timestamp: Optional[datetime] = None
-    login_latitude: Optional[float] = None
-    login_longitude: Optional[float] = None
-    login_area: Optional[str] = None
-    login_city: Optional[str] = None
-    login_state: Optional[str] = None
-    login_country: Optional[str] = None
-    login_pincode: Optional[str] = None
-    login_full_address: Optional[str] = None
-    login_accuracy: Optional[float] = None
-    logout_latitude: Optional[float] = None
-    logout_longitude: Optional[float] = None
-    logout_area: Optional[str] = None
-    logout_city: Optional[str] = None
-    logout_state: Optional[str] = None
-    logout_country: Optional[str] = None
-    logout_pincode: Optional[str] = None
-    logout_full_address: Optional[str] = None
-    logout_accuracy: Optional[float] = None
-    login_selfie_url: Optional[str] = None
-    logout_selfie_url: Optional[str] = None
-    total_working_minutes: Optional[int] = None
-    status: Optional[str] = "Working"
-
-
-# =========================================================
-# ATTENDANCE BIOMETRIC SINGLE-FACE VERIFICATION ENGINE
-# =========================================================
-
-_face_classifier = None
-
-def get_face_classifier():
-    global _face_classifier
-    if _face_classifier is None:
-        try:
-            cascade_path = cv2.data.haarcascades + 'haarcascade_frontalface_alt2.xml'
-            _face_classifier = cv2.CascadeClassifier(cascade_path)
-            if _face_classifier.empty():
-                cascade_path = cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
-                _face_classifier = cv2.CascadeClassifier(cascade_path)
-        except Exception as e:
-            print("Failed to initialize CascadeClassifier:", e)
-    return _face_classifier
-
-def count_faces_in_image(image_data_url: str) -> int:
-    """
-    Returns detected face count (int) from a base64 data URL or image string using OpenCV Haar cascades.
-    Returns 0 if no face detected.
-    Returns 1 if single face detected.
-    Returns >1 if multiple faces detected.
-    """
-    if not image_data_url or not isinstance(image_data_url, str):
-        return 0
-    try:
-        if "," in image_data_url:
-            _, b64_str = image_data_url.split(",", 1)
-        else:
-            b64_str = image_data_url
-        raw_bytes = base64.b64decode(b64_str)
-        nparr = np.frombuffer(raw_bytes, np.uint8)
-        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-        if img is None:
-            return 0
-        h, w = img.shape[:2]
-        scale = min(1.0, 480 / max(h, w))
-        small = cv2.resize(img, (int(w * scale), int(h * scale)))
-        gray = cv2.cvtColor(small, cv2.COLOR_BGR2GRAY)
-        classifier = get_face_classifier()
-        if classifier is None or classifier.empty():
-            return 1
-        faces = classifier.detectMultiScale(
-            gray,
-            scaleFactor=1.1,
-            minNeighbors=5,
-            minSize=(28, 28)
-        )
-        return len(faces)
+            result["area"] = area or city
+            result["city"] = city or district or area
+            result["district"] = district or city
+            result["state"] = state
+            result["pincode"] = pincode
+            result["country"] = country
+            if result["area"] or result["city"]:
+                print(f"[Backend Geocode] BDC resolved: {lat},{lon} -> {result['area']}, {result['city']}, {result['state']}")
+                return result
     except Exception as e:
-        print("count_faces_in_image error:", e)
-        return 1
+        print("[Backend Geocode] BDC fallback notice:", e)
 
+    # 2. Fallback to OpenStreetMap Nominatim
+    try:
+        url = f"https://nominatim.openstreetmap.org/reverse?lat={lat}&lon={lon}&format=jsonv2&zoom=18&addressdetails=1&accept-language=en"
+        headers = {"User-Agent": "ZenveZippyCRM/1.0"}
+        r = requests.get(url, headers=headers, timeout=5)
+        if r.status_code == 200:
+            data = r.json()
+            addr = data.get("address", {})
+            area = addr.get("suburb") or addr.get("neighbourhood") or addr.get("locality") or addr.get("village") or addr.get("quarter") or addr.get("road") or ""
+            city = addr.get("city") or addr.get("town") or addr.get("municipality") or addr.get("city_district") or ""
+            district = addr.get("district") or addr.get("state_district") or addr.get("county") or ""
+            state = addr.get("state") or ""
+            pincode = addr.get("postcode") or ""
+            country = addr.get("country") or "India"
 
-class FaceCheckPayload(BaseModel):
-    image: str
+            result["area"] = area or city
+            result["city"] = city or district or area
+            result["district"] = district or city
+            result["state"] = state
+            result["pincode"] = pincode
+            result["country"] = country
+            print(f"[Backend Geocode] OSM resolved: {lat},{lon} -> {result['area']}, {result['city']}")
+    except Exception as e:
+        print("[Backend Geocode] Nominatim fallback notice:", e)
 
-@app.post("/attendance/check-face")
-def check_face_api(payload: FaceCheckPayload):
-    count = count_faces_in_image(payload.image)
-    if count == 0:
-        return {
-            "face_count": 0,
-            "is_valid": False,
-            "status": "no_face",
-            "message": "No face detected in the frame. Please look directly at the camera with good lighting."
-        }
-    elif count == 1:
-        return {
-            "face_count": 1,
-            "is_valid": True,
-            "status": "valid",
-            "message": "Single member face verified successfully."
-        }
-    else:
-        return {
-            "face_count": count,
-            "is_valid": False,
-            "status": "multiple_faces",
-            "message": f"Multiple faces detected ({count} faces found). Only one member face is accepted for attendance login. Please ensure only you are in the frame."
-        }
-
+    return result
 
 @app.get("/reverse-geocode")
-def reverse_geocode_api(lat: float, lng: float):
-    if lat is None or lng is None:
-        raise HTTPException(status_code=400, detail="lat and lng query parameters required")
+def api_reverse_geocode(lat: float, lng: float):
+    geo = reverse_geocode(lat, lng)
+    parts = [p for p in [geo["area"], geo["city"], geo["state"]] if p]
+    display_addr = ", ".join(parts) if parts else f"{lat:.6f}, {lng:.6f}"
+    if geo["pincode"]:
+        display_addr += f" - {geo['pincode']}"
+    return {
+        **geo,
+        "display_address": display_addr,
+        "formatted_address": display_addr,
+        "full_address": f"{display_addr}, {geo.get('country', 'India')}"
+    }
 
-    # 1. Try BigDataCloud reverse geocoding API
+def save_base64_image(b64_str: str) -> str:
+    if not b64_str: return ""
     try:
-        url = f"https://api.bigdatacloud.net/data/reverse-geocode-client?latitude={lat}&longitude={lng}&localityLanguage=en"
-        req = urllib.request.Request(url, headers={"User-Agent": "ZippyCRM-Attendance/1.0"})
-        with urllib.request.urlopen(req, timeout=5) as response:
-            if response.status == 200:
-                bdc_data = json.loads(response.read().decode())
-                area = (bdc_data.get("locality") or "").strip()
-                if not area and bdc_data.get("localityInfo", {}).get("informative"):
-                    wanted_regex = re.compile(r"(neighbo|suburb|quarter|ward|locality|village|sub-?district|taluk|tehsil|mandal)", re.I)
-                    for item in reversed(bdc_data["localityInfo"]["informative"]):
-                        if wanted_regex.search(item.get("description", "")) and item.get("name"):
-                            area = item["name"].strip()
-                            break
-
-                city = (bdc_data.get("city") or "").strip()
-                district = ""
-                if bdc_data.get("localityInfo", {}).get("administrative"):
-                    dist_regex = re.compile(r"district|county", re.I)
-                    for adm in bdc_data["localityInfo"]["administrative"]:
-                        if dist_regex.search(adm.get("description", "")) and adm.get("name"):
-                            district = adm["name"].strip()
-                            break
-
-                state = (bdc_data.get("principalSubdivision") or "").strip()
-                pincode = (bdc_data.get("postcode") or "").strip()
-                country = (bdc_data.get("countryName") or "India").strip()
-
-                parts = [p for p in [area or district, city, state] if p]
-                full_address = ", ".join(parts)
-                if country and not full_address.endswith(country):
-                    full_address += f", {country}"
-
-                return {
-                    "area": area or district or city,
-                    "city": city or district,
-                    "district": district,
-                    "state": state,
-                    "region": state,
-                    "pincode": pincode,
-                    "country": country,
-                    "full_address": full_address,
-                    "formatted_address": full_address,
-                    "display_address": full_address,
-                }
+        if "," in b64_str:
+            b64_str = b64_str.split(",")[1]
+        img_data = base64.b64decode(b64_str)
+        filename = f"{uuid.uuid4().hex}.jpg"
+        filepath = os.path.join("uploads", filename)
+        with open(filepath, "wb") as f:
+            f.write(img_data)
+        return f"/uploads/{filename}"
     except Exception as e:
-        print("Backend reverse-geocode BigDataCloud error:", e)
+        print("Image save error:", e)
+        return ""
 
-    # 2. Try Nominatim
-    try:
-        url = f"https://nominatim.openstreetmap.org/reverse?lat={lat}&lon={lng}&format=jsonv2&zoom=18&addressdetails=1&accept-language=en"
-        req = urllib.request.Request(url, headers={"User-Agent": "ZippyCRM-Attendance/1.0 (contact@zippyhealth.in)"})
-        with urllib.request.urlopen(req, timeout=5) as response:
-            if response.status == 200:
-                osm = json.loads(response.read().decode())
-                a = osm.get("address", {})
-                area = a.get("neighbourhood") or a.get("suburb") or a.get("locality") or a.get("village") or a.get("quarter") or a.get("hamlet") or a.get("road") or ""
-                city = a.get("city") or a.get("town") or a.get("municipality") or a.get("city_district") or ""
-                district = a.get("district") or a.get("state_district") or a.get("county") or ""
-                state = a.get("state") or ""
-                pincode = a.get("postcode") or ""
-                country = a.get("country") or "India"
-                full_address = osm.get("display_name") or ", ".join([p for p in [area, city, state, country] if p])
-                return {
-                    "area": area or district or city,
-                    "city": city or district,
-                    "district": district,
-                    "state": state,
-                    "region": state,
-                    "pincode": pincode,
-                    "country": country,
-                    "full_address": full_address,
-                    "formatted_address": full_address,
-                    "display_address": full_address,
-                }
-    except Exception as e:
-        print("Backend reverse-geocode Nominatim error:", e)
-
-    raise HTTPException(status_code=502, detail="Unable to reverse geocode the given coordinates.")
-
-
-def validate_attendance_location_and_payload(
-    lat, lng, acc, attendance_type, live_photo=None, require_photo=True
-):
-    """
-    Validates attendance event location according to Business Requirements:
-    1. Sales Executives can punch attendance from ANY physical location (NO fixed office, NO office distance check).
-    2. Coordinates must be valid (latitude -90..90, longitude -180..180).
-    3. Accuracy must be a positive number and <= 500m (MAX_LOCATION_ACCURACY_METERS).
-    4. Attendance type must be present.
-    5. Live photo is required if require_photo is True.
-    """
-    if not attendance_type:
-        raise HTTPException(status_code=400, detail="Missing required attendance type.")
-
-    if lat is None or lng is None:
-        raise HTTPException(status_code=400, detail="Current latitude and longitude coordinates are required.")
-
-    try:
-        lat_f = float(lat)
-        lng_f = float(lng)
-    except (ValueError, TypeError):
-        raise HTTPException(status_code=400, detail="Latitude and longitude must be valid numeric coordinates.")
-
-    if np.isnan(lat_f) or np.isnan(lng_f):
-        raise HTTPException(status_code=400, detail="Latitude and longitude coordinates cannot be NaN.")
-
-    if lat_f < -90 or lat_f > 90:
-        raise HTTPException(status_code=400, detail=f"Invalid latitude ({lat_f}): must be between -90 and 90 degrees.")
-
-    if lng_f < -180 or lng_f > 180:
-        raise HTTPException(status_code=400, detail=f"Invalid longitude ({lng_f}): must be between -180 and 180 degrees.")
-
-    if acc is None:
-        raise HTTPException(status_code=400, detail="Location accuracy is required for attendance validation.")
-
-    try:
-        acc_f = float(acc)
-    except (ValueError, TypeError):
-        raise HTTPException(status_code=400, detail="Location accuracy must be a valid numeric measurement.")
-
-    if np.isnan(acc_f) or acc_f <= 0:
-        raise HTTPException(status_code=400, detail="Location accuracy must be a valid positive number.")
-
-    if acc_f > 500:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Attendance rejected: Location accuracy is too low (±{round(acc_f)}m). Maximum allowed accuracy is 500m. Please wait a few seconds and try again."
-        )
-
-    if require_photo and not live_photo:
-        raise HTTPException(status_code=400, detail="Live attendance photo is required.")
-
-    return lat_f, lng_f, acc_f
-
-
-@app.post("/attendance/punch-in")
-def attendance_punch_in(payload: AttendancePunchIn, db: Session = Depends(get_db)):
-    exec_id = payload.sales_executive_id or payload.executive_id or payload.employee_id
+def _execute_punch_in(req: AttendanceActionRequest, db: Session):
+    exec_id = req.sales_executive_id or req.executive_id or req.employee_id
     if not exec_id:
-        raise HTTPException(status_code=400, detail="Executive / employee ID is required")
+        raise HTTPException(400, "sales_executive_id or executive_id is required")
 
-    exec_obj = db.query(SalesExecutive).filter(SalesExecutive.id == exec_id).first()
-    if not exec_obj:
-        raise HTTPException(status_code=404, detail="Sales executive not found")
+    exec_record = db.query(SalesExecutive).filter(SalesExecutive.id == exec_id).first()
+    if not exec_record:
+        raise HTTPException(404, "Sales Executive not found")
 
-    # Enforce strictly ONE member face only
-    if payload.login_selfie_url:
-        f_count = count_faces_in_image(payload.login_selfie_url)
-        if f_count > 1:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Attendance rejected: Multiple faces detected ({f_count} faces found). Only one member face is accepted for attendance login."
-            )
-        elif f_count == 0:
-            raise HTTPException(
-                status_code=400,
-                detail="Attendance rejected: No face detected in the image. Attendance login requires exactly one clear member face."
-            )
+    today = datetime.now(ZoneInfo("Asia/Kolkata")).date()
+    existing = db.query(Attendance).filter(Attendance.executive_id == exec_id, Attendance.attendance_date == today).first()
+    if existing:
+        raise HTTPException(400, "Already logged in / punched in for today")
 
-    today_val = payload.attendance_date or datetime.now(ZoneInfo("Asia/Kolkata")).date()
-    login_dt = parse_ist_datetime(payload.login_time or payload.punch_time)
-    now_ts = datetime.now(ZoneInfo("Asia/Kolkata")).replace(tzinfo=None)
-    loc_ts = parse_ist_datetime(payload.location_timestamp or payload.punch_time or payload.login_time) or now_ts
+    # Real-time reverse geocoding
+    geo = reverse_geocode(req.latitude, req.longitude)
+    area = req.area or geo.get("area") or ""
+    city = req.city or geo.get("city") or ""
+    district = req.district or geo.get("district") or ""
+    state = req.state or geo.get("state") or ""
+    pincode = req.pincode or geo.get("pincode") or ""
+    accuracy = req.accuracy if req.accuracy is not None else req.location_accuracy
 
-    lat = payload.latitude if payload.latitude is not None else payload.login_latitude
-    lng = payload.longitude if payload.longitude is not None else payload.login_longitude
-    area = payload.area or payload.login_area
-    city = payload.city or payload.login_city
-    district = payload.district or payload.login_district
-    state = payload.state or payload.login_state
-    country = payload.country or payload.login_country or "India"
-    pincode = payload.pincode or payload.login_pincode
-    full_addr = payload.full_address or payload.login_full_address or area
-    acc = payload.location_accuracy if payload.location_accuracy is not None else payload.login_accuracy
-    loc_source = payload.location_source or payload.login_location_source or "BROWSER_GEOLOCATION"
+    selfie_url = req.selfie_url or (save_base64_image(req.selfie_data) if req.selfie_data else "")
+    now = datetime.now(ZoneInfo("Asia/Kolkata")).replace(tzinfo=None)
 
-    # Validate location, coordinates, accuracy <= 500m, attendance type, and required photo
-    lat, lng, acc = validate_attendance_location_and_payload(
-        lat=lat,
-        lng=lng,
-        acc=acc,
-        attendance_type=payload.punch_type or "PUNCH_IN",
-        live_photo=payload.login_selfie_url,
-        require_photo=True,
+    print(f"[Attendance Punch In] Exec {exec_id} ({exec_record.name}) at {now} | Lat: {req.latitude}, Lng: {req.longitude}, Acc: {accuracy}m | {area}, {city}, {state}, {pincode}")
+
+    att = Attendance(
+        executive_id=exec_id,
+        attendance_date=today,
+        login_time=now,
+        login_latitude=req.latitude,
+        login_longitude=req.longitude,
+        login_accuracy=accuracy,
+        login_area=area,
+        login_city=city,
+        login_district=district,
+        login_state=state,
+        login_pincode=pincode,
+        punch_in_time=now,
+        punch_in_latitude=req.latitude,
+        punch_in_longitude=req.longitude,
+        punch_in_accuracy=accuracy,
+        punch_in_area=area,
+        punch_in_city=city,
+        punch_in_district=district,
+        punch_in_state=state,
+        punch_in_pincode=pincode,
+        login_selfie_url=selfie_url,
+        status="LOGGED_IN"
     )
+    db.add(att)
+    db.commit()
+    db.refresh(att)
+    return plan_response(att)
 
-    record = db.query(Attendance).filter(
-        Attendance.executive_id == exec_id,
-        Attendance.attendance_date == today_val
-    ).first()
+def _execute_lunch_out(req: AttendanceActionRequest, db: Session):
+    exec_id = req.sales_executive_id or req.executive_id or req.employee_id
+    if not exec_id:
+        raise HTTPException(400, "sales_executive_id or executive_id is required")
 
-    def _apply_in_fields(rec):
-        setattr(rec, "executive_name", exec_obj.name)
-        setattr(rec, "executive_code", exec_obj.code)
-        setattr(rec, "login_time", login_dt)
-        if lat is not None:
-            setattr(rec, "latitude", lat)
-            setattr(rec, "login_latitude", lat)
-        if lng is not None:
-            setattr(rec, "longitude", lng)
-            setattr(rec, "login_longitude", lng)
-        if area:
-            setattr(rec, "area", area)
-            setattr(rec, "login_area", area)
-        if city:
-            setattr(rec, "city", city)
-            setattr(rec, "login_city", city)
-        if district:
-            setattr(rec, "district", district)
-            setattr(rec, "login_district", district)
-        if state:
-            setattr(rec, "state", state)
-            setattr(rec, "login_state", state)
-        if country:
-            setattr(rec, "country", country)
-            setattr(rec, "login_country", country)
-        if pincode:
-            setattr(rec, "pincode", pincode)
-            setattr(rec, "login_pincode", pincode)
-        if full_addr:
-            setattr(rec, "full_address", full_addr)
-            setattr(rec, "login_full_address", full_addr)
-        if acc is not None:
-            setattr(rec, "location_accuracy", acc)
-            setattr(rec, "login_accuracy", acc)
-        if loc_source:
-            setattr(rec, "location_source", loc_source)
-            setattr(rec, "login_location_source", loc_source)
-        setattr(rec, "location_timestamp", loc_ts)
-        setattr(rec, "login_location_timestamp", loc_ts)
-        if payload.login_selfie_url:
-            setattr(rec, "login_selfie_url", payload.login_selfie_url)
-        setattr(rec, "status", payload.status or "Working")
-        setattr(rec, "updated_at", now_ts)
+    today = datetime.now(ZoneInfo("Asia/Kolkata")).date()
+    att: Any = db.query(Attendance).filter(Attendance.executive_id == exec_id, Attendance.attendance_date == today).first()
+    if not att:
+        raise HTTPException(400, "No active login found for today")
+    if att.status == "LOGGED_OUT":
+        raise HTTPException(400, "Already logged out")
+    if att.lunch_out_time:
+        raise HTTPException(400, "Already recorded lunch out")
 
-    if record:
-        _apply_in_fields(record)
-    else:
-        record = Attendance(
-            executive_id=exec_id,
-            executive_name=exec_obj.name,
-            executive_code=exec_obj.code,
-            attendance_date=today_val,
-            login_time=login_dt,
-            latitude=lat,
-            longitude=lng,
-            area=area,
-            city=city,
-            district=district,
-            state=state,
-            country=country,
-            pincode=pincode,
-            full_address=full_addr,
-            location_accuracy=acc,
-            location_source=loc_source,
-            location_timestamp=loc_ts,
-            login_latitude=lat,
-            login_longitude=lng,
-            login_area=area,
-            login_city=city,
-            login_district=district,
-            login_state=state,
-            login_country=country,
-            login_pincode=pincode,
-            login_full_address=full_addr,
-            login_accuracy=acc,
-            login_location_source=loc_source,
-            login_location_timestamp=loc_ts,
-            login_selfie_url=payload.login_selfie_url,
-            status=payload.status or "Working",
-            created_at=now_ts,
-            updated_at=now_ts
-        )
-        db.add(record)
+    geo = reverse_geocode(req.latitude, req.longitude)
+    area = req.area or geo.get("area") or ""
+    city = req.city or geo.get("city") or ""
+    district = req.district or geo.get("district") or ""
+    state = req.state or geo.get("state") or ""
+    pincode = req.pincode or geo.get("pincode") or ""
+    accuracy = req.accuracy if req.accuracy is not None else req.location_accuracy
 
-    try:
-        db.commit()
-    except Exception:
-        db.rollback()
-        record = db.query(Attendance).filter(
-            Attendance.executive_id == exec_id,
-            Attendance.attendance_date == today_val
-        ).first()
-        if record:
-            _apply_in_fields(record)
-            db.commit()
+    selfie_url = req.selfie_url or (save_base64_image(req.selfie_data) if req.selfie_data else "")
+    now = datetime.now(ZoneInfo("Asia/Kolkata")).replace(tzinfo=None)
 
-    db.refresh(record)
+    print(f"[Attendance Lunch Out] Exec {exec_id} at {now} | Lat: {req.latitude}, Lng: {req.longitude}, Acc: {accuracy}m | {area}, {city}")
 
-    # Automatically generate executive punch-in alert for CRM Dashboard
-    try:
-        time_str = login_dt.strftime("%I:%M:%S %p") if login_dt else now_ts.strftime("%I:%M:%S %p")
-        punch_loc = area or "Verified Field Location"
-        alert_in = ExecutiveAlert(
-            title=f"Punch In: {exec_obj.name}",
-            severity="success",
-            entity_type="attendance_punch",
-            pincode=pincode or exec_obj.pincode or "",
-            is_read=False,
-            message=f"{exec_obj.name} ({exec_obj.code or f'ID-{exec_obj.id}'}) punched IN at {time_str} from {punch_loc}",
-            executive_name=exec_obj.name,
-            executive_code=exec_obj.code or f"ID-{exec_obj.id}",
-            location=punch_loc,
-            punch_type="Punch In",
-            punch_time=time_str,
-            created_at=now_ts,
-        )
-        db.add(alert_in)
-        db.commit()
-    except Exception as e:
-        print("Warning: Failed to create punch-in alert:", e)
+    att.lunch_out_time = now
+    att.lunch_out_latitude = req.latitude
+    att.lunch_out_longitude = req.longitude
+    att.lunch_out_accuracy = accuracy
+    att.lunch_out_area = area
+    att.lunch_out_city = city
+    att.lunch_out_district = district
+    att.lunch_out_state = state
+    att.lunch_out_pincode = pincode
+    if selfie_url:
+        att.lunch_out_selfie_url = selfie_url
+    att.status = "LUNCH_OUT"
 
-    resp = model_response(record)
-    resp["executive_name"] = exec_obj.name
-    resp["executive_code"] = exec_obj.code
-    return resp
+    db.commit()
+    db.refresh(att)
+    return plan_response(att)
 
+def _execute_lunch_in(req: AttendanceActionRequest, db: Session):
+    exec_id = req.sales_executive_id or req.executive_id or req.employee_id
+    if not exec_id:
+        raise HTTPException(400, "sales_executive_id or executive_id is required")
+
+    today = datetime.now(ZoneInfo("Asia/Kolkata")).date()
+    att: Any = db.query(Attendance).filter(Attendance.executive_id == exec_id, Attendance.attendance_date == today).first()
+    if not att:
+        raise HTTPException(400, "No active login found for today")
+    if att.status == "LOGGED_OUT":
+        raise HTTPException(400, "Already logged out")
+    if not att.lunch_out_time:
+        raise HTTPException(400, "Did not record lunch out yet")
+    if att.lunch_in_time:
+        raise HTTPException(400, "Already recorded lunch in")
+
+    geo = reverse_geocode(req.latitude, req.longitude)
+    area = req.area or geo.get("area") or ""
+    city = req.city or geo.get("city") or ""
+    district = req.district or geo.get("district") or ""
+    state = req.state or geo.get("state") or ""
+    pincode = req.pincode or geo.get("pincode") or ""
+    accuracy = req.accuracy if req.accuracy is not None else req.location_accuracy
+
+    selfie_url = req.selfie_url or (save_base64_image(req.selfie_data) if req.selfie_data else "")
+    now = datetime.now(ZoneInfo("Asia/Kolkata")).replace(tzinfo=None)
+
+    print(f"[Attendance Lunch In] Exec {exec_id} at {now} | Lat: {req.latitude}, Lng: {req.longitude}, Acc: {accuracy}m | {area}, {city}")
+
+    att.lunch_in_time = now
+    att.lunch_in_latitude = req.latitude
+    att.lunch_in_longitude = req.longitude
+    att.lunch_in_accuracy = accuracy
+    att.lunch_in_area = area
+    att.lunch_in_city = city
+    att.lunch_in_district = district
+    att.lunch_in_state = state
+    att.lunch_in_pincode = pincode
+    if selfie_url:
+        att.lunch_in_selfie_url = selfie_url
+    att.status = "LOGGED_IN"
+
+    db.commit()
+    db.refresh(att)
+    return plan_response(att)
+
+def _execute_punch_out(req: AttendanceActionRequest, db: Session):
+    exec_id = req.sales_executive_id or req.executive_id or req.employee_id
+    if not exec_id:
+        raise HTTPException(400, "sales_executive_id or executive_id is required")
+
+    today = datetime.now(ZoneInfo("Asia/Kolkata")).date()
+    att: Any = db.query(Attendance).filter(Attendance.executive_id == exec_id, Attendance.attendance_date == today).first()
+    if not att:
+        raise HTTPException(400, "No active login found for today")
+    if att.status == "LOGGED_OUT":
+        raise HTTPException(400, "Already logged out")
+
+    geo = reverse_geocode(req.latitude, req.longitude)
+    area = req.area or geo.get("area") or ""
+    city = req.city or geo.get("city") or ""
+    district = req.district or geo.get("district") or ""
+    state = req.state or geo.get("state") or ""
+    pincode = req.pincode or geo.get("pincode") or ""
+    accuracy = req.accuracy if req.accuracy is not None else req.location_accuracy
+
+    selfie_url = req.selfie_url or (save_base64_image(req.selfie_data) if req.selfie_data else "")
+    now = datetime.now(ZoneInfo("Asia/Kolkata")).replace(tzinfo=None)
+
+    print(f"[Attendance Punch Out] Exec {exec_id} at {now} | Lat: {req.latitude}, Lng: {req.longitude}, Acc: {accuracy}m | {area}, {city}")
+
+    att.logout_time = now
+    att.logout_latitude = req.latitude
+    att.logout_longitude = req.longitude
+    att.logout_accuracy = accuracy
+    att.logout_area = area
+    att.logout_city = city
+    att.logout_district = district
+    att.logout_state = state
+    att.logout_pincode = pincode
+
+    att.punch_out_time = now
+    att.punch_out_latitude = req.latitude
+    att.punch_out_longitude = req.longitude
+    att.punch_out_accuracy = accuracy
+    att.punch_out_area = area
+    att.punch_out_city = city
+    att.punch_out_district = district
+    att.punch_out_state = state
+    att.punch_out_pincode = pincode
+
+    if selfie_url:
+        att.logout_selfie_url = selfie_url
+    att.status = "LOGGED_OUT"
+
+    if att.login_time:
+        diff = now - att.login_time
+        att.total_working_minutes = int(diff.total_seconds() / 60)
+
+    db.commit()
+    db.refresh(att)
+    return plan_response(att)
+
+# Primary & Alias Attendance Action Endpoints
+@app.post("/attendance/punch-in")
+@app.post("/api/attendance/punch-in")
+@app.post("/api/attendance/login")
+def attendance_punch_in(req: AttendanceActionRequest, db: Session = Depends(get_db)):
+    return _execute_punch_in(req, db)
 
 @app.post("/attendance/punch-out")
-def attendance_punch_out(payload: AttendancePunchOut, db: Session = Depends(get_db)):
-    exec_id = payload.sales_executive_id or payload.executive_id or payload.employee_id
-    if not exec_id:
-        raise HTTPException(status_code=400, detail="Executive / employee ID is required")
+@app.post("/api/attendance/punch-out")
+@app.post("/api/attendance/logout")
+def attendance_punch_out(req: AttendanceActionRequest, db: Session = Depends(get_db)):
+    return _execute_punch_out(req, db)
 
-    exec_obj = db.query(SalesExecutive).filter(SalesExecutive.id == exec_id).first()
-    if not exec_obj:
-        raise HTTPException(status_code=404, detail="Sales executive not found")
+@app.post("/attendance/lunch-out")
+@app.post("/api/attendance/lunch-out")
+def attendance_lunch_out(req: AttendanceActionRequest, db: Session = Depends(get_db)):
+    return _execute_lunch_out(req, db)
 
-    # Enforce strictly ONE member face only
-    if payload.logout_selfie_url:
-        f_count = count_faces_in_image(payload.logout_selfie_url)
-        if f_count > 1:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Attendance rejected: Multiple faces detected ({f_count} faces found). Only one member face is accepted for attendance logout."
-            )
-        elif f_count == 0:
-            raise HTTPException(
-                status_code=400,
-                detail="Attendance rejected: No face detected in the image. Attendance logout requires exactly one clear member face."
-            )
-
-    today_val = payload.attendance_date or datetime.now(ZoneInfo("Asia/Kolkata")).date()
-    logout_dt = parse_ist_datetime(payload.logout_time or payload.punch_time)
-    now_ts = datetime.now(ZoneInfo("Asia/Kolkata")).replace(tzinfo=None)
-    loc_ts = parse_ist_datetime(payload.location_timestamp or payload.punch_time or payload.logout_time) or now_ts
-
-    lat = payload.latitude if payload.latitude is not None else payload.logout_latitude
-    lng = payload.longitude if payload.longitude is not None else payload.logout_longitude
-    area = payload.area or payload.logout_area
-    city = payload.city or payload.logout_city
-    district = payload.district or payload.logout_district
-    state = payload.state or payload.logout_state
-    country = payload.country or payload.logout_country or "India"
-    pincode = payload.pincode or payload.logout_pincode
-    full_addr = payload.full_address or payload.logout_full_address or area
-    acc = payload.location_accuracy if payload.location_accuracy is not None else payload.logout_accuracy
-    loc_source = payload.location_source or payload.logout_location_source or "BROWSER_GEOLOCATION"
-
-    # Validate location, coordinates, accuracy <= 500m, attendance type, and required photo
-    lat, lng, acc = validate_attendance_location_and_payload(
-        lat=lat,
-        lng=lng,
-        acc=acc,
-        attendance_type=payload.punch_type or "PUNCH_OUT",
-        live_photo=payload.logout_selfie_url,
-        require_photo=True,
-    )
-
-    record = db.query(Attendance).filter(
-        Attendance.executive_id == exec_id,
-        Attendance.attendance_date == today_val
-    ).first()
-
-    def _apply_out_fields(rec):
-        setattr(rec, "executive_name", exec_obj.name)
-        setattr(rec, "executive_code", exec_obj.code)
-        setattr(rec, "logout_time", logout_dt)
-        # If punch in was not previously performed, populate base coordinates as fallback
-        if getattr(rec, "latitude", None) is None and lat is not None:
-            setattr(rec, "latitude", lat)
-        if getattr(rec, "longitude", None) is None and lng is not None:
-            setattr(rec, "longitude", lng)
-        if not getattr(rec, "area", None) and area:
-            setattr(rec, "area", area)
-        if not getattr(rec, "city", None) and city:
-            setattr(rec, "city", city)
-        if not getattr(rec, "district", None) and district:
-            setattr(rec, "district", district)
-        if not getattr(rec, "state", None) and state:
-            setattr(rec, "state", state)
-        if not getattr(rec, "country", None) and country:
-            setattr(rec, "country", country)
-        if not getattr(rec, "pincode", None) and pincode:
-            setattr(rec, "pincode", pincode)
-        if not getattr(rec, "full_address", None) and full_addr:
-            setattr(rec, "full_address", full_addr)
-        if getattr(rec, "location_accuracy", None) is None and acc is not None:
-            setattr(rec, "location_accuracy", acc)
-        if not getattr(rec, "location_source", None) and loc_source:
-            setattr(rec, "location_source", loc_source)
-        if getattr(rec, "location_timestamp", None) is None:
-            setattr(rec, "location_timestamp", loc_ts)
-
-        # Strictly record punch out location in logout_* columns
-        if lat is not None:
-            setattr(rec, "logout_latitude", lat)
-        if lng is not None:
-            setattr(rec, "logout_longitude", lng)
-        if area:
-            setattr(rec, "logout_area", area)
-        if city:
-            setattr(rec, "logout_city", city)
-        if district:
-            setattr(rec, "logout_district", district)
-        if state:
-            setattr(rec, "logout_state", state)
-        if country:
-            setattr(rec, "logout_country", country)
-        if pincode:
-            setattr(rec, "logout_pincode", pincode)
-        if full_addr:
-            setattr(rec, "logout_full_address", full_addr)
-        if acc is not None:
-            setattr(rec, "logout_accuracy", acc)
-        if loc_source:
-            setattr(rec, "logout_location_source", loc_source)
-        setattr(rec, "logout_location_timestamp", loc_ts)
-        if payload.logout_selfie_url:
-            setattr(rec, "logout_selfie_url", payload.logout_selfie_url)
-        if payload.total_working_minutes is not None:
-            setattr(rec, "total_working_minutes", payload.total_working_minutes)
-        elif getattr(rec, "login_time", None) is not None and logout_dt:
-            diff = (logout_dt - getattr(rec, "login_time")).total_seconds()
-            setattr(rec, "total_working_minutes", max(0, int(diff / 60)))
-        setattr(rec, "status", payload.status or "Completed")
-        setattr(rec, "updated_at", now_ts)
-
-    if not record:
-        record = Attendance(
-            executive_id=exec_id,
-            executive_name=exec_obj.name,
-            executive_code=exec_obj.code,
-            attendance_date=today_val,
-            logout_time=logout_dt,
-            latitude=lat,
-            longitude=lng,
-            area=area,
-            city=city,
-            district=district,
-            state=state,
-            country=country,
-            pincode=pincode,
-            full_address=full_addr,
-            location_accuracy=acc,
-            location_source=loc_source,
-            location_timestamp=loc_ts,
-            logout_latitude=lat,
-            logout_longitude=lng,
-            logout_area=area,
-            logout_city=city,
-            logout_district=district,
-            logout_state=state,
-            logout_country=country,
-            logout_pincode=pincode,
-            logout_full_address=full_addr,
-            logout_accuracy=acc,
-            logout_location_source=loc_source,
-            logout_location_timestamp=loc_ts,
-            logout_selfie_url=payload.logout_selfie_url,
-            total_working_minutes=payload.total_working_minutes or 0,
-            status=payload.status or "Completed",
-            created_at=now_ts,
-            updated_at=now_ts
-        )
-        db.add(record)
-    else:
-        _apply_out_fields(record)
-
-    try:
-        db.commit()
-    except Exception:
-        db.rollback()
-        record = db.query(Attendance).filter(
-            Attendance.executive_id == exec_id,
-            Attendance.attendance_date == today_val
-        ).first()
-        if record:
-            _apply_out_fields(record)
-            db.commit()
-
-    db.refresh(record)
-
-    # Automatically generate executive punch-out alert for CRM Dashboard
-    try:
-        time_str = logout_dt.strftime("%I:%M:%S %p") if logout_dt else now_ts.strftime("%I:%M:%S %p")
-        punch_loc = area or "Verified Field Location"
-        alert_out = ExecutiveAlert(
-            title=f"Punch Out: {exec_obj.name}",
-            severity="warning",
-            entity_type="attendance_punch",
-            pincode=pincode or exec_obj.pincode or "",
-            is_read=False,
-            message=f"{exec_obj.name} ({exec_obj.code or f'ID-{exec_obj.id}'}) punched OUT at {time_str} from {punch_loc}",
-            executive_name=exec_obj.name,
-            executive_code=exec_obj.code or f"ID-{exec_obj.id}",
-            location=punch_loc,
-            punch_type="Punch Out",
-            punch_time=time_str,
-            created_at=now_ts,
-        )
-        db.add(alert_out)
-        db.commit()
-    except Exception as e:
-        print("Warning: Failed to create punch-out alert:", e)
-
-    resp = model_response(record)
-    resp["executive_name"] = exec_obj.name
-    resp["executive_code"] = exec_obj.code
-    return resp
-
+@app.post("/attendance/lunch-in")
+@app.post("/api/attendance/lunch-in")
+def attendance_lunch_in(req: AttendanceActionRequest, db: Session = Depends(get_db)):
+    return _execute_lunch_in(req, db)
 
 @app.post("/attendance/lunch")
-def attendance_lunch_punch(payload: AttendanceLunchPunch, db: Session = Depends(get_db)):
-    exec_id = payload.sales_executive_id or payload.executive_id or payload.employee_id
-    if not exec_id:
-        raise HTTPException(status_code=400, detail="Executive / employee ID is required")
-
-    exec_obj = db.query(SalesExecutive).filter(SalesExecutive.id == exec_id).first()
-    if not exec_obj:
-        raise HTTPException(status_code=404, detail="Sales executive not found")
-
-    today_val = payload.attendance_date or datetime.now(ZoneInfo("Asia/Kolkata")).date()
-    punch_dt = parse_ist_datetime(payload.punch_time)
-    now_ts = datetime.now(ZoneInfo("Asia/Kolkata")).replace(tzinfo=None)
-    loc_ts = parse_ist_datetime(payload.location_timestamp or payload.punch_time) or now_ts
-
-    lat = payload.latitude
-    lng = payload.longitude
-    area = payload.area
-    city = payload.city
-    district = payload.district
-    state = payload.state
-    country = payload.country or "India"
-    pincode = payload.pincode
-    full_addr = payload.full_address or area
-    acc = payload.location_accuracy
-    loc_source = payload.location_source or "BROWSER_GEOLOCATION"
-    selfie_img = payload.selfie_url or payload.lunch_selfie_url
-
-    # Validate location, coordinates, accuracy <= 500m, and action type
-    lat, lng, acc = validate_attendance_location_and_payload(
-        lat=lat,
-        lng=lng,
-        acc=acc,
-        attendance_type=payload.action,
-        live_photo=selfie_img,
-        require_photo=False,
-    )
-
-    record = db.query(Attendance).filter(
-        Attendance.executive_id == exec_id,
-        Attendance.attendance_date == today_val
-    ).first()
-
-    if not record:
-        record = Attendance(
-            executive_id=exec_id,
-            executive_name=exec_obj.name,
-            executive_code=exec_obj.code,
-            attendance_date=today_val,
-            login_time=punch_dt,
-            created_at=now_ts,
-            updated_at=now_ts
-        )
-        db.add(record)
-
-    def _apply_lunch_fields(rec):
-        setattr(rec, "executive_name", exec_obj.name)
-        setattr(rec, "executive_code", exec_obj.code)
-        # If punch in was not previously performed, populate base coordinates as fallback
-        if getattr(rec, "latitude", None) is None and lat is not None:
-            setattr(rec, "latitude", lat)
-        if getattr(rec, "longitude", None) is None and lng is not None:
-            setattr(rec, "longitude", lng)
-        if not getattr(rec, "area", None) and area:
-            setattr(rec, "area", area)
-        if not getattr(rec, "city", None) and city:
-            setattr(rec, "city", city)
-        if not getattr(rec, "district", None) and district:
-            setattr(rec, "district", district)
-        if not getattr(rec, "state", None) and state:
-            setattr(rec, "state", state)
-        if not getattr(rec, "country", None) and country:
-            setattr(rec, "country", country)
-        if not getattr(rec, "pincode", None) and pincode:
-            setattr(rec, "pincode", pincode)
-        if not getattr(rec, "full_address", None) and full_addr:
-            setattr(rec, "full_address", full_addr)
-        if getattr(rec, "location_accuracy", None) is None and acc is not None:
-            setattr(rec, "location_accuracy", acc)
-        if not getattr(rec, "location_source", None) and loc_source:
-            setattr(rec, "location_source", loc_source)
-        if getattr(rec, "location_timestamp", None) is None:
-            setattr(rec, "location_timestamp", loc_ts)
-
-        if payload.action == "lunch_out":
-            setattr(rec, "lunch_out_time", punch_dt)
-            if lat is not None:
-                setattr(rec, "lunch_out_latitude", lat)
-            if lng is not None:
-                setattr(rec, "lunch_out_longitude", lng)
-            if area:
-                setattr(rec, "lunch_out_area", area)
-            if city:
-                setattr(rec, "lunch_out_city", city)
-            if district:
-                setattr(rec, "lunch_out_district", district)
-            if state:
-                setattr(rec, "lunch_out_state", state)
-            if country:
-                setattr(rec, "lunch_out_country", country)
-            if pincode:
-                setattr(rec, "lunch_out_pincode", pincode)
-            if full_addr:
-                setattr(rec, "lunch_out_full_address", full_addr)
-            if acc is not None:
-                setattr(rec, "lunch_out_accuracy", acc)
-            if loc_source:
-                setattr(rec, "lunch_out_location_source", loc_source)
-            setattr(rec, "lunch_out_location_timestamp", loc_ts)
-            if selfie_img:
-                setattr(rec, "lunch_out_selfie_url", selfie_img)
-        elif payload.action == "lunch_in":
-            setattr(rec, "lunch_in_time", punch_dt)
-            if lat is not None:
-                setattr(rec, "lunch_in_latitude", lat)
-            if lng is not None:
-                setattr(rec, "lunch_in_longitude", lng)
-            if area:
-                setattr(rec, "lunch_in_area", area)
-            if city:
-                setattr(rec, "lunch_in_city", city)
-            if district:
-                setattr(rec, "lunch_in_district", district)
-            if state:
-                setattr(rec, "lunch_in_state", state)
-            if country:
-                setattr(rec, "lunch_in_country", country)
-            if pincode:
-                setattr(rec, "lunch_in_pincode", pincode)
-            if full_addr:
-                setattr(rec, "lunch_in_full_address", full_addr)
-            if acc is not None:
-                setattr(rec, "lunch_in_accuracy", acc)
-            if loc_source:
-                setattr(rec, "lunch_in_location_source", loc_source)
-            setattr(rec, "lunch_in_location_timestamp", loc_ts)
-            if selfie_img:
-                setattr(rec, "lunch_in_selfie_url", selfie_img)
-        setattr(rec, "updated_at", now_ts)
-
-    _apply_lunch_fields(record)
-
-    try:
-        db.commit()
-    except Exception:
-        db.rollback()
-        record = db.query(Attendance).filter(
-            Attendance.executive_id == exec_id,
-            Attendance.attendance_date == today_val
-        ).first()
-        if record:
-            _apply_lunch_fields(record)
-            db.commit()
-
-    db.refresh(record)
-    resp = model_response(record)
-    resp["executive_name"] = exec_obj.name
-    resp["executive_code"] = exec_obj.code
-    return resp
-
-
-@app.get("/attendance")
-def get_all_attendance(
-    executive_id: Optional[int] = None,
-    attendance_date: Optional[date] = None,
-    db: Session = Depends(get_db)
-):
-    query = db.query(Attendance, SalesExecutive.name, SalesExecutive.code, SalesExecutive.region).join(
-        SalesExecutive, Attendance.executive_id == SalesExecutive.id, isouter=True
-    )
-    if executive_id:
-        query = query.filter(Attendance.executive_id == executive_id)
-    if attendance_date:
-        query = query.filter(Attendance.attendance_date == attendance_date)
-        
-    query = query.order_by(Attendance.attendance_date.desc(), Attendance.id.desc())
-    results = query.all()
-    
-    output = []
-    for att, exec_name, exec_code, exec_reg in results:
-        data = model_response(att)
-        data["executive_name"] = att.executive_name or exec_name or f"Executive {att.executive_id}"
-        data["executive_code"] = att.executive_code or exec_code or f"SE-{att.executive_id}"
-        data["region"] = exec_reg or "Tamil Nadu"
-        output.append(data)
-    return output
-
+def attendance_lunch(req: AttendanceActionRequest, db: Session = Depends(get_db)):
+    action = (req.action or req.punch_type or "").lower()
+    if "in" in action:
+        return _execute_lunch_in(req, db)
+    return _execute_lunch_out(req, db)
 
 @app.get("/attendance/today/{executive_id}")
-def get_today_attendance(executive_id: int, attendance_date: Optional[date] = None, db: Session = Depends(get_db)):
-    t_date = attendance_date or datetime.now(ZoneInfo("Asia/Kolkata")).date()
-    att = db.query(Attendance).filter(
-        Attendance.executive_id == executive_id,
-        Attendance.attendance_date == t_date
-    ).first()
+@app.get("/api/attendance/today")
+def get_today_attendance_route(executive_id: Optional[int] = None, db: Session = Depends(get_db)):
+    if not executive_id:
+        return None
+    today = datetime.now(ZoneInfo("Asia/Kolkata")).date()
+    att = db.query(Attendance).filter(Attendance.executive_id == executive_id, Attendance.attendance_date == today).first()
     if not att:
         return None
-    exec_obj = db.query(SalesExecutive).filter(SalesExecutive.id == executive_id).first()
-    resp = model_response(att)
-    if exec_obj:
-        resp["executive_name"] = att.executive_name or exec_obj.name
-        resp["executive_code"] = att.executive_code or exec_obj.code
-        resp["region"] = exec_obj.region
-    return resp
+    return plan_response(att)
 
+@app.get("/api/attendance/executive/{executive_id}")
+def get_executive_attendance(executive_id: int, db: Session = Depends(get_db)):
+    recs = db.query(Attendance).filter(Attendance.executive_id == executive_id).order_by(Attendance.attendance_date.desc()).all()
+    return [plan_response(r) for r in recs]
 
-@app.get("/attendance/{attendance_id}")
-def get_attendance_by_id(attendance_id: int, db: Session = Depends(get_db)):
-    rec = db.query(Attendance).filter(Attendance.id == attendance_id).first()
-    if not rec:
-        raise HTTPException(status_code=404, detail="Attendance record not found")
-    exec_obj = db.query(SalesExecutive).filter(SalesExecutive.id == rec.executive_id).first()
-    resp = model_response(rec)
-    if exec_obj:
-        resp["executive_name"] = rec.executive_name or exec_obj.name
-        resp["executive_code"] = rec.executive_code or exec_obj.code
-    return resp
-
-
-@app.post("/attendance")
-def create_attendance_record(payload: AttendanceCreate, db: Session = Depends(get_db)):
-    exec_obj = db.query(SalesExecutive).filter(SalesExecutive.id == payload.executive_id).first()
-    now_ts = datetime.now(ZoneInfo("Asia/Kolkata")).replace(tzinfo=None)
-    
-    rec = db.query(Attendance).filter(
-        Attendance.executive_id == payload.executive_id,
-        Attendance.attendance_date == payload.attendance_date
-    ).first()
-    
-    if rec:
-        if exec_obj:
-            setattr(rec, "executive_name", exec_obj.name)
-            setattr(rec, "executive_code", exec_obj.code)
-        if payload.login_time:
-            setattr(rec, "login_time", parse_ist_datetime(payload.login_time))
-        if payload.logout_time:
-            setattr(rec, "logout_time", parse_ist_datetime(payload.logout_time))
-        if payload.login_latitude is not None:
-            setattr(rec, "login_latitude", payload.login_latitude)
-        if payload.login_longitude is not None:
-            setattr(rec, "login_longitude", payload.login_longitude)
-        if payload.login_area:
-            setattr(rec, "login_area", payload.login_area)
-        if payload.logout_latitude is not None:
-            setattr(rec, "logout_latitude", payload.logout_latitude)
-        if payload.logout_longitude is not None:
-            setattr(rec, "logout_longitude", payload.logout_longitude)
-        if payload.logout_area:
-            setattr(rec, "logout_area", payload.logout_area)
-        if payload.login_selfie_url:
-            setattr(rec, "login_selfie_url", payload.login_selfie_url)
-        if payload.logout_selfie_url:
-            setattr(rec, "logout_selfie_url", payload.logout_selfie_url)
-        if payload.total_working_minutes is not None:
-            setattr(rec, "total_working_minutes", payload.total_working_minutes)
-        elif getattr(rec, "login_time", None) is not None and getattr(rec, "logout_time", None) is not None:
-            diff = (getattr(rec, "logout_time") - getattr(rec, "login_time")).total_seconds()
-            setattr(rec, "total_working_minutes", max(0, int(diff / 60)))
-        if payload.status:
-            setattr(rec, "status", payload.status)
-        setattr(rec, "updated_at", now_ts)
-    else:
-        rec = Attendance(
-            executive_id=payload.executive_id,
-            executive_name=exec_obj.name if exec_obj else f"Executive {payload.executive_id}",
-            executive_code=exec_obj.code if exec_obj else f"SE-{payload.executive_id}",
-            attendance_date=payload.attendance_date,
-            login_time=parse_ist_datetime(payload.login_time) if payload.login_time else None,
-            logout_time=parse_ist_datetime(payload.logout_time) if payload.logout_time else None,
-            login_latitude=payload.login_latitude,
-            login_longitude=payload.login_longitude,
-            login_area=payload.login_area,
-            logout_latitude=payload.logout_latitude,
-            logout_longitude=payload.logout_longitude,
-            logout_area=payload.logout_area,
-            login_selfie_url=payload.login_selfie_url,
-            logout_selfie_url=payload.logout_selfie_url,
-            total_working_minutes=payload.total_working_minutes,
-            status=payload.status or "Working",
-            created_at=now_ts,
-            updated_at=now_ts
-        )
-        db.add(rec)
-        
+@app.get("/api/attendance/date/{date_str}")
+def get_attendance_by_date(date_str: str, db: Session = Depends(get_db)):
     try:
-        db.commit()
-    except Exception:
-        db.rollback()
-        rec = db.query(Attendance).filter(
-            Attendance.executive_id == payload.executive_id,
-            Attendance.attendance_date == payload.attendance_date
-        ).first()
-        if rec:
-            if payload.login_time:
-                setattr(rec, "login_time", parse_ist_datetime(payload.login_time))
-            if payload.logout_time:
-                setattr(rec, "logout_time", parse_ist_datetime(payload.logout_time))
-            setattr(rec, "updated_at", now_ts)
-            db.commit()
-            
-    db.refresh(rec)
-    return model_response(rec)
+        dt = datetime.strptime(date_str, "%Y-%m-%d").date()
+    except:
+        raise HTTPException(400, "Invalid date format")
+    recs = db.query(Attendance).filter(Attendance.attendance_date == dt).all()
+    
+    execs = db.query(SalesExecutive).all()
+    exec_map = {e.id: e.name for e in execs}
+    
+    result = []
+    for r in recs:
+        d = plan_response(r)
+        d["executive_name"] = exec_map.get(r.executive_id, f"Executive {r.executive_id}")
+        result.append(d)
+    return result
 
+@app.get("/api/attendance/executive/{executive_id}/history")
+def get_executive_history(executive_id: int, days: int = 45, db: Session = Depends(get_db)):
+    cutoff = datetime.now(ZoneInfo("Asia/Kolkata")).date() - timedelta(days=days)
+    recs = db.query(Attendance).filter(Attendance.executive_id == executive_id, Attendance.attendance_date >= cutoff).order_by(Attendance.attendance_date.desc()).all()
+    return [plan_response(r) for r in recs]
 
-@app.delete("/attendance/{attendance_id}")
-def delete_attendance_record(attendance_id: int, db: Session = Depends(get_db)):
-    rec = db.query(Attendance).filter(Attendance.id == attendance_id).first()
-    if not rec:
-        raise HTTPException(status_code=404, detail="Attendance record not found")
-    db.delete(rec)
-    db.commit()
-    return {"message": "Attendance record deleted successfully", "id": attendance_id}
+@app.get("/api/attendance/search")
+def search_executive_attendance(name: str, days: int = 45, db: Session = Depends(get_db)):
+    cutoff = datetime.now(ZoneInfo("Asia/Kolkata")).date() - timedelta(days=days)
+    execs = db.query(SalesExecutive).filter(SalesExecutive.name.ilike(f"%{name}%")).all()
+    if not execs: return []
+    exec_ids = [e.id for e in execs]
+    
+    recs = db.query(Attendance).filter(Attendance.executive_id.in_(exec_ids), Attendance.attendance_date >= cutoff).order_by(Attendance.attendance_date.desc()).all()
+    
+    exec_map = {e.id: e.name for e in execs}
+    result = []
+    for r in recs:
+        d = plan_response(r)
+        d["executive_name"] = exec_map.get(r.executive_id, f"Executive {r.executive_id}")
+        result.append(d)
+    return result
 

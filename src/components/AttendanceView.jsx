@@ -24,10 +24,9 @@ import {
   ChevronsRight,
 } from "lucide-react";
 import DoctorAvatar from "./DoctorAvatar.jsx";
-import ModernDatePicker from "./ModernDatePicker.jsx";
 import FacePunchModal from "./FacePunchModal.jsx";
 import AttendancePunchAlertsPanel from "./AttendancePunchAlertsPanel.jsx";
-import GoogleAttendanceMap from "./GoogleAttendanceMap.jsx";
+import { getAttendanceLocation } from "../utils/location.js";
 import {
   getFreshExecutiveLocation,
   reverseGeocodeCoordinates,
@@ -41,6 +40,8 @@ import {
   punchInAttendance,
   punchOutAttendance,
   punchLunchAttendance,
+  punchLunchOutAttendance,
+  punchLunchInAttendance,
   fetchAttendanceList,
   fetchTodayAttendance,
 } from "../api.js";
@@ -349,36 +350,24 @@ export default function AttendanceView({
   // Fresh GPS Geolocation and Reverse Geocoding
   const refreshLiveLocation = useCallback(async () => {
     setLocationDetecting(true);
-    setLocationStage("Requesting location from browser…");
+    setLocationStage("Fetching current location...");
     setLocationError(null);
     try {
-      const loc = await getFreshExecutiveLocation({
-        exec: activeExecutive,
-        onProgress: setLocationStage,
-      });
-      if (!loc || loc.status === "error" || loc.latitude == null) {
-        if (!currentLocation || loc?.latitude == null) {
-          setCurrentLocation(null);
-        }
-        setLocationError(
-          loc?.error ||
-          loc?.message ||
-          "Windows could not provide a current location. Check Windows Location Services and try again."
-        );
+      const loc = await getAttendanceLocation((stage) => setLocationStage(stage));
+      if (!loc || loc.latitude == null) {
+        if (!currentLocation) setCurrentLocation(null);
+        setLocationError("Your device could not determine your current location. Please enable Windows Location Services and try again.");
       } else {
         setCurrentLocation(loc);
         setLocationError(null);
       }
     } catch (err) {
       if (!currentLocation) setCurrentLocation(null);
-      setLocationError(
-        err?.message ||
-        "Location request failed. Please check browser permissions and Windows Location Services."
-      );
+      setLocationError(err?.message || "Location request failed. Please check browser permissions and Windows Location Services.");
     } finally {
       setLocationDetecting(false);
     }
-  }, [activeExecutive, currentLocation]);
+  }, [currentLocation]);
 
   // Request fresh location on component mount or executive switch
   useEffect(() => {
@@ -688,48 +677,29 @@ export default function AttendanceView({
   // Helper: get fresh high-accuracy device GPS position and reverse-geocoded address
   const fetchCurrentLocation = async (actionLabel = "attendance") => {
     try {
-      const loc = await getFreshExecutiveLocation({ exec: activeExecutive });
-      if (loc && loc.status !== "error" && loc.latitude != null && loc.longitude != null) {
-        if (!loc.canPunch || (loc.accuracy != null && loc.accuracy > 500)) {
-          return {
-            success: false,
-            error:
-              loc.lowAccuracyWarning ||
-              `Precise location unavailable (accuracy: ±${Math.round(loc.accuracy)}m). Attendance requires accuracy ≤ 500m. Please enable Windows Location Services and Wi-Fi.`,
-            accuracy: loc.accuracy,
-            locationObj: loc,
-          };
-        }
-        return {
-          success: true,
-          latitude: loc.latitude,
-          longitude: loc.longitude,
-          area: loc.area,
-          city: loc.city,
-          district: loc.district,
-          state: loc.state,
-          country: loc.country || "India",
-          pincode: loc.pincode || "",
-          full_address: loc.full_address || loc.displayAddress,
-          accuracy: loc.accuracy,
-          location_accuracy: loc.accuracy,
-          location_source: loc.location_source || "WINDOWS_LOCATION",
-          location_timestamp: loc.location_timestamp || new Date().toISOString(),
-          displayAddress: loc.displayAddress,
-          locationObj: loc,
-        };
-      }
+      const loc = await getAttendanceLocation();
       return {
-        success: false,
-        error:
-          loc?.error ||
-          loc?.message ||
-          "Unable to determine your current location. Please enable GPS/location permission and try again.",
+        success: true,
+        latitude: loc.latitude,
+        longitude: loc.longitude,
+        area: loc.area,
+        city: loc.city,
+        district: loc.district,
+        state: loc.state,
+        country: loc.country || "India",
+        pincode: loc.pincode || "",
+        full_address: loc.displayAddress || `${loc.latitude.toFixed(6)}, ${loc.longitude.toFixed(6)}`,
+        accuracy: loc.accuracy,
+        location_accuracy: loc.accuracy,
+        location_source: "BROWSER_GEOLOCATION",
+        location_timestamp: loc.timestamp || new Date().toISOString(),
+        displayAddress: loc.displayAddress,
+        locationObj: loc,
       };
     } catch (e) {
       return {
         success: false,
-        error: e?.message || "Unable to determine your current location. Please enable GPS/location permission and try again.",
+        error: e?.message || "Unable to determine your current location. Please check browser permissions and Windows Location Services.",
       };
     }
   };
@@ -741,7 +711,7 @@ export default function AttendanceView({
     const locLng = locationData?.longitude ?? locationData?.coords?.longitude ?? locationData?.lng;
 
     if (locLat == null || locLng == null) {
-      const msg = "Unable to determine your current location. Please enable GPS/location permission and try again.";
+      const msg = locationData?.error || "Your device could not determine your current location. Please enable Windows Location Services, allow browser location permission, and try again.";
       alert(msg);
       showToast(msg, "error");
       return;
@@ -749,9 +719,9 @@ export default function AttendanceView({
 
     const locAccuracy = locationData?.accuracy != null ? Number(locationData.accuracy) : (locationData?.location_accuracy != null ? Number(locationData.location_accuracy) : null);
 
-    // Enforce strict accuracy validation before allowing attendance punch
+    // Enforce strict accuracy validation before allowing attendance punch (>500m rejected)
     if (locAccuracy != null && locAccuracy > 500) {
-      const msg = `Attendance rejected: Location accuracy (±${Math.round(locAccuracy)}m) is too poor. Attendance requires accuracy ≤ 500m. Please enable Windows Location Services and connect to Wi-Fi.`;
+      const msg = "Your current location accuracy is poor. Please enable Windows Location Services, allow browser location permission, and try again.";
       alert(msg);
       showToast(msg, "error");
       return;
@@ -1465,21 +1435,12 @@ export default function AttendanceView({
                 : currentLocation?.accuracyEvaluation
                 ? `${currentLocation.accuracyEvaluation.badgeText} (±${Math.round(currentLocation?.accuracy || 0)}m)`
                 : currentLocation?.area
-                ? `📍 ${currentLocation.area}, ${currentLocation.city}`
+                ? `📍 ${[currentLocation.area, currentLocation.city, currentLocation.state].filter(Boolean).join(", ")}`
                 : "📍 Location Required"}
             </span>
           </div>
         </div>
       </div>
-
-      {/* ── Desktop High-Accuracy Location & Google Maps Verification ── */}
-      <GoogleAttendanceMap
-        location={currentLocation}
-        detecting={locationDetecting}
-        detectionStage={locationStage}
-        error={locationError}
-        onDetectLocation={refreshLiveLocation}
-      />
 
       {/* Main Grid: Clock & Action Center */}
       <div className="attend-main-grid">
@@ -1564,14 +1525,12 @@ export default function AttendanceView({
             <button
               type="button"
               id="btn-morning-punch-in"
-              className={`attend-punch-btn punch-in-btn ${isPunchedIn ? "punched" : !canPunchByAccuracy ? "disabled accuracy-locked" : ""}`}
+              className={`attend-punch-btn punch-in-btn ${isPunchedIn ? "punched" : ""}`}
               onClick={handlePunchIn}
-              disabled={isPunchedIn || !canPunchByAccuracy}
+              disabled={isPunchedIn}
               title={
                 isPunchedIn
                   ? `Morning Punched In at ${todayRecord?.punchIn}`
-                  : !canPunchByAccuracy
-                  ? `Punch In disabled: High-accuracy location (≤ 500m) is required. Current accuracy is ${currentLocation?.accuracy != null ? `±${Math.round(currentLocation.accuracy)}m` : "unavailable"}. Please enable Windows Location Services and click 'Detect Current Location'.`
                   : "Click to record Morning Punch In with biometric face verification"
               }
             >
@@ -1585,8 +1544,6 @@ export default function AttendanceView({
                 <span className="attend-btn-time">
                   {isPunchedIn
                     ? todayRecord?.punchIn
-                    : !canPunchByAccuracy
-                    ? "Accurate GPS Required"
                     : "Click to Start Shift"}
                 </span>
               </div>
@@ -1599,12 +1556,12 @@ export default function AttendanceView({
               className={`attend-punch-btn lunch-out-btn ${
                 isLunchOut
                   ? "punched"
-                  : !isPunchedIn || isPunchedOut || !canPunchByAccuracy
+                  : !isPunchedIn || isPunchedOut
                   ? "disabled"
                   : ""
               }`}
               onClick={handleLunchOut}
-              disabled={!isPunchedIn || isLunchOut || isPunchedOut || !canPunchByAccuracy}
+              disabled={!isPunchedIn || isLunchOut || isPunchedOut}
               title={
                 !isPunchedIn
                   ? "Please punch in morning first"
@@ -1612,8 +1569,6 @@ export default function AttendanceView({
                   ? `Lunch Out recorded at ${todayRecord?.lunchOut} (Timing only)`
                   : isPunchedOut
                   ? "Shift already ended"
-                  : !canPunchByAccuracy
-                  ? `Lunch Out disabled: High-accuracy location (≤ 500m) required.`
                   : "Click to record Lunch Out (Timing only - no biometric prompt)"
               }
             >
@@ -1631,8 +1586,6 @@ export default function AttendanceView({
                     ? "Punch In First"
                     : isPunchedOut
                     ? "Shift Ended"
-                    : !canPunchByAccuracy
-                    ? "GPS Required"
                     : "Click to Record"}
                 </span>
               </div>
@@ -1645,12 +1598,12 @@ export default function AttendanceView({
               className={`attend-punch-btn lunch-in-btn ${
                 isLunchIn
                   ? "punched"
-                  : !isLunchOut || isPunchedOut || !canPunchByAccuracy
+                  : !isLunchOut || isPunchedOut
                   ? "disabled"
                   : ""
               }`}
               onClick={handleLunchIn}
-              disabled={!isLunchOut || isLunchIn || isPunchedOut || !canPunchByAccuracy}
+              disabled={!isLunchOut || isLunchIn || isPunchedOut}
               title={
                 !isLunchOut
                   ? "Please record Lunch Out first"
@@ -1658,8 +1611,6 @@ export default function AttendanceView({
                   ? `Lunch In recorded at ${todayRecord?.lunchIn} (Timing recorded)`
                   : isPunchedOut
                   ? "Shift already ended"
-                  : !canPunchByAccuracy
-                  ? `Lunch In disabled: High-accuracy location (≤ 500m) required.`
                   : "Click to record Lunch In (Timing only - no biometric prompt)"
               }
             >
@@ -1677,8 +1628,6 @@ export default function AttendanceView({
                     ? "Lunch Out First"
                     : isPunchedOut
                     ? "Shift Ended"
-                    : !canPunchByAccuracy
-                    ? "GPS Required"
                     : "Click to Resume"}
                 </span>
               </div>
@@ -1688,16 +1637,14 @@ export default function AttendanceView({
             <button
               type="button"
               id="btn-evening-punch-out"
-              className={`attend-punch-btn punch-out-btn ${isPunchedOut ? "punched" : !isPunchedIn || !canPunchByAccuracy ? "disabled" : ""}`}
+              className={`attend-punch-btn punch-out-btn ${isPunchedOut ? "punched" : !isPunchedIn ? "disabled" : ""}`}
               onClick={handlePunchOut}
-              disabled={!isPunchedIn || isPunchedOut || !canPunchByAccuracy}
+              disabled={!isPunchedIn || isPunchedOut}
               title={
                 !isPunchedIn
                   ? "Please complete Morning Punch In first"
                   : isPunchedOut
                   ? `Evening Logged Out at ${todayRecord?.punchOut}`
-                  : !canPunchByAccuracy
-                  ? `Evening Logout disabled: High-accuracy location (≤ 500m) required.`
                   : "Click to record Evening Logout with biometric face verification"
               }
             >
@@ -1713,8 +1660,6 @@ export default function AttendanceView({
                     ? todayRecord?.punchOut
                     : !isPunchedIn
                     ? "Punch In First"
-                    : !canPunchByAccuracy
-                    ? "GPS Required"
                     : "Click to End Shift"}
                 </span>
               </div>

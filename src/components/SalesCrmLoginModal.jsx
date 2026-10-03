@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from "react";
 import { fetchList, loginSalesExecutive } from "../api.js";
-import { getFreshExecutiveLocation } from "../geoUtils.js";
 import logo from "../assets/zenve-zippy-logo.png";
 import {
   Briefcase,

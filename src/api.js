@@ -738,6 +738,24 @@ export async function punchLunchAttendance(payload) {
   return handleResponse(res);
 }
 
+export async function punchLunchOutAttendance(payload) {
+  const res = await fetch(`${API_BASE}/attendance/lunch-out`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  return handleResponse(res);
+}
+
+export async function punchLunchInAttendance(payload) {
+  const res = await fetch(`${API_BASE}/attendance/lunch-in`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  return handleResponse(res);
+}
+
 export async function fetchAttendanceList(params = {}) {
   const query = new URLSearchParams();
   if (params.executive_id) query.append("executive_id", params.executive_id);

@@ -12,9 +12,7 @@ import {
   LockKeyhole,
   Mail,
   MapPin,
-  Navigation,
   Phone,
-  RefreshCw,
   Save,
   ShieldCheck,
   Target,
@@ -27,65 +25,6 @@ import {
 } from "lucide-react";
 import NavIcon from "./NavIcon.jsx";
 import { findLabel } from "../data.js";
-import { getFreshExecutiveLocation } from "../geoUtils.js";
-
-function resolveRegionFromLocation(loc) {
-  if (!loc) return "Karnataka";
-
-  const fullText = [
-    loc.region,
-    loc.state,
-    loc.city,
-    loc.district,
-    loc.area,
-    loc.formattedAddress,
-    loc.displayAddress,
-  ]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase();
-
-  const lat = Number(loc.latitude ?? loc.lat);
-  const lng = Number(loc.longitude ?? loc.lng);
-
-  // 1. Check Bengaluru / Bangalore / Karnataka -> Region is Karnataka
-  const isKarnataka =
-    /bengaluru|bangalore|jayanagar|koramangala|indiranagar|whitefield|electronic city|marathahalli|karnataka/i.test(
-      fullText
-    ) ||
-    (loc.pincode && String(loc.pincode).startsWith("560")) ||
-    (!Number.isNaN(lat) &&
-      !Number.isNaN(lng) &&
-      lat >= 12.70 &&
-      lat <= 13.35 &&
-      lng >= 77.35 &&
-      lng <= 77.90);
-
-  if (isKarnataka) {
-    return "Karnataka";
-  }
-
-  // 2. Check Tamil Nadu
-  const isTamilNadu =
-    /tamil\s*nadu|tamilnadu|chennai|coimbatore|madurai|tiruchirappalli|trichy|salem|tirunelveli|vellore|erode|hosur|thoothukudi|tuticorin|dindigul|thanjavur|ranipet|sivakasi|karur|ooty|kanchipuram|cuddalore|tiruvannamalai|kumbakonam/i.test(
-      fullText
-    ) ||
-    (!Number.isNaN(lat) &&
-      !Number.isNaN(lng) &&
-      lat >= 8.0 &&
-      lat <= 13.5 &&
-      lng >= 76.2 &&
-      lng <= 80.3);
-
-  if (isTamilNadu) {
-    return "Tamil Nadu";
-  }
-
-  if (loc.state && loc.state.trim()) return loc.state.trim();
-  if (loc.region && loc.region.trim()) return loc.region.trim();
-
-  return "Karnataka";
-}
 
 function RegionDatalist() {
   return (
@@ -399,8 +338,12 @@ export default function RecordModal({ mode, tableKey, columns, values, onChange,
 
   const [showPassword, setShowPassword] = useState(false);
   const [inputError, setInputError] = useState("");
-  const [detectingRegion, setDetectingRegion] = useState(false);
-  const [detectedSource, setDetectedSource] = useState(null);
+
+  // Reset modal state on mode change
+  useEffect(() => {
+    setShowPassword(false);
+    setInputError("");
+  }, [mode]);
 
   // If region was previously populated with "Bengaluru", normalize to "Karnataka"
   useEffect(() => {
@@ -412,78 +355,6 @@ export default function RecordModal({ mode, tableKey, columns, values, onChange,
       }
     }
   }, [values.region]);
-
-  // Auto-detect region when adding a new record if region is not already populated
-  useEffect(() => {
-    setShowPassword(false);
-    setInputError("");
-    setDetectedSource(null);
-
-    if (mode !== "new") return;
-    const hasRegionCol = columns?.some((c) => c.key === "region");
-    if (!hasRegionCol) return;
-
-    if (values.region && values.region.trim() && values.region !== "Bengaluru") return;
-
-    let active = true;
-    setDetectingRegion(true);
-
-    getFreshExecutiveLocation()
-      .then((loc) => {
-        if (!active) return;
-        const detected = resolveRegionFromLocation(loc);
-        if (detected) {
-          onChange("region", detected);
-          setDetectedSource(detected);
-          const hasCity = columns?.some((c) => c.key === "city");
-          if (hasCity && (!values.city || !values.city.trim())) {
-            const autoCity =
-              loc?.city && !/tamil/i.test(loc.city)
-                ? loc.city
-                : detected === "Tamil Nadu"
-                ? "Chennai"
-                : "Bengaluru";
-            onChange("city", autoCity);
-          }
-        }
-      })
-      .catch((err) => {
-        console.warn("Region auto-detect failed:", err);
-      })
-      .finally(() => {
-        if (active) setDetectingRegion(false);
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [mode]);
-
-  async function handleDetectRegionNow() {
-    setDetectingRegion(true);
-    try {
-      const loc = await getFreshExecutiveLocation();
-      const detected = resolveRegionFromLocation(loc);
-      if (detected) {
-        onChange("region", detected);
-        setDetectedSource(detected);
-        const hasCity = columns?.some((c) => c.key === "city");
-        if (hasCity && (!values.city || !values.city.trim())) {
-          const autoCity =
-            loc?.city && !/tamil/i.test(loc.city)
-              ? loc.city
-              : detected === "Tamil Nadu"
-              ? "Chennai"
-              : "Bengaluru";
-          onChange("city", autoCity);
-        }
-      }
-    } catch (err) {
-      console.warn("Manual region detect failed:", err);
-    } finally {
-      setDetectingRegion(false);
-    }
-  }
 
   function renderRegionQuickPills(currentVal) {
     return (
@@ -702,27 +573,12 @@ export default function RecordModal({ mode, tableKey, columns, values, onChange,
               list="zzc-region-options"
               value={value ?? ""}
               required={field.required}
-              placeholder={detectingRegion ? "Auto-detecting current region…" : (placeholder || "Enter region")}
+              placeholder={placeholder || "Enter region"}
               autoComplete="off"
               onChange={(e) => onChange(field.key, e.target.value)}
             />
-            <button
-              type="button"
-              className={`zzc-region-detect-btn ${detectingRegion ? "is-detecting" : ""}`}
-              onClick={handleDetectRegionNow}
-              title="Auto-detect region from current GPS location"
-              aria-label="Auto-detect region from current GPS location"
-            >
-              {detectingRegion ? <RefreshCw size={13} className="zzc-spin" /> : <Navigation size={13} />}
-              <span>{detectingRegion ? "Detecting…" : "Auto GPS"}</span>
-            </button>
           </div>
           {renderRegionQuickPills(value)}
-          {detectedSource && (
-            <div className="zzc-region-status">
-              <Check size={11} /> Auto-detected: <strong>{detectedSource}</strong>
-            </div>
-          )}
         </div>
       );
     }
@@ -772,11 +628,6 @@ export default function RecordModal({ mode, tableKey, columns, values, onChange,
             <label htmlFor={`field_${key}`}>
               {label}{field.required ? <span className="zzc-exec-required"> *</span> : ""}
             </label>
-            {detectedSource && (
-              <span className="zzc-region-detected-tag">
-                <Check size={10} /> Auto-detected
-              </span>
-            )}
           </div>
           <div className="zzc-exec-input-shell zzc-exec-input-shell-region">
             <Icon size={15} aria-hidden="true" />
@@ -787,21 +638,11 @@ export default function RecordModal({ mode, tableKey, columns, values, onChange,
                 list="zzc-region-options"
                 value={values[key] ?? ""}
                 required={field.required}
-                placeholder={detectingRegion ? "Auto-detecting region…" : (placeholder || "Enter region")}
+                placeholder={placeholder || "Enter region"}
                 autoComplete="off"
                 onChange={(e) => onChange(key, e.target.value)}
               />
             </div>
-            <button
-              type="button"
-              className={`zzc-region-detect-btn ${detectingRegion ? "is-detecting" : ""}`}
-              onClick={handleDetectRegionNow}
-              title="Auto-detect region from current GPS location"
-              aria-label="Auto-detect region from current GPS location"
-            >
-              {detectingRegion ? <RefreshCw size={13} className="zzc-spin" /> : <Navigation size={13} />}
-              <span>{detectingRegion ? "Detecting…" : "Auto GPS"}</span>
-            </button>
           </div>
           {renderRegionQuickPills(values[key])}
         </div>
