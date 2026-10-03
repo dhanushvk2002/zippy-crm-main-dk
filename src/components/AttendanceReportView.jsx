@@ -37,12 +37,7 @@ import "./AttendanceReportView.css";
 const STORAGE_KEY = "zenve_crm_attendance_records";
 
 function normalizeFullAddress(addr, exec = null) {
-  if (!addr) {
-    const area = exec?.area || exec?.territory || exec?.city || "Field Area";
-    const city = exec?.city || "Field City";
-    const state = exec?.region || exec?.state || "Field State";
-    return [area, city, state].filter(Boolean).join(", ");
-  }
+  if (!addr) return "";
   return formatLocationString(addr, exec);
 }
 
@@ -279,21 +274,55 @@ export default function AttendanceReportView({
         }
       }
 
-      const inAreaRaw = row.login_area || row.area || "";
-      const inFormatted = inAreaRaw ? formatLocationString(inAreaRaw, exec) : formatExecutiveLocation(null, exec);
-      const inParts = inFormatted.split(",").map((p) => p.trim());
-      const inArea = inParts[0] || exec.area || exec.city || "Field Area";
-      const inCity = inParts[1] || exec.city || "Field City";
-      const inState = inParts[2] || exec.region || exec.state || "Field State";
+      const inArea = row.login_area || row.area || "";
+      const inCity = row.login_city || row.city || "";
+      const inState = row.login_state || row.state || "";
+      const inCountry = row.login_country || row.country || "India";
+      const inPincode = row.login_pincode || row.pincode || "";
+      const inDistrict = row.login_district || row.district || "";
+      const inLocationSource = row.login_location_source || row.location_source || "WINDOWS_LOCATION";
+      const inAccuracy = row.login_accuracy ?? row.location_accuracy ?? null;
+      const inTimestamp = row.login_location_timestamp || row.location_timestamp || null;
+      const inLat = row.login_latitude ?? row.latitude ?? null;
+      const inLng = row.login_longitude ?? row.longitude ?? null;
+      const inFull = row.login_full_address || row.full_address || [inArea, inDistrict, inCity, inState].filter(Boolean).join(", ");
+      const inFormatted = inFull || "";
 
-      const outAreaRaw = row.logout_area || row.area || "";
-      const outFormatted = outAreaRaw
-        ? formatLocationString(outAreaRaw, exec)
-        : (row.logout_time ? formatExecutiveLocation(null, exec) : null);
-      const outParts = outFormatted ? outFormatted.split(",").map((p) => p.trim()) : [];
-      const outArea = outParts[0] || inArea;
-      const outCity = outParts[1] || inCity;
-      const outState = outParts[2] || inState;
+      const outDistrict = row.logout_district || "";
+      const outLocationSource = row.logout_location_source || "WINDOWS_LOCATION";
+      const outArea = row.logout_area || "";
+      const outCity = row.logout_city || "";
+      const outState = row.logout_state || "";
+      const outCountry = row.logout_country || "India";
+      const outPincode = row.logout_pincode || "";
+      const outAccuracy = row.logout_accuracy ?? null;
+      const outTimestamp = row.logout_location_timestamp || null;
+      const outLat = row.logout_latitude ?? null;
+      const outLng = row.logout_longitude ?? null;
+      const outFull = row.logout_full_address || (row.logout_time && (outArea || outLat != null) ? [outArea, outDistrict, outCity, outState].filter(Boolean).join(", ") : "");
+      const outFormatted = outFull || "";
+
+      const lunchOutArea = row.lunch_out_area || "";
+      const lunchOutCity = row.lunch_out_city || "";
+      const lunchOutState = row.lunch_out_state || "";
+      const lunchOutCountry = row.lunch_out_country || "India";
+      const lunchOutPincode = row.lunch_out_pincode || "";
+      const lunchOutAccuracy = row.lunch_out_accuracy ?? null;
+      const lunchOutTimestamp = row.lunch_out_location_timestamp || null;
+      const lunchOutLat = row.lunch_out_latitude ?? null;
+      const lunchOutLng = row.lunch_out_longitude ?? null;
+      const lunchOutFull = row.lunch_out_full_address || [lunchOutArea, lunchOutCity, lunchOutState].filter(Boolean).join(", ");
+
+      const lunchInArea = row.lunch_in_area || "";
+      const lunchInCity = row.lunch_in_city || "";
+      const lunchInState = row.lunch_in_state || "";
+      const lunchInCountry = row.lunch_in_country || "India";
+      const lunchInPincode = row.lunch_in_pincode || "";
+      const lunchInAccuracy = row.lunch_in_accuracy ?? null;
+      const lunchInTimestamp = row.lunch_in_location_timestamp || null;
+      const lunchInLat = row.lunch_in_latitude ?? null;
+      const lunchInLng = row.lunch_in_longitude ?? null;
+      const lunchInFull = row.lunch_in_full_address || [lunchInArea, lunchInCity, lunchInState].filter(Boolean).join(", ");
 
       const key = `${row.executive_id}_${row.attendance_date}`;
       map.set(key, {
@@ -306,32 +335,86 @@ export default function AttendanceReportView({
         punchInLocation: {
           area: inArea,
           city: inCity,
+          district: inDistrict,
           state: inState,
           region: inState,
+          country: inCountry,
+          pincode: inPincode,
+          accuracy: inAccuracy,
+          location_accuracy: inAccuracy,
+          location_source: inLocationSource,
+          timestamp: inTimestamp,
+          location_timestamp: inTimestamp,
+          full_address: inFull,
           locality: inFormatted,
           displayAddress: inFormatted,
-          coords: { latitude: row.latitude ?? row.login_latitude ?? null, longitude: row.longitude ?? row.login_longitude ?? null },
+          coords: { latitude: inLat, longitude: inLng },
         },
         faceImage: row.login_selfie_url,
         lunchOut: formatIsoToTimeStr(row.lunch_out_time || row.lunch_out),
+        lunchOutLocation: (lunchOutLat != null || lunchOutArea || lunchOutFull)
+          ? {
+              area: lunchOutArea,
+              city: lunchOutCity,
+              state: lunchOutState,
+              region: lunchOutState,
+              country: lunchOutCountry,
+              pincode: lunchOutPincode,
+              accuracy: lunchOutAccuracy,
+              location_accuracy: lunchOutAccuracy,
+              timestamp: lunchOutTimestamp,
+              location_timestamp: lunchOutTimestamp,
+              full_address: lunchOutFull,
+              locality: lunchOutFull,
+              displayAddress: lunchOutFull,
+              coords: { latitude: lunchOutLat, longitude: lunchOutLng },
+            }
+          : null,
         lunchIn: formatIsoToTimeStr(row.lunch_in_time || row.lunch_in),
+        lunchInLocation: (lunchInLat != null || lunchInArea || lunchInFull)
+          ? {
+              area: lunchInArea,
+              city: lunchInCity,
+              state: lunchInState,
+              region: lunchInState,
+              country: lunchInCountry,
+              pincode: lunchInPincode,
+              accuracy: lunchInAccuracy,
+              location_accuracy: lunchInAccuracy,
+              timestamp: lunchInTimestamp,
+              location_timestamp: lunchInTimestamp,
+              full_address: lunchInFull,
+              locality: lunchInFull,
+              displayAddress: lunchInFull,
+              coords: { latitude: lunchInLat, longitude: lunchInLng },
+            }
+          : null,
         punchOut: outTime,
-        punchOutLocation: outFormatted
+        punchOutLocation: (outLat != null || outArea || outFormatted)
           ? {
               area: outArea,
               city: outCity,
+              district: outDistrict,
               state: outState,
               region: outState,
+              country: outCountry,
+              pincode: outPincode,
+              accuracy: outAccuracy,
+              location_accuracy: outAccuracy,
+              location_source: outLocationSource,
+              timestamp: outTimestamp,
+              location_timestamp: outTimestamp,
+              full_address: outFull,
               locality: outFormatted,
               displayAddress: outFormatted,
-              coords: { latitude: row.latitude ?? row.logout_latitude ?? null, longitude: row.longitude ?? row.logout_longitude ?? null },
+              coords: { latitude: outLat, longitude: outLng },
             }
           : null,
         punchOutFaceImage: row.logout_selfie_url,
         duration: durStr,
         status: row.status || (row.logout_time ? "Completed" : "Working"),
         remarks: row.logout_time
-          ? `Shift completed · 📍 ${outFormatted}`
+          ? `Shift completed · 📍 ${outFormatted || inFormatted}`
           : `Face verified · 📍 ${inFormatted}`,
         executiveObj: exec,
       });
@@ -347,8 +430,8 @@ export default function AttendanceReportView({
         id: item.execId || 1,
         name: item.execName || "Executive",
         employee_code: `SE-00${item.execId || 1}`,
-        city: item.punchInLocation?.city || "Field City",
-        region: item.punchInLocation?.region || item.punchInLocation?.state || "Field State",
+        city: item.punchInLocation?.city || "",
+        region: item.punchInLocation?.region || item.punchInLocation?.state || "",
       };
 
       const inLoc = formatExecutiveLocation(item.punchInLocation, exec);
@@ -367,6 +450,8 @@ export default function AttendanceReportView({
           locality: outLoc,
           displayAddress: outLoc,
         } : existing?.punchOutLocation,
+        lunchOutLocation: item.lunchOutLocation || existing?.lunchOutLocation,
+        lunchInLocation: item.lunchInLocation || existing?.lunchInLocation,
         remarks: item.remarks ? `Face verified · 📍 ${inLoc}` : existing?.remarks,
         executiveObj: existing?.executiveObj || exec,
         execName: item.execName || existing?.execName || exec.name,
@@ -530,7 +615,7 @@ export default function AttendanceReportView({
       r.date,
       `"${r.execName || ""}"`,
       `"${r.executiveObj?.employee_code || `SE-00${r.execId}`}"`,
-      `"${r.executiveObj?.region || r.punchInLocation?.locality || "Bangalore"}"`,
+      `"${r.executiveObj?.region || r.punchInLocation?.state || ""}"`,
       `"${r.punchIn || ""}"`,
       `"${r.punchInLocation?.locality || ""}"`,
       `"${r.faceImage ? "Verified" : "No"}"`,
@@ -970,11 +1055,26 @@ export default function AttendanceReportView({
                                         <MapPin size={12} />
                                         <span>{normalizeFullAddress(row.punchInLocation?.displayAddress || row.punchInLocation?.locality)}</span>
                                       </div>
-                                      {row.punchInLocation?.coords && (
+                                      {row.punchInLocation?.coords?.latitude != null && row.punchInLocation?.coords?.longitude != null && (
                                         <div className="att-rep-exp-coords">
-                                          <span>GPS: {Number(row.punchInLocation.coords.latitude || 12.9266).toFixed(4)}, {Number(row.punchInLocation.coords.longitude || 77.5897).toFixed(4)}</span>
+                                          <span>GPS: {Number(row.punchInLocation.coords.latitude).toFixed(6)}, {Number(row.punchInLocation.coords.longitude).toFixed(6)}</span>
+                                          {row.punchInLocation?.accuracy != null && (
+                                            <span style={{
+                                              marginLeft: "6px",
+                                              fontSize: "0.75rem",
+                                              color: row.punchInLocation.accuracy <= 100 ? "#059669" : row.punchInLocation.accuracy <= 500 ? "#d97706" : "#dc2626",
+                                              fontWeight: 600
+                                            }}>
+                                              (±{Math.round(row.punchInLocation.accuracy)}m)
+                                            </span>
+                                          )}
+                                          {row.punchInLocation?.location_source && (
+                                            <span style={{ marginLeft: "6px", fontSize: "0.7rem", color: "#475569", background: "#f1f5f9", padding: "1px 5px", borderRadius: "4px" }}>
+                                              {row.punchInLocation.location_source}
+                                            </span>
+                                          )}
                                           <a
-                                            href={`https://www.google.com/maps?q=${row.punchInLocation.coords.latitude || 12.9266},${row.punchInLocation.coords.longitude || 77.5897}`}
+                                            href={`https://www.google.com/maps?q=${row.punchInLocation.coords.latitude},${row.punchInLocation.coords.longitude}`}
                                             target="_blank"
                                             rel="noopener noreferrer"
                                             className="att-rep-exp-map-link"
@@ -1003,9 +1103,19 @@ export default function AttendanceReportView({
                                       <div className="att-rep-exp-address">
                                         <MapPin size={12} />
                                         <span>
-                                          {normalizeFullAddress(row.lunchOutLocation?.displayAddress || row.lunchInLocation?.displayAddress || row.punchInLocation?.displayAddress || "Field territory")}
+                                          {row.lunchOutLocation?.displayAddress
+                                            ? `Lunch Out: ${normalizeFullAddress(row.lunchOutLocation.displayAddress)}`
+                                            : row.lunchInLocation?.displayAddress
+                                            ? `Lunch In: ${normalizeFullAddress(row.lunchInLocation.displayAddress)}`
+                                            : (row.lunchOut || row.lunchIn ? "GPS captured" : "No lunch punch recorded")}
                                         </span>
                                       </div>
+                                      {row.lunchInLocation?.displayAddress && row.lunchOutLocation?.displayAddress && row.lunchInLocation.displayAddress !== row.lunchOutLocation.displayAddress && (
+                                        <div className="att-rep-exp-address" style={{ marginTop: "4px" }}>
+                                          <MapPin size={12} />
+                                          <span>Lunch In: {normalizeFullAddress(row.lunchInLocation.displayAddress)}</span>
+                                        </div>
+                                      )}
                                       <div className="att-rep-exp-meta-note">
                                         Standard midday meal window · 45m break recorded
                                       </div>
@@ -1052,15 +1162,20 @@ export default function AttendanceReportView({
                                         <MapPin size={12} />
                                         <span>
                                           {row.punchOut
-                                            ? normalizeFullAddress(row.punchOutLocation?.displayAddress || row.punchOutLocation?.locality || "Field territory")
+                                            ? (normalizeFullAddress(row.punchOutLocation?.displayAddress || row.punchOutLocation?.locality) || "Punch Out location recorded")
                                             : "Shift is actively ongoing in territory"}
                                         </span>
                                       </div>
-                                      {row.punchOutLocation?.coords && (
+                                      {row.punchOutLocation?.coords?.latitude != null && row.punchOutLocation?.coords?.longitude != null && (
                                         <div className="att-rep-exp-coords">
-                                          <span>GPS: {Number(row.punchOutLocation.coords.latitude || 12.9266).toFixed(4)}, {Number(row.punchOutLocation.coords.longitude || 77.5897).toFixed(4)}</span>
+                                          <span>GPS: {Number(row.punchOutLocation.coords.latitude).toFixed(6)}, {Number(row.punchOutLocation.coords.longitude).toFixed(6)}</span>
+                                          {row.punchOutLocation?.accuracy != null && (
+                                            <span style={{ marginLeft: "6px", fontSize: "0.75rem", color: "#059669", fontWeight: 600 }}>
+                                              (±{Math.round(row.punchOutLocation.accuracy)}m)
+                                            </span>
+                                          )}
                                           <a
-                                            href={`https://www.google.com/maps?q=${row.punchOutLocation.coords.latitude || 12.9266},${row.punchOutLocation.coords.longitude || 77.5897}`}
+                                            href={`https://www.google.com/maps?q=${row.punchOutLocation.coords.latitude},${row.punchOutLocation.coords.longitude}`}
                                             target="_blank"
                                             rel="noopener noreferrer"
                                             className="att-rep-exp-map-link"

@@ -11,6 +11,7 @@ import {
   Sparkles,
   Users,
   XCircle,
+  Clock,
 } from "lucide-react";
 import docMale1 from "../assets/doctor-male.jpg";
 import docMale2 from "../assets/doctor-male-2.jpg";
@@ -18,8 +19,9 @@ import docMale3 from "../assets/doctor-male-3.jpg";
 import docFemale1 from "../assets/doctor-female.jpg";
 import docFemale2 from "../assets/doctor-female-2.jpg";
 import docFemale3 from "../assets/doctor-female-3.jpg";
-import { getFreshExecutiveLocation, formatExecutiveLocation } from "../geoUtils.js";
+import { getFreshExecutiveLocation, formatExecutiveLocation, evaluateLocationAccuracy, getMaxAllowedAccuracy } from "../geoUtils.js";
 import { checkFaceImage } from "../api.js";
+import LeafletLocationMap from "./LeafletLocationMap.jsx";
 import "./FacePunchModal.css";
 
 const MAX_SELFIE_DATA_URL_LENGTH = 48 * 1024;
@@ -72,6 +74,7 @@ export default function FacePunchModal({
   // Live Location State
   const [locationStatus, setLocationStatus] = useState("detecting"); // "detecting" | "locked" | "fallback"
   const [locationData, setLocationData] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Live Time
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -188,33 +191,45 @@ export default function FacePunchModal({
   // Fresh GPS Geolocation and Reverse Geocoding
   const locationRequestRef = useRef(0);
   const [locationError, setLocationError] = useState(null);
+  const [locationStage, setLocationStage] = useState("Fetching current location...");
+
   const fetchLocation = useCallback(async () => {
     const requestId = ++locationRequestRef.current;
     setLocationStatus("detecting");
+    setLocationStage("Fetching current location...");
     setLocationError(null);
 
     try {
-      const loc = await getFreshExecutiveLocation(executive);
+      const loc = await getFreshExecutiveLocation({
+        exec: executive,
+        onProgress: (stage) => {
+          if (requestId === locationRequestRef.current) {
+            setLocationStage(stage);
+          }
+        },
+      });
       if (requestId !== locationRequestRef.current) return;
 
-      if (!loc || loc.status === "error") {
-        setLocationStatus("warning");
-        setLocationError(loc?.error || "Unable to acquire accurate GPS. Displaying executive field territory.");
-        setLocationData(loc || null);
+      if (!loc || loc.status === "error" || loc.latitude == null || loc.longitude == null) {
+        setLocationStatus("error");
+        setLocationError(
+          loc?.error ||
+            "Unable to determine your current location. Please enable GPS/location permission and try again."
+        );
+        setLocationData(null);
       } else {
         setLocationData(loc);
-        if (loc.accuracyWarning) {
-          setLocationStatus("warning");
-          setLocationError(loc.accuracyWarning);
-        } else {
-          setLocationStatus("locked");
-          setLocationError(null);
-        }
+        setLocationStatus("locked");
+        setLocationError(null);
       }
     } catch (err) {
       if (requestId !== locationRequestRef.current) return;
-      setLocationStatus("warning");
-      setLocationError("Unable to acquire GPS. Displaying executive field territory.");
+      setLocationStatus("error");
+      setLocationError(
+        err?.message ||
+          "Unable to determine your current location. Please enable GPS/location permission and try again."
+      );
+      setLocationData(null);
     }
   }, [executive]);
 
@@ -453,8 +468,30 @@ export default function FacePunchModal({
     img.src = avatarSrc;
   }, [executive, stopCameraStream]);
 
+  // Dynamic action metadata
+  const getActionMeta = () => {
+    switch (actionType) {
+      case "lunch_out":
+        return { label: "Lunch Out", attendance_type: "LUNCH_OUT", icon: Coffee };
+      case "lunch_in":
+        return { label: "Lunch In", attendance_type: "LUNCH_IN", icon: Coffee };
+      case "out":
+        return { label: "Punch Out", attendance_type: "PUNCH_OUT", icon: Clock };
+      case "in":
+      default:
+        return { label: "Punch In", attendance_type: "PUNCH_IN", icon: CheckCircle2 };
+    }
+  };
+
+  const actionMeta = getActionMeta();
+  const punchLabel = actionMeta.label;
+  const attendanceType = actionMeta.attendance_type;
+  const ActionIcon = actionMeta.icon;
+
   // Submit Punch Record
-  const handleConfirmSubmit = () => {
+  const handleConfirmSubmit = async () => {
+    if (isSubmitting) return;
+
     if (faceCheckStatus === "checking") {
       alert("Please wait: analyzing biometric face count...");
       return;
@@ -476,7 +513,27 @@ export default function FacePunchModal({
       return;
     }
     if (locationStatus === "detecting") {
-      alert("Still detecting your high-accuracy GPS location. Please wait a moment.");
+      alert(`Still acquiring real-time GPS location (${locationStage}). Please wait a moment.`);
+      return;
+    }
+    if (
+      locationStatus === "error" ||
+      !locationData ||
+      locationData.latitude == null ||
+      locationData.longitude == null
+    ) {
+      alert(
+        locationError ||
+          "Unable to determine your current location. Please enable GPS/location permission and try again."
+      );
+      return;
+    }
+
+    const maxAllowed = getMaxAllowedAccuracy();
+    if (locationData.accuracy != null && locationData.accuracy > maxAllowed) {
+      alert(
+        `Location accuracy is too low (±${Math.round(locationData.accuracy)}m). Attendance punch requires GPS accuracy ≤ ${maxAllowed} meters.\n\nPlease wait a few seconds, click 'Refresh Location', and ensure Wi-Fi is enabled to refine your computer's position.`
+      );
       return;
     }
 
@@ -491,11 +548,14 @@ export default function FacePunchModal({
     const m = String(currentTime.getMonth() + 1).padStart(2, "0");
     const d = String(currentTime.getDate()).padStart(2, "0");
     const dateStr = `${y}-${m}-${d}`;
+    const locTimestamp = new Date().toISOString();
 
-    const finalArea = locationData?.area || executive?.area || executive?.city || "Field Area";
-    const finalCity = locationData?.city || executive?.city || "Field City";
-    const finalState = locationData?.state || executive?.region || executive?.state || "Field State";
-    const finalPin = locationData?.pincode || executive?.pincode || "";
+    const finalArea = locationData.area || "";
+    const finalCity = locationData.city || "";
+    const finalState = locationData.state || "";
+    const finalPin = locationData.pincode || "";
+    const finalCountry = locationData.country || "India";
+
     const cleanParts = [];
     if (finalArea) cleanParts.push(finalArea);
     if (finalCity && !cleanParts.some((p) => p.toLowerCase() === finalCity.toLowerCase())) {
@@ -505,21 +565,34 @@ export default function FacePunchModal({
       cleanParts.push(finalState);
     }
     const cleanDisp = finalPin ? `${cleanParts.join(", ")} - ${finalPin}` : cleanParts.join(", ");
+    const full_address =
+      locationData.full_address ||
+      (finalPin
+        ? `${cleanParts.join(", ")} - ${finalPin}, ${finalCountry}`
+        : `${cleanParts.join(", ")}, ${finalCountry}`);
 
     const finalLocation = {
-      latitude: locationData?.latitude ?? null,
-      longitude: locationData?.longitude ?? null,
-      lat: locationData?.latitude ?? null,
-      lng: locationData?.longitude ?? null,
-      accuracy: locationData?.accuracy ?? 10,
-      accuracyText: locationData?.accuracyText || "±10m",
+      latitude: locationData.latitude,
+      longitude: locationData.longitude,
+      lat: locationData.latitude,
+      lng: locationData.longitude,
       area: finalArea,
       city: finalCity,
-      district: locationData?.district || "",
       state: finalState,
-      region: finalState,
+      country: finalCountry,
       pincode: finalPin,
-      country: locationData?.country || "India",
+      full_address,
+      location_accuracy: locationData.accuracy,
+      accuracy: locationData.accuracy,
+      accuracyText: `Location accuracy: ${Math.round(locationData.accuracy || 0)} meters`,
+      location_timestamp: locTimestamp,
+      captured_at: locTimestamp,
+      heading: locationData.heading,
+      hasHeading: locationData.hasHeading,
+      district: locationData.district || "",
+      location_source: locationData.location_source || "WINDOWS_LOCATION",
+      sales_executive_id: executive?.id || executive?.sales_executive_id,
+      region: finalState,
       locality: cleanDisp,
       displayAddress: cleanDisp,
       formattedAddress: cleanDisp,
@@ -529,26 +602,47 @@ export default function FacePunchModal({
 
     const callback = onConfirmPunch || onConfirm;
     if (callback) {
-      callback({
-        punchTime: timeStr,
-        punchDate: dateStr,
-        locationData: finalLocation,
-        faceImage: capturedImage,
-      });
+      setIsSubmitting(true);
+      try {
+        await Promise.resolve(
+          callback({
+            attendance_type: attendanceType,
+            punch_type: actionType,
+            punchTime: timeStr,
+            punchDate: dateStr,
+            captured_at: locTimestamp,
+            latitude: locationData.latitude,
+            longitude: locationData.longitude,
+            accuracy: locationData.accuracy,
+            area: finalArea,
+            city: finalCity,
+            district: locationData.district || "",
+            state: finalState,
+            country: finalCountry,
+            pincode: finalPin,
+            full_address,
+            live_photo: capturedImage,
+            faceImage: capturedImage,
+            locationData: finalLocation,
+          })
+        );
+      } catch (err) {
+        alert("Failed to submit punch: " + (err?.message || err));
+      } finally {
+        setIsSubmitting(false);
+      }
     }
   };
 
   if (!isOpen) return null;
 
-  const isPunchIn = actionType === "in";
-  const punchLabel = isPunchIn ? "Punch In" : "Punch Out";
   const titleText = punchLabel;
 
   return (
     <div
       className="face-punch-overlay"
       onClick={(e) => {
-        if (e.target === e.currentTarget && onClose) {
+        if (e.target === e.currentTarget && onClose && !isSubmitting) {
           stopCameraStream();
           onClose();
         }
@@ -559,7 +653,9 @@ export default function FacePunchModal({
         <button
           type="button"
           className="face-modal-close-btn"
+          disabled={isSubmitting}
           onClick={() => {
+            if (isSubmitting) return;
             stopCameraStream();
             onClose();
           }}
@@ -572,7 +668,7 @@ export default function FacePunchModal({
         {/* Modal Header */}
         <div className="face-modal-header">
           <div className="face-modal-icon-badge">
-            <Coffee size={18} />
+            <ActionIcon size={18} />
           </div>
           <div className="face-modal-title-wrap">
             <h3>{titleText}</h3>
@@ -833,75 +929,155 @@ export default function FacePunchModal({
           )}
 
           {/* Current Location Card */}
+          {(() => {
+            const accEval = evaluateLocationAccuracy(locationData?.accuracy);
+            const maxAllowed = getMaxAllowedAccuracy();
+            const isAccurateEnough = accEval.canPunch;
+            const hasCoords = locationData?.latitude != null && locationData?.longitude != null;
+
+            return (
           <div className="face-location-card">
             <div className="face-loc-card-header">
               <div className="face-loc-title-wrap">
                 <span className="face-location-icon"><MapPin size={16} /></span>
-                <span className="face-location-heading">Current Location</span>
+                <span className="face-location-heading">{locationStatus === "locked" ? "📍 Current Location" : "📍 Location"}</span>
                 {locationStatus === "detecting" ? (
-                  <span className="face-loc-badge detecting">Detecting GPS…</span>
-                ) : locationStatus === "locked" && locationData?.isAccurate ? (
-                  <span className="face-loc-badge verified">GPS Verified</span>
-                ) : locationStatus === "warning" ? (
-                  <span className="face-loc-badge warning">Low Accuracy</span>
+                  <span className="face-loc-badge detecting">{locationStage}</span>
+                ) : locationStatus === "locked" && hasCoords ? (
+                  <span className={`face-loc-badge ${isAccurateEnough ? (accEval.level === "good" ? "verified" : "warning") : "error"}`}>
+                    {accEval.badgeText}
+                  </span>
                 ) : (
-                  <span className="face-loc-badge error">GPS Error</span>
+                  <span className="face-loc-badge error">GPS Required</span>
                 )}
               </div>
               <button
                 type="button"
                 className="face-loc-refresh-btn"
                 onClick={fetchLocation}
-                disabled={locationStatus === "detecting"}
+                disabled={locationStatus === "detecting" || isSubmitting}
                 title="Refresh GPS Location"
               >
                 <RefreshCw size={13} className={locationStatus === "detecting" ? "spin" : ""} />
-                <span>Retry</span>
+                <span>{locationStatus === "detecting" ? "Detecting…" : "Refresh Location"}</span>
               </button>
             </div>
 
             <div className="face-location-copy">
-              <div className="face-location-address">
-                <div className="face-loc-teal-pin-wrap">
-                  <MapPin size={17} className="face-loc-teal-pin" />
-                </div>
-                <span className="face-loc-address-text">
-                  {locationStatus === "detecting"
-                    ? "Acquiring high-accuracy GPS coordinates…"
-                    : (locationData?.displayAddress || [locationData?.area || executive?.area || executive?.city, locationData?.city || executive?.city, locationData?.state || executive?.region || executive?.state].filter(Boolean).join(", "))}
-                </span>
-              </div>
-
-              {locationError && (
-                <div className="face-loc-error-msg">
-                  <AlertTriangle size={13} style={{ flexShrink: 0, marginTop: 1 }} />
-                  <span>{locationError}</span>
+              {/* Google Maps style interactive map with accuracy circle and heading arrow */}
+              {hasCoords && (
+                <div style={{ margin: "10px 0" }}>
+                  <LeafletLocationMap
+                    latitude={locationData.latitude}
+                    longitude={locationData.longitude}
+                    accuracy={locationData.accuracy || 0}
+                    heading={locationData.heading}
+                    height="190px"
+                  />
                 </div>
               )}
 
-              {/* Dedicated Accurate Area Highlight Banner */}
-              <div className="face-loc-area-highlight-card">
-                <span className="face-loc-area-badge">ACCURATE AREA</span>
-                <span className="face-loc-area-text">
-                  {locationStatus === "detecting"
-                    ? "Resolving precise street & area…"
-                    : (locationData?.area || executive?.area || executive?.city || "Field Area")}
-                </span>
-              </div>
+              {/* GPS Accuracy & Status Callout Banner */}
+              {hasCoords && (
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    background: isAccurateEnough ? (accEval.level === "good" ? "#f0fdf4" : "#fefce8") : "#fef2f2",
+                    border: `1px solid ${isAccurateEnough ? (accEval.level === "good" ? "#bbf7d0" : "#fef08a") : "#fecaca"}`,
+                    borderRadius: "8px",
+                    padding: "8px 12px",
+                    margin: "8px 0 10px 0",
+                  }}
+                >
+                  <div>
+                    <div style={{ fontSize: "0.85rem", fontWeight: 700, color: isAccurateEnough ? (accEval.level === "good" ? "#166534" : "#854d0e") : "#991b1b" }}>
+                      Location Accuracy: {locationData.accuracy != null ? `${Math.round(locationData.accuracy)}m` : "—"}
+                    </div>
+                    <div style={{ fontSize: "0.78rem", fontWeight: 600, color: isAccurateEnough ? (accEval.level === "good" ? "#15803d" : "#a16207") : "#b91c1c", marginTop: "2px" }}>
+                      Location Status: {isAccurateEnough ? (accEval.level === "good" ? "✓ VERIFIED" : "Location accuracy is low but acceptable") : "Location accuracy is too low"}
+                    </div>
+                  </div>
+                  {locationData.hasHeading && (
+                    <span style={{ fontSize: "0.72rem", background: "#e0e7ff", color: "#3730a3", padding: "3px 8px", borderRadius: "12px", fontWeight: 600 }}>
+                      🧭 Heading: {locationData.heading}°
+                    </span>
+                  )}
+                </div>
+              )}
 
-              {/* Area, City, State, and PIN telemetry row */}
+              {locationStatus === "detecting" ? (
+                <div className="face-location-address">
+                  <div className="face-loc-teal-pin-wrap">
+                    <MapPin size={17} className="face-loc-teal-pin" />
+                  </div>
+                  <span className="face-loc-address-text" style={{ fontWeight: 600, color: "#0369a1" }}>
+                    📍 {locationStage || "Detecting location..."}
+                  </span>
+                </div>
+              ) : locationStatus === "locked" && hasCoords ? (
+                <div style={{ padding: "2px 0 6px 0" }}>
+                  <div style={{ fontSize: "1.02rem", fontWeight: 700, color: "#0f172a", display: "flex", alignItems: "center", gap: "6px" }}>
+                    <MapPin size={17} style={{ color: "#0d9488", flexShrink: 0 }} />
+                    <span>{locationData.area || locationData.city}</span>
+                  </div>
+                  <div style={{ fontSize: "0.84rem", color: "#475569", marginLeft: "23px", marginTop: "2px" }}>
+                    {[locationData.city !== locationData.area ? locationData.city : null, locationData.district, locationData.state].filter(Boolean).join(", ")}
+                    {locationData.pincode ? ` - ${locationData.pincode}` : ""}
+                  </div>
+                </div>
+              ) : (
+                <div className="face-location-address">
+                  <div className="face-loc-teal-pin-wrap">
+                    <MapPin size={17} className="face-loc-teal-pin" />
+                  </div>
+                  <span className="face-loc-address-text" style={{ color: "#dc2626" }}>
+                    Live GPS location required before punching attendance.
+                  </span>
+                </div>
+              )}
+
+              {locationError && (
+                <div className="face-loc-error-msg" style={{ background: "#fef2f2", border: "1px solid #fecaca", padding: "8px 12px", borderRadius: "8px", marginTop: "8px" }}>
+                  <AlertTriangle size={15} style={{ flexShrink: 0, marginTop: 1, color: "#dc2626" }} />
+                  <span style={{ color: "#991b1b", fontSize: "0.82rem", lineHeight: 1.4 }}>{locationError}</span>
+                </div>
+              )}
+
+              {/* Desktop Limitation Guidance Banner when accuracy > maxAllowed */}
+              {locationStatus === "locked" && locationData?.accuracy != null && locationData.accuracy > maxAllowed && (
+                <div style={{ background: "#fff1f2", border: "1px solid #fecdd3", borderRadius: "8px", padding: "10px 12px", marginTop: "8px", color: "#9f1239", fontSize: "0.82rem", lineHeight: 1.45 }}>
+                  <div style={{ fontWeight: 700, display: "flex", alignItems: "center", gap: "6px", marginBottom: "4px" }}>
+                    <AlertTriangle size={15} />
+                    <span>Location accuracy is too low (±{Math.round(locationData.accuracy)}m)</span>
+                  </div>
+                  <div>Please wait a few seconds and click <strong>'Refresh Location'</strong>. Attendance punch requires GPS accuracy ≤ {maxAllowed}m.</div>
+                  <div style={{ marginTop: "6px", fontSize: "0.78rem", color: "#881337", background: "#ffe4e6", padding: "6px 8px", borderRadius: "6px" }}>
+                    💻 <strong>How to improve accuracy on Windows:</strong> Go to <strong>Settings → Privacy & security → Location</strong> and turn Location Services <strong>ON</strong>. Ensure browser location permission is allowed and Wi-Fi is enabled for desktop triangulation.
+                  </div>
+                </div>
+              )}
+
+              {/* Area, City, District, State, and PIN telemetry row */}
               <div className="face-loc-breakdown-row">
                 <div className="face-loc-breakdown-chip">
                   <span className="face-loc-chip-k">Area:</span>
-                  <span className="face-loc-chip-v">{locationData?.area || executive?.area || executive?.city || "Field Area"}</span>
+                  <span className="face-loc-chip-v">{locationData?.area || (locationStatus === "detecting" ? "Detecting…" : "—")}</span>
                 </div>
                 <div className="face-loc-breakdown-chip">
                   <span className="face-loc-chip-k">City:</span>
-                  <span className="face-loc-chip-v">{locationData?.city || executive?.city || "Field City"}</span>
+                  <span className="face-loc-chip-v">{locationData?.city || (locationStatus === "detecting" ? "Detecting…" : "—")}</span>
                 </div>
+                {locationData?.district && (
+                  <div className="face-loc-breakdown-chip">
+                    <span className="face-loc-chip-k">District:</span>
+                    <span className="face-loc-chip-v">{locationData.district}</span>
+                  </div>
+                )}
                 <div className="face-loc-breakdown-chip">
                   <span className="face-loc-chip-k">State:</span>
-                  <span className="face-loc-chip-v">{locationData?.state || executive?.region || executive?.state || "Field State"}</span>
+                  <span className="face-loc-chip-v">{locationData?.state || (locationStatus === "detecting" ? "Detecting…" : "—")}</span>
                 </div>
                 {locationData?.pincode && (
                   <div className="face-loc-breakdown-chip">
@@ -924,48 +1100,103 @@ export default function FacePunchModal({
                     {locationData?.longitude != null ? locationData.longitude.toFixed(6) : "—"}
                   </span>
                 </div>
-                <div className={`face-coord-cell ${locationData?.accuracy && locationData.accuracy <= 50 ? "high-acc" : ""}`}>
+                <div className={`face-coord-cell ${locationData?.accuracy && locationData.accuracy <= 30 ? "high-acc" : ""}`}>
                   <span className="face-coord-label">Accuracy</span>
                   <span className="face-coord-val">
-                    {locationData?.accuracyText || (locationData?.accuracy ? `±${locationData.accuracy}m` : "±10m")}
+                    {locationData?.accuracy != null ? `±${Math.round(locationData.accuracy)} m` : "—"}
                   </span>
+                </div>
+              </div>
+
+              {/* Live GPS Telemetry Box for Verification */}
+              <div
+                style={{
+                  marginTop: "10px",
+                  padding: "8px 10px",
+                  background: "#f8fafc",
+                  border: "1px dashed #cbd5e1",
+                  borderRadius: "6px",
+                  fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+                  fontSize: "0.75rem",
+                  color: "#334155",
+                  lineHeight: 1.5,
+                }}
+              >
+                <div style={{ fontWeight: 700, color: "#0f172a", marginBottom: "4px" }}>CURRENT LOCATION</div>
+                <div>📍 Area: <strong>{locationData?.area || "—"}</strong></div>
+                <div>🏙️ City: <strong>{locationData?.city || "—"}</strong></div>
+                <div>📍 District: <strong>{locationData?.district || "—"}</strong></div>
+                <div>🗺️ State: <strong>{locationData?.state || "—"}</strong></div>
+                <div>📮 Pincode: <strong>{locationData?.pincode || "—"}</strong></div>
+                <div>Latitude: <strong>{locationData?.latitude != null ? locationData.latitude.toFixed(6) : "—"}</strong></div>
+                <div>Longitude: <strong>{locationData?.longitude != null ? locationData.longitude.toFixed(6) : "—"}</strong></div>
+                <div>
+                  Location Accuracy:{" "}
+                  <strong style={{ color: isAccurateEnough ? "#059669" : "#dc2626" }}>
+                    {locationData?.accuracy != null ? `±${Math.round(locationData.accuracy)}m` : "—"}
+                  </strong>
+                </div>
+                <div>
+                  Location Status:{" "}
+                  <strong style={{ color: isAccurateEnough ? (accEval.level === "good" ? "#059669" : "#d97706") : "#dc2626" }}>
+                    {isAccurateEnough ? (accEval.level === "good" ? "✓ VERIFIED" : "ACCEPTABLE") : "INVALID"}
+                  </strong>
                 </div>
               </div>
             </div>
           </div>
+            );
+          })()}
 
           <div className="face-modal-footer">
             <button
               type="button"
               className={`face-confirm-submit-btn ${
-                faceCheckStatus === "multiple_faces"
+                isSubmitting
+                  ? "disabled-checking"
+                  : faceCheckStatus === "multiple_faces"
                   ? "disabled-rejected"
                   : capturedImage && faceCheckStatus === "no_face"
                   ? "disabled-rejected"
                   : capturedImage && faceCheckStatus === "checking"
                   ? "disabled-checking"
-                  : faceCheckStatus === "valid"
+                  : locationStatus === "error" || !locationData?.latitude || (locationData?.accuracy != null && locationData.accuracy > getMaxAllowedAccuracy())
+                  ? "disabled-rejected"
+                  : faceCheckStatus === "valid" && locationData?.latitude && (locationData?.accuracy == null || locationData.accuracy <= getMaxAllowedAccuracy())
                   ? "enabled-valid"
                   : ""
               }`}
               disabled={
+                isSubmitting ||
                 (cameraStatus === "loading" && !capturedImage) ||
                 faceCheckStatus === "multiple_faces" ||
-                (capturedImage && faceCheckStatus !== "valid")
+                (capturedImage && faceCheckStatus !== "valid") ||
+                locationStatus === "detecting" ||
+                locationStatus === "error" ||
+                !locationData?.latitude ||
+                (locationData?.accuracy != null && locationData.accuracy > getMaxAllowedAccuracy())
               }
               style={
-                faceCheckStatus === "multiple_faces"
+                faceCheckStatus === "multiple_faces" || locationStatus === "error" || (locationData?.accuracy != null && locationData.accuracy > getMaxAllowedAccuracy())
                   ? {
-                      pointerEvents: "none",
                       cursor: "not-allowed",
                       backgroundColor: "#dc2626",
-                      opacity: 0.78,
+                      opacity: 0.85,
                     }
                   : undefined
               }
               onClick={() => {
+                if (isSubmitting) return;
                 if (faceCheckStatus === "multiple_faces") {
-                  // Button is become not work!
+                  return;
+                }
+                if (locationStatus === "error" || !locationData?.latitude) {
+                  alert(locationError || "Location permission is required to punch attendance. Please enable location permission in your browser and try again.");
+                  return;
+                }
+                const maxAllowed = getMaxAllowedAccuracy();
+                if (locationData?.accuracy != null && locationData.accuracy > maxAllowed) {
+                  alert(`Location accuracy is too low (±${Math.round(locationData.accuracy)}m). Attendance punch requires GPS accuracy ≤ ${maxAllowed} meters. Please wait a few seconds, click 'Refresh Location', and ensure Wi-Fi is enabled.`);
                   return;
                 }
                 if (capturedImage) {
@@ -977,8 +1208,12 @@ export default function FacePunchModal({
                 }
               }}
             >
-              {faceCheckStatus === "multiple_faces" ? (
+              {isSubmitting ? (
+                <RefreshCw size={18} className="spin" />
+              ) : faceCheckStatus === "multiple_faces" ? (
                 <XCircle size={18} />
+              ) : locationStatus === "error" || (locationStatus !== "detecting" && !locationData?.latitude) ? (
+                <AlertTriangle size={18} />
               ) : capturedImage ? (
                 faceCheckStatus === "checking" ? (
                   <RefreshCw size={18} className="spin" />
@@ -991,8 +1226,16 @@ export default function FacePunchModal({
                 <Camera size={18} />
               )}
               <span>
-                {faceCheckStatus === "multiple_faces"
-                  ? `❌ More Than 1 Person (${detectedFaceCount} People) — Punch In Not Allowed`
+                {isSubmitting
+                  ? "Submitting attendance..."
+                  : faceCheckStatus === "multiple_faces"
+                  ? `❌ More Than 1 Person (${detectedFaceCount} People) — Punch Not Allowed`
+                  : locationStatus === "detecting"
+                  ? `📡 ${locationStage || "Getting your current location..."}`
+                  : locationStatus === "error" || !locationData?.latitude
+                  ? "⚠️ GPS Location Required"
+                  : locationData?.accuracy != null && locationData.accuracy > getMaxAllowedAccuracy()
+                  ? `⚠️ Location Accuracy Too Low (±${Math.round(locationData.accuracy)}m) — Refresh Required`
                   : capturedImage
                   ? faceCheckStatus === "checking"
                     ? "Analyzing Face Biometrics…"
@@ -1002,7 +1245,7 @@ export default function FacePunchModal({
                   : cameraStatus === "active"
                   ? `Capture & ${punchLabel}`
                   : cameraStatus === "loading"
-                  ? "Starting Camera…"
+                  ? "Opening camera..."
                   : `Verify & ${punchLabel}`}
               </span>
             </button>

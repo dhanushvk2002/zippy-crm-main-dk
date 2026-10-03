@@ -1,4 +1,5 @@
 import os
+import re
 import shutil
 import hashlib
 import hmac
@@ -136,11 +137,18 @@ def plan_response(obj):
             data[k] = v.isoformat()
     return data
 def model_response(obj):
-    data = {
-        key: value
-        for key, value in obj.__dict__.items()
-        if key not in ("_sa_instance_state", "password_hash") and not isinstance(value, (bytes, bytearray))
-    }
+    data = {}
+    if hasattr(obj, "__table__"):
+        for c in obj.__table__.columns.keys():
+            if c != "password_hash":
+                data[c] = getattr(obj, c, None)
+    else:
+        data = {
+            key: value
+            for key, value in obj.__dict__.items()
+            if key not in ("_sa_instance_state", "password_hash") and not isinstance(value, (bytes, bytearray))
+        }
+
     if getattr(obj, "__tablename__", None) in ("sales_executives", "regional_managers", "sales_managers"):
         password_value = getattr(obj, "password_value", None)
         has_password = bool(getattr(obj, "password_hash", None))
@@ -154,29 +162,68 @@ def model_response(obj):
         login_lat = data.get("login_latitude") if data.get("login_latitude") is not None else data.get("latitude")
         login_lng = data.get("login_longitude") if data.get("login_longitude") is not None else data.get("longitude")
         login_ar = data.get("login_area") or data.get("area")
-        logout_lat = data.get("logout_latitude") if data.get("logout_latitude") is not None else (data.get("latitude") or login_lat)
-        logout_lng = data.get("logout_longitude") if data.get("logout_longitude") is not None else (data.get("longitude") or login_lng)
-        logout_ar = data.get("logout_area") or data.get("area") or login_ar
+        logout_lat = data.get("logout_latitude")
+        logout_lng = data.get("logout_longitude")
+        logout_ar = data.get("logout_area")
 
         data["login_latitude"] = login_lat
         data["login_longitude"] = login_lng
         data["login_area"] = login_ar
+        data["login_city"] = data.get("login_city") or data.get("city")
+        data["login_state"] = data.get("login_state") or data.get("state")
+        data["login_country"] = data.get("login_country") or data.get("country") or "India"
+        data["login_pincode"] = data.get("login_pincode") or data.get("pincode")
+        data["login_full_address"] = data.get("login_full_address") or data.get("full_address") or login_ar
+        data["login_accuracy"] = data.get("login_accuracy") if data.get("login_accuracy") is not None else data.get("location_accuracy")
+        data["login_location_timestamp"] = data.get("login_location_timestamp") or data.get("location_timestamp")
+
         data["logout_latitude"] = logout_lat
         data["logout_longitude"] = logout_lng
         data["logout_area"] = logout_ar
+        data["logout_city"] = data.get("logout_city")
+        data["logout_state"] = data.get("logout_state")
+        data["logout_country"] = data.get("logout_country") or "India"
+        data["logout_pincode"] = data.get("logout_pincode")
+        data["logout_full_address"] = data.get("logout_full_address")
+        data["logout_accuracy"] = data.get("logout_accuracy")
+        data["logout_location_timestamp"] = data.get("logout_location_timestamp")
+
         data["latitude"] = login_lat
         data["longitude"] = login_lng
         data["area"] = login_ar
+        data["city"] = data.get("city") or data.get("login_city")
+        data["state"] = data.get("state") or data.get("login_state")
+        data["country"] = data.get("country") or data.get("login_country") or "India"
+        data["pincode"] = data.get("pincode") or data.get("login_pincode")
+        data["full_address"] = data.get("full_address") or data.get("login_full_address") or login_ar
+        data["location_accuracy"] = data.get("location_accuracy") if data.get("location_accuracy") is not None else data.get("login_accuracy")
+        data["location_timestamp"] = data.get("location_timestamp")
+
         data["lunch_out_time"] = data.get("lunch_out_time")
         data["lunch_in_time"] = data.get("lunch_in_time")
         data["lunch_out"] = data.get("lunch_out_time")
         data["lunch_in"] = data.get("lunch_in_time")
         data["lunch_out_latitude"] = data.get("lunch_out_latitude")
         data["lunch_out_longitude"] = data.get("lunch_out_longitude")
-        data["lunch_out_area"] = data.get("lunch_out_area") or data.get("login_area") or data.get("area")
+        data["lunch_out_area"] = data.get("lunch_out_area")
+        data["lunch_out_city"] = data.get("lunch_out_city")
+        data["lunch_out_state"] = data.get("lunch_out_state")
+        data["lunch_out_country"] = data.get("lunch_out_country") or "India"
+        data["lunch_out_pincode"] = data.get("lunch_out_pincode")
+        data["lunch_out_full_address"] = data.get("lunch_out_full_address")
+        data["lunch_out_accuracy"] = data.get("lunch_out_accuracy")
+        data["lunch_out_location_timestamp"] = data.get("lunch_out_location_timestamp")
+
         data["lunch_in_latitude"] = data.get("lunch_in_latitude")
         data["lunch_in_longitude"] = data.get("lunch_in_longitude")
-        data["lunch_in_area"] = data.get("lunch_in_area") or data.get("login_area") or data.get("area")
+        data["lunch_in_area"] = data.get("lunch_in_area")
+        data["lunch_in_city"] = data.get("lunch_in_city")
+        data["lunch_in_state"] = data.get("lunch_in_state")
+        data["lunch_in_country"] = data.get("lunch_in_country") or "India"
+        data["lunch_in_pincode"] = data.get("lunch_in_pincode")
+        data["lunch_in_full_address"] = data.get("lunch_in_full_address")
+        data["lunch_in_accuracy"] = data.get("lunch_in_accuracy")
+        data["lunch_in_location_timestamp"] = data.get("lunch_in_location_timestamp")
     return data
 def get_db():
     db = SessionLocal()
@@ -3743,44 +3790,65 @@ def reverse_geocode_api(lat: float, lng: float):
             if response.status == 200:
                 data = json.loads(response.read().decode())
                 addr = data.get("address", {})
-                pincode = addr.get("postcode") or ""
-                area = (
-                    addr.get("suburb")
-                    or addr.get("neighbourhood")
-                    or addr.get("quarter")
-                    or addr.get("residential")
-                    or addr.get("locality")
-                    or addr.get("village")
-                    or addr.get("road")
-                    or addr.get("city_district")
-                    or ""
-                )
-                city = addr.get("city") or addr.get("town") or addr.get("municipality") or addr.get("city_district") or ""
-                district = addr.get("district") or addr.get("state_district") or addr.get("county") or ""
-                state = addr.get("state") or ""
-                country = addr.get("country") or "India"
-                
-                parts = [p for p in [area or city, city, state] if p]
-                # Avoid adjacent duplicate words
+                pincode = (addr.get("postcode") or addr.get("postalCode") or "").strip()
+                area_candidates = [
+                    addr.get("neighbourhood"),
+                    addr.get("suburb"),
+                    addr.get("locality"),
+                    addr.get("village"),
+                    addr.get("quarter"),
+                    addr.get("hamlet"),
+                    addr.get("residential"),
+                    addr.get("subdistrict"),
+                    addr.get("road"),
+                    addr.get("city_district"),
+                ]
+                area = next((c.strip() for c in area_candidates if c and isinstance(c, str) and c.strip()), "")
+
+                city_candidates = [
+                    addr.get("city"),
+                    addr.get("town"),
+                    addr.get("municipality"),
+                    addr.get("city_district"),
+                ]
+                city = next((c.strip() for c in city_candidates if c and isinstance(c, str) and c.strip()), "")
+
+                district_candidates = [
+                    addr.get("district"),
+                    addr.get("state_district"),
+                    addr.get("county"),
+                ]
+                district = next((c.strip() for c in district_candidates if c and isinstance(c, str) and c.strip()), "")
+
+                state = (addr.get("state") or "").strip()
+                country = (addr.get("country") or "India").strip()
+
+                if not city and district:
+                    city = district
+                if not area and city:
+                    area = city
+
+                parts = [p for p in [area, city, state] if p]
                 clean_parts = []
                 for p in parts:
                     if not clean_parts or clean_parts[-1].lower() != p.lower():
                         clean_parts.append(p)
                 disp = ", ".join(clean_parts)
-                if pincode:
-                    disp += f" - {pincode}"
-                
+                full_addr = f"{disp} - {pincode}, {country}" if pincode else f"{disp}, {country}"
+                disp_with_pin = f"{disp} - {pincode}" if pincode else disp
+
                 return {
-                    "area": area or city,
-                    "accurate_area": area or city,
+                    "area": area,
+                    "accurate_area": area,
                     "city": city,
                     "district": district,
                     "state": state,
                     "region": state or city,
                     "pincode": pincode,
                     "country": country,
-                    "formatted_address": disp,
-                    "display_address": disp,
+                    "full_address": full_addr,
+                    "formatted_address": disp_with_pin,
+                    "display_address": disp_with_pin,
                 }
     except Exception:
         pass
@@ -3792,32 +3860,62 @@ def reverse_geocode_api(lat: float, lng: float):
         with urllib.request.urlopen(req, timeout=5) as response:
             if response.status == 200:
                 data = json.loads(response.read().decode())
-                pincode = data.get("postcode") or ""
-                area = data.get("locality") or ""
-                city = data.get("city") or ""
-                state = data.get("principalSubdivision") or ""
-                country = data.get("countryName") or "India"
-                
-                parts = [p for p in [area or city, city, state] if p]
+                pincode = (data.get("postcode") or "").strip()
+                area = (data.get("locality") or "").strip()
+                locality_info = data.get("localityInfo") if isinstance(data.get("localityInfo"), dict) else {}
+                informative = locality_info.get("informative") if isinstance(locality_info.get("informative"), list) else []
+                if not area and informative:
+                    wanted_regex = re.compile(r"(neighbo|suburb|quarter|ward|locality|village|sub-?district|taluk|tehsil|mandal)", re.I)
+                    for item in reversed(informative):
+                        if isinstance(item, dict):
+                            desc = item.get("description") or ""
+                            name = (item.get("name") or "").strip()
+                            if name and wanted_regex.search(desc):
+                                area = name
+                                break
+
+                city = (data.get("city") or "").strip()
+                district = ""
+                administrative = locality_info.get("administrative") if isinstance(locality_info.get("administrative"), list) else []
+                if administrative:
+                    dist_regex = re.compile(r"district|county", re.I)
+                    for adm in administrative:
+                        if isinstance(adm, dict):
+                            desc = adm.get("description") or ""
+                            name = (adm.get("name") or "").strip()
+                            if name and dist_regex.search(desc):
+                                district = name
+                                break
+
+                state = (data.get("principalSubdivision") or "").strip()
+                country = (data.get("countryName") or "India").strip()
+
+                if not city and district:
+                    city = district
+                if not area and city:
+                    area = city
+
+                parts = [p for p in [area, city, state] if p]
                 clean_parts = []
                 for p in parts:
                     if not clean_parts or clean_parts[-1].lower() != p.lower():
                         clean_parts.append(p)
                 disp = ", ".join(clean_parts)
-                if pincode:
-                    disp += f" - {pincode}"
-                
+                full_addr = f"{disp} - {pincode}, {country}" if pincode else f"{disp}, {country}"
+                disp_with_pin = f"{disp} - {pincode}" if pincode else disp
+
                 return {
-                    "area": area or city,
-                    "accurate_area": area or city,
+                    "area": area,
+                    "accurate_area": area,
                     "city": city,
-                    "district": "",
+                    "district": district,
                     "state": state,
                     "region": state or city,
                     "pincode": pincode,
                     "country": country,
-                    "formatted_address": disp,
-                    "display_address": disp,
+                    "full_address": full_addr,
+                    "formatted_address": disp_with_pin,
+                    "display_address": disp_with_pin,
                 }
     except Exception:
         pass
@@ -3830,7 +3928,8 @@ def reverse_geocode_api(lat: float, lng: float):
         "state": "",
         "region": "",
         "pincode": "",
-        "country": "",
+        "country": "India",
+        "full_address": "",
         "formatted_address": "",
         "display_address": "",
     }
@@ -4449,6 +4548,53 @@ class Attendance(Base):
         nullable=True
     )
 
+    lunch_out_city = Column(
+        String(255),
+        nullable=True
+    )
+
+    lunch_out_district = Column(
+        String(255),
+        nullable=True
+    )
+
+    lunch_out_state = Column(
+        String(255),
+        nullable=True
+    )
+
+    lunch_out_accuracy = Column(
+        Float,
+        nullable=True
+    )
+
+    lunch_out_location_source = Column(
+        String(100),
+        nullable=True,
+        default="WINDOWS_LOCATION"
+    )
+
+    lunch_out_country = Column(
+        String(100),
+        nullable=True,
+        default="India"
+    )
+
+    lunch_out_pincode = Column(
+        String(20),
+        nullable=True
+    )
+
+    lunch_out_full_address = Column(
+        Text,
+        nullable=True
+    )
+
+    lunch_out_location_timestamp = Column(
+        DateTime,
+        nullable=True
+    )
+
     lunch_in_latitude = Column(
         Float,
         nullable=True
@@ -4464,6 +4610,117 @@ class Attendance(Base):
         nullable=True
     )
 
+    lunch_in_city = Column(
+        String(255),
+        nullable=True
+    )
+
+    lunch_in_district = Column(
+        String(255),
+        nullable=True
+    )
+
+    lunch_in_state = Column(
+        String(255),
+        nullable=True
+    )
+
+    lunch_in_accuracy = Column(
+        Float,
+        nullable=True
+    )
+
+    lunch_in_location_source = Column(
+        String(100),
+        nullable=True,
+        default="WINDOWS_LOCATION"
+    )
+
+    lunch_in_country = Column(
+        String(100),
+        nullable=True,
+        default="India"
+    )
+
+    lunch_in_pincode = Column(
+        String(20),
+        nullable=True
+    )
+
+    lunch_in_full_address = Column(
+        Text,
+        nullable=True
+    )
+
+    lunch_in_location_timestamp = Column(
+        DateTime,
+        nullable=True
+    )
+
+    # General / Latest GPS Location Fields
+    latitude = Column(
+        Float,
+        nullable=True
+    )
+
+    longitude = Column(
+        Float,
+        nullable=True
+    )
+
+    area = Column(
+        String(255),
+        nullable=True
+    )
+
+    city = Column(
+        String(255),
+        nullable=True
+    )
+
+    district = Column(
+        String(255),
+        nullable=True
+    )
+
+    state = Column(
+        String(255),
+        nullable=True
+    )
+
+    country = Column(
+        String(100),
+        nullable=True,
+        default="India"
+    )
+
+    pincode = Column(
+        String(20),
+        nullable=True
+    )
+
+    full_address = Column(
+        Text,
+        nullable=True
+    )
+
+    location_accuracy = Column(
+        Float,
+        nullable=True
+    )
+
+    location_source = Column(
+        String(100),
+        nullable=True,
+        default="WINDOWS_LOCATION"
+    )
+
+    location_timestamp = Column(
+        DateTime,
+        nullable=True
+    )
+
+    # Login Specific Location Fields
     login_latitude = Column(
         Float,
         nullable=True
@@ -4479,6 +4736,54 @@ class Attendance(Base):
         nullable=True
     )
 
+    login_city = Column(
+        String(255),
+        nullable=True
+    )
+
+    login_district = Column(
+        String(255),
+        nullable=True
+    )
+
+    login_state = Column(
+        String(255),
+        nullable=True
+    )
+
+    login_country = Column(
+        String(100),
+        nullable=True,
+        default="India"
+    )
+
+    login_pincode = Column(
+        String(20),
+        nullable=True
+    )
+
+    login_full_address = Column(
+        Text,
+        nullable=True
+    )
+
+    login_accuracy = Column(
+        Float,
+        nullable=True
+    )
+
+    login_location_source = Column(
+        String(100),
+        nullable=True,
+        default="WINDOWS_LOCATION"
+    )
+
+    login_location_timestamp = Column(
+        DateTime,
+        nullable=True
+    )
+
+    # Logout Specific Location Fields
     logout_latitude = Column(
         Float,
         nullable=True
@@ -4494,12 +4799,69 @@ class Attendance(Base):
         nullable=True
     )
 
+    logout_city = Column(
+        String(255),
+        nullable=True
+    )
+
+    logout_district = Column(
+        String(255),
+        nullable=True
+    )
+
+    logout_state = Column(
+        String(255),
+        nullable=True
+    )
+
+    logout_country = Column(
+        String(100),
+        nullable=True,
+        default="India"
+    )
+
+    logout_pincode = Column(
+        String(20),
+        nullable=True
+    )
+
+    logout_full_address = Column(
+        Text,
+        nullable=True
+    )
+
+    logout_accuracy = Column(
+        Float,
+        nullable=True
+    )
+
+    logout_location_source = Column(
+        String(100),
+        nullable=True,
+        default="WINDOWS_LOCATION"
+    )
+
+    logout_location_timestamp = Column(
+        DateTime,
+        nullable=True
+    )
+
     login_selfie_url = Column(
         Text,
         nullable=True
     )
 
     logout_selfie_url = Column(
+        Text,
+        nullable=True
+    )
+
+    lunch_out_selfie_url = Column(
+        Text,
+        nullable=True
+    )
+
+    lunch_in_selfie_url = Column(
         Text,
         nullable=True
     )
@@ -4562,13 +4924,118 @@ def _ensure_executive_password_column():
 
 _ensure_executive_password_column()
 
+def _ensure_attendance_location_columns():
+    from sqlalchemy import inspect as sa_inspect
+    try:
+        inspector = sa_inspect(engine)
+        if "attendance" in inspector.get_table_names():
+            cols = {c["name"] for c in inspector.get_columns("attendance")}
+            col_definitions = [
+                ("latitude", "FLOAT NULL"),
+                ("longitude", "FLOAT NULL"),
+                ("area", "VARCHAR(255) NULL"),
+                ("city", "VARCHAR(255) NULL"),
+                ("district", "VARCHAR(255) NULL"),
+                ("state", "VARCHAR(255) NULL"),
+                ("country", "VARCHAR(100) NULL"),
+                ("pincode", "VARCHAR(20) NULL"),
+                ("full_address", "TEXT NULL"),
+                ("location_accuracy", "FLOAT NULL"),
+                ("location_source", "VARCHAR(100) NULL"),
+                ("login_latitude", "FLOAT NULL"),
+                ("login_longitude", "FLOAT NULL"),
+                ("login_area", "VARCHAR(255) NULL"),
+                ("login_city", "VARCHAR(255) NULL"),
+                ("login_district", "VARCHAR(255) NULL"),
+                ("login_state", "VARCHAR(255) NULL"),
+                ("login_country", "VARCHAR(100) NULL"),
+                ("login_pincode", "VARCHAR(20) NULL"),
+                ("login_full_address", "TEXT NULL"),
+                ("login_accuracy", "FLOAT NULL"),
+                ("login_location_source", "VARCHAR(100) NULL"),
+                ("logout_latitude", "FLOAT NULL"),
+                ("logout_longitude", "FLOAT NULL"),
+                ("logout_area", "VARCHAR(255) NULL"),
+                ("logout_city", "VARCHAR(255) NULL"),
+                ("logout_district", "VARCHAR(255) NULL"),
+                ("logout_state", "VARCHAR(255) NULL"),
+                ("logout_country", "VARCHAR(100) NULL"),
+                ("logout_pincode", "VARCHAR(20) NULL"),
+                ("logout_full_address", "TEXT NULL"),
+                ("logout_accuracy", "FLOAT NULL"),
+                ("logout_location_source", "VARCHAR(100) NULL"),
+                ("lunch_out_latitude", "FLOAT NULL"),
+                ("lunch_out_longitude", "FLOAT NULL"),
+                ("lunch_out_area", "VARCHAR(255) NULL"),
+                ("lunch_out_city", "VARCHAR(255) NULL"),
+                ("lunch_out_district", "VARCHAR(255) NULL"),
+                ("lunch_out_state", "VARCHAR(255) NULL"),
+                ("lunch_out_country", "VARCHAR(100) NULL"),
+                ("lunch_out_pincode", "VARCHAR(20) NULL"),
+                ("lunch_out_full_address", "TEXT NULL"),
+                ("lunch_out_accuracy", "FLOAT NULL"),
+                ("lunch_out_location_source", "VARCHAR(100) NULL"),
+                ("lunch_out_location_timestamp", "DATETIME NULL"),
+                ("lunch_in_latitude", "FLOAT NULL"),
+                ("lunch_in_longitude", "FLOAT NULL"),
+                ("lunch_in_area", "VARCHAR(255) NULL"),
+                ("lunch_in_city", "VARCHAR(255) NULL"),
+                ("lunch_in_district", "VARCHAR(255) NULL"),
+                ("lunch_in_state", "VARCHAR(255) NULL"),
+                ("lunch_in_country", "VARCHAR(100) NULL"),
+                ("lunch_in_pincode", "VARCHAR(20) NULL"),
+                ("lunch_in_full_address", "TEXT NULL"),
+                ("lunch_in_accuracy", "FLOAT NULL"),
+                ("lunch_in_location_source", "VARCHAR(100) NULL"),
+                ("lunch_in_location_timestamp", "DATETIME NULL"),
+                ("location_timestamp", "DATETIME NULL"),
+                ("login_location_timestamp", "DATETIME NULL"),
+                ("logout_location_timestamp", "DATETIME NULL"),
+                ("lunch_out_selfie_url", "TEXT NULL"),
+                ("lunch_in_selfie_url", "TEXT NULL"),
+            ]
+            with engine.begin() as conn:
+                for col_name, col_def in col_definitions:
+                    if col_name not in cols:
+                        conn.execute(text(f"ALTER TABLE attendance ADD COLUMN {col_name} {col_def}"))
+    except Exception as exc:
+        print("WARNING: could not ensure attendance location columns:", exc)
+
+_ensure_attendance_location_columns()
+
 class AttendancePunchIn(BaseModel):
-    executive_id: int
+    sales_executive_id: Optional[int] = None
+    executive_id: Optional[int] = None
+    employee_id: Optional[int] = None
+    employee_name: Optional[str] = None
     attendance_date: Optional[date] = None
+    punch_type: Optional[str] = "PUNCH_IN"
+    punch_time: Optional[datetime] = None
     login_time: Optional[datetime] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    area: Optional[str] = None
+    city: Optional[str] = None
+    district: Optional[str] = None
+    state: Optional[str] = None
+    country: Optional[str] = "India"
+    pincode: Optional[str] = None
+    full_address: Optional[str] = None
+    location_accuracy: Optional[float] = None
+    location_source: Optional[str] = "WINDOWS_LOCATION"
+    location_timestamp: Optional[datetime] = None
     login_latitude: Optional[float] = None
     login_longitude: Optional[float] = None
     login_area: Optional[str] = None
+    login_city: Optional[str] = None
+    login_district: Optional[str] = None
+    login_state: Optional[str] = None
+    login_country: Optional[str] = None
+    login_pincode: Optional[str] = None
+    login_full_address: Optional[str] = None
+    login_accuracy: Optional[float] = None
+    login_location_source: Optional[str] = "WINDOWS_LOCATION"
+    login_location_timestamp: Optional[datetime] = None
     lunch_out_time: Optional[datetime] = None
     lunch_in_time: Optional[datetime] = None
     lunch_out: Optional[str] = None
@@ -4578,12 +5045,38 @@ class AttendancePunchIn(BaseModel):
 
 
 class AttendancePunchOut(BaseModel):
-    executive_id: int
+    sales_executive_id: Optional[int] = None
+    executive_id: Optional[int] = None
+    employee_id: Optional[int] = None
+    employee_name: Optional[str] = None
     attendance_date: Optional[date] = None
+    punch_type: Optional[str] = "PUNCH_OUT"
+    punch_time: Optional[datetime] = None
     logout_time: Optional[datetime] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    area: Optional[str] = None
+    city: Optional[str] = None
+    district: Optional[str] = None
+    state: Optional[str] = None
+    country: Optional[str] = "India"
+    pincode: Optional[str] = None
+    full_address: Optional[str] = None
+    location_accuracy: Optional[float] = None
+    location_source: Optional[str] = "WINDOWS_LOCATION"
+    location_timestamp: Optional[datetime] = None
     logout_latitude: Optional[float] = None
     logout_longitude: Optional[float] = None
     logout_area: Optional[str] = None
+    logout_city: Optional[str] = None
+    logout_district: Optional[str] = None
+    logout_state: Optional[str] = None
+    logout_country: Optional[str] = None
+    logout_pincode: Optional[str] = None
+    logout_full_address: Optional[str] = None
+    logout_accuracy: Optional[float] = None
+    logout_location_source: Optional[str] = "WINDOWS_LOCATION"
+    logout_location_timestamp: Optional[datetime] = None
     lunch_out_time: Optional[datetime] = None
     lunch_in_time: Optional[datetime] = None
     lunch_out: Optional[str] = None
@@ -4594,17 +5087,35 @@ class AttendancePunchOut(BaseModel):
 
 
 class AttendanceLunchPunch(BaseModel):
-    executive_id: int
+    sales_executive_id: Optional[int] = None
+    executive_id: Optional[int] = None
+    employee_id: Optional[int] = None
+    employee_name: Optional[str] = None
     attendance_date: Optional[date] = None
     action: str  # "lunch_out" | "lunch_in"
+    punch_type: Optional[str] = None
     punch_time: Optional[datetime] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     area: Optional[str] = None
+    city: Optional[str] = None
+    district: Optional[str] = None
+    state: Optional[str] = None
+    country: Optional[str] = "India"
+    pincode: Optional[str] = None
+    full_address: Optional[str] = None
+    location_accuracy: Optional[float] = None
+    location_source: Optional[str] = "WINDOWS_LOCATION"
+    location_timestamp: Optional[datetime] = None
+    selfie_url: Optional[str] = None
+    lunch_selfie_url: Optional[str] = None
 
 
 class AttendanceCreate(BaseModel):
-    executive_id: int
+    executive_id: Optional[int] = None
+    employee_id: Optional[int] = None
+    executive_name: Optional[str] = None
+    employee_name: Optional[str] = None
     attendance_date: date
     login_time: Optional[datetime] = None
     logout_time: Optional[datetime] = None
@@ -4612,12 +5123,34 @@ class AttendanceCreate(BaseModel):
     lunch_in_time: Optional[datetime] = None
     lunch_out: Optional[str] = None
     lunch_in: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    area: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    country: Optional[str] = "India"
+    pincode: Optional[str] = None
+    full_address: Optional[str] = None
+    location_accuracy: Optional[float] = None
+    location_timestamp: Optional[datetime] = None
     login_latitude: Optional[float] = None
     login_longitude: Optional[float] = None
     login_area: Optional[str] = None
+    login_city: Optional[str] = None
+    login_state: Optional[str] = None
+    login_country: Optional[str] = None
+    login_pincode: Optional[str] = None
+    login_full_address: Optional[str] = None
+    login_accuracy: Optional[float] = None
     logout_latitude: Optional[float] = None
     logout_longitude: Optional[float] = None
     logout_area: Optional[str] = None
+    logout_city: Optional[str] = None
+    logout_state: Optional[str] = None
+    logout_country: Optional[str] = None
+    logout_pincode: Optional[str] = None
+    logout_full_address: Optional[str] = None
+    logout_accuracy: Optional[float] = None
     login_selfie_url: Optional[str] = None
     logout_selfie_url: Optional[str] = None
     total_working_minutes: Optional[int] = None
@@ -4710,9 +5243,154 @@ def check_face_api(payload: FaceCheckPayload):
         }
 
 
+@app.get("/reverse-geocode")
+def reverse_geocode_api(lat: float, lng: float):
+    if lat is None or lng is None:
+        raise HTTPException(status_code=400, detail="lat and lng query parameters required")
+
+    # 1. Try BigDataCloud reverse geocoding API
+    try:
+        url = f"https://api.bigdatacloud.net/data/reverse-geocode-client?latitude={lat}&longitude={lng}&localityLanguage=en"
+        req = urllib.request.Request(url, headers={"User-Agent": "ZippyCRM-Attendance/1.0"})
+        with urllib.request.urlopen(req, timeout=5) as response:
+            if response.status == 200:
+                bdc_data = json.loads(response.read().decode())
+                area = (bdc_data.get("locality") or "").strip()
+                if not area and bdc_data.get("localityInfo", {}).get("informative"):
+                    wanted_regex = re.compile(r"(neighbo|suburb|quarter|ward|locality|village|sub-?district|taluk|tehsil|mandal)", re.I)
+                    for item in reversed(bdc_data["localityInfo"]["informative"]):
+                        if wanted_regex.search(item.get("description", "")) and item.get("name"):
+                            area = item["name"].strip()
+                            break
+
+                city = (bdc_data.get("city") or "").strip()
+                district = ""
+                if bdc_data.get("localityInfo", {}).get("administrative"):
+                    dist_regex = re.compile(r"district|county", re.I)
+                    for adm in bdc_data["localityInfo"]["administrative"]:
+                        if dist_regex.search(adm.get("description", "")) and adm.get("name"):
+                            district = adm["name"].strip()
+                            break
+
+                state = (bdc_data.get("principalSubdivision") or "").strip()
+                pincode = (bdc_data.get("postcode") or "").strip()
+                country = (bdc_data.get("countryName") or "India").strip()
+
+                parts = [p for p in [area or district, city, state] if p]
+                full_address = ", ".join(parts)
+                if country and not full_address.endswith(country):
+                    full_address += f", {country}"
+
+                return {
+                    "area": area or district or city,
+                    "city": city or district,
+                    "district": district,
+                    "state": state,
+                    "region": state,
+                    "pincode": pincode,
+                    "country": country,
+                    "full_address": full_address,
+                    "formatted_address": full_address,
+                    "display_address": full_address,
+                }
+    except Exception as e:
+        print("Backend reverse-geocode BigDataCloud error:", e)
+
+    # 2. Try Nominatim
+    try:
+        url = f"https://nominatim.openstreetmap.org/reverse?lat={lat}&lon={lng}&format=jsonv2&zoom=18&addressdetails=1&accept-language=en"
+        req = urllib.request.Request(url, headers={"User-Agent": "ZippyCRM-Attendance/1.0 (contact@zippyhealth.in)"})
+        with urllib.request.urlopen(req, timeout=5) as response:
+            if response.status == 200:
+                osm = json.loads(response.read().decode())
+                a = osm.get("address", {})
+                area = a.get("neighbourhood") or a.get("suburb") or a.get("locality") or a.get("village") or a.get("quarter") or a.get("hamlet") or a.get("road") or ""
+                city = a.get("city") or a.get("town") or a.get("municipality") or a.get("city_district") or ""
+                district = a.get("district") or a.get("state_district") or a.get("county") or ""
+                state = a.get("state") or ""
+                pincode = a.get("postcode") or ""
+                country = a.get("country") or "India"
+                full_address = osm.get("display_name") or ", ".join([p for p in [area, city, state, country] if p])
+                return {
+                    "area": area or district or city,
+                    "city": city or district,
+                    "district": district,
+                    "state": state,
+                    "region": state,
+                    "pincode": pincode,
+                    "country": country,
+                    "full_address": full_address,
+                    "formatted_address": full_address,
+                    "display_address": full_address,
+                }
+    except Exception as e:
+        print("Backend reverse-geocode Nominatim error:", e)
+
+    raise HTTPException(status_code=502, detail="Unable to reverse geocode the given coordinates.")
+
+
+def validate_attendance_location_and_payload(
+    lat, lng, acc, attendance_type, live_photo=None, require_photo=True
+):
+    """
+    Validates attendance event location according to Business Requirements:
+    1. Sales Executives can punch attendance from ANY physical location (NO fixed office, NO office distance check).
+    2. Coordinates must be valid (latitude -90..90, longitude -180..180).
+    3. Accuracy must be a positive number and <= 500m (MAX_LOCATION_ACCURACY_METERS).
+    4. Attendance type must be present.
+    5. Live photo is required if require_photo is True.
+    """
+    if not attendance_type:
+        raise HTTPException(status_code=400, detail="Missing required attendance type.")
+
+    if lat is None or lng is None:
+        raise HTTPException(status_code=400, detail="Current latitude and longitude coordinates are required.")
+
+    try:
+        lat_f = float(lat)
+        lng_f = float(lng)
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=400, detail="Latitude and longitude must be valid numeric coordinates.")
+
+    if np.isnan(lat_f) or np.isnan(lng_f):
+        raise HTTPException(status_code=400, detail="Latitude and longitude coordinates cannot be NaN.")
+
+    if lat_f < -90 or lat_f > 90:
+        raise HTTPException(status_code=400, detail=f"Invalid latitude ({lat_f}): must be between -90 and 90 degrees.")
+
+    if lng_f < -180 or lng_f > 180:
+        raise HTTPException(status_code=400, detail=f"Invalid longitude ({lng_f}): must be between -180 and 180 degrees.")
+
+    if acc is None:
+        raise HTTPException(status_code=400, detail="Location accuracy is required for attendance validation.")
+
+    try:
+        acc_f = float(acc)
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=400, detail="Location accuracy must be a valid numeric measurement.")
+
+    if np.isnan(acc_f) or acc_f <= 0:
+        raise HTTPException(status_code=400, detail="Location accuracy must be a valid positive number.")
+
+    if acc_f > 500:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Attendance rejected: Location accuracy is too low (±{round(acc_f)}m). Maximum allowed accuracy is 500m. Please wait a few seconds and try again."
+        )
+
+    if require_photo and not live_photo:
+        raise HTTPException(status_code=400, detail="Live attendance photo is required.")
+
+    return lat_f, lng_f, acc_f
+
+
 @app.post("/attendance/punch-in")
 def attendance_punch_in(payload: AttendancePunchIn, db: Session = Depends(get_db)):
-    exec_obj = db.query(SalesExecutive).filter(SalesExecutive.id == payload.executive_id).first()
+    exec_id = payload.sales_executive_id or payload.executive_id or payload.employee_id
+    if not exec_id:
+        raise HTTPException(status_code=400, detail="Executive / employee ID is required")
+
+    exec_obj = db.query(SalesExecutive).filter(SalesExecutive.id == exec_id).first()
     if not exec_obj:
         raise HTTPException(status_code=404, detail="Sales executive not found")
 
@@ -4731,67 +5409,131 @@ def attendance_punch_in(payload: AttendancePunchIn, db: Session = Depends(get_db
             )
 
     today_val = payload.attendance_date or datetime.now(ZoneInfo("Asia/Kolkata")).date()
-    login_dt = parse_ist_datetime(payload.login_time)
+    login_dt = parse_ist_datetime(payload.login_time or payload.punch_time)
     now_ts = datetime.now(ZoneInfo("Asia/Kolkata")).replace(tzinfo=None)
-    
+    loc_ts = parse_ist_datetime(payload.location_timestamp or payload.punch_time or payload.login_time) or now_ts
+
+    lat = payload.latitude if payload.latitude is not None else payload.login_latitude
+    lng = payload.longitude if payload.longitude is not None else payload.login_longitude
+    area = payload.area or payload.login_area
+    city = payload.city or payload.login_city
+    district = payload.district or payload.login_district
+    state = payload.state or payload.login_state
+    country = payload.country or payload.login_country or "India"
+    pincode = payload.pincode or payload.login_pincode
+    full_addr = payload.full_address or payload.login_full_address or area
+    acc = payload.location_accuracy if payload.location_accuracy is not None else payload.login_accuracy
+    loc_source = payload.location_source or payload.login_location_source or "BROWSER_GEOLOCATION"
+
+    # Validate location, coordinates, accuracy <= 500m, attendance type, and required photo
+    lat, lng, acc = validate_attendance_location_and_payload(
+        lat=lat,
+        lng=lng,
+        acc=acc,
+        attendance_type=payload.punch_type or "PUNCH_IN",
+        live_photo=payload.login_selfie_url,
+        require_photo=True,
+    )
+
     record = db.query(Attendance).filter(
-        Attendance.executive_id == payload.executive_id,
+        Attendance.executive_id == exec_id,
         Attendance.attendance_date == today_val
     ).first()
-    
-    if record:
-        setattr(record, "executive_name", exec_obj.name)
-        setattr(record, "executive_code", exec_obj.code)
-        setattr(record, "login_time", login_dt)
-        if payload.login_latitude is not None:
-            setattr(record, "login_latitude", payload.login_latitude)
-        if payload.login_longitude is not None:
-            setattr(record, "login_longitude", payload.login_longitude)
-        if payload.login_area:
-            setattr(record, "login_area", payload.login_area)
+
+    def _apply_in_fields(rec):
+        setattr(rec, "executive_name", exec_obj.name)
+        setattr(rec, "executive_code", exec_obj.code)
+        setattr(rec, "login_time", login_dt)
+        if lat is not None:
+            setattr(rec, "latitude", lat)
+            setattr(rec, "login_latitude", lat)
+        if lng is not None:
+            setattr(rec, "longitude", lng)
+            setattr(rec, "login_longitude", lng)
+        if area:
+            setattr(rec, "area", area)
+            setattr(rec, "login_area", area)
+        if city:
+            setattr(rec, "city", city)
+            setattr(rec, "login_city", city)
+        if district:
+            setattr(rec, "district", district)
+            setattr(rec, "login_district", district)
+        if state:
+            setattr(rec, "state", state)
+            setattr(rec, "login_state", state)
+        if country:
+            setattr(rec, "country", country)
+            setattr(rec, "login_country", country)
+        if pincode:
+            setattr(rec, "pincode", pincode)
+            setattr(rec, "login_pincode", pincode)
+        if full_addr:
+            setattr(rec, "full_address", full_addr)
+            setattr(rec, "login_full_address", full_addr)
+        if acc is not None:
+            setattr(rec, "location_accuracy", acc)
+            setattr(rec, "login_accuracy", acc)
+        if loc_source:
+            setattr(rec, "location_source", loc_source)
+            setattr(rec, "login_location_source", loc_source)
+        setattr(rec, "location_timestamp", loc_ts)
+        setattr(rec, "login_location_timestamp", loc_ts)
         if payload.login_selfie_url:
-            setattr(record, "login_selfie_url", payload.login_selfie_url)
-        setattr(record, "status", payload.status or "Working")
-        setattr(record, "updated_at", now_ts)
+            setattr(rec, "login_selfie_url", payload.login_selfie_url)
+        setattr(rec, "status", payload.status or "Working")
+        setattr(rec, "updated_at", now_ts)
+
+    if record:
+        _apply_in_fields(record)
     else:
         record = Attendance(
-            executive_id=payload.executive_id,
+            executive_id=exec_id,
             executive_name=exec_obj.name,
             executive_code=exec_obj.code,
             attendance_date=today_val,
             login_time=login_dt,
-            login_latitude=payload.login_latitude,
-            login_longitude=payload.login_longitude,
-            login_area=payload.login_area,
+            latitude=lat,
+            longitude=lng,
+            area=area,
+            city=city,
+            district=district,
+            state=state,
+            country=country,
+            pincode=pincode,
+            full_address=full_addr,
+            location_accuracy=acc,
+            location_source=loc_source,
+            location_timestamp=loc_ts,
+            login_latitude=lat,
+            login_longitude=lng,
+            login_area=area,
+            login_city=city,
+            login_district=district,
+            login_state=state,
+            login_country=country,
+            login_pincode=pincode,
+            login_full_address=full_addr,
+            login_accuracy=acc,
+            login_location_source=loc_source,
+            login_location_timestamp=loc_ts,
             login_selfie_url=payload.login_selfie_url,
             status=payload.status or "Working",
             created_at=now_ts,
             updated_at=now_ts
         )
         db.add(record)
-        
+
     try:
         db.commit()
     except Exception:
         db.rollback()
         record = db.query(Attendance).filter(
-            Attendance.executive_id == payload.executive_id,
+            Attendance.executive_id == exec_id,
             Attendance.attendance_date == today_val
         ).first()
         if record:
-            setattr(record, "executive_name", exec_obj.name)
-            setattr(record, "executive_code", exec_obj.code)
-            setattr(record, "login_time", login_dt)
-            if payload.login_latitude is not None:
-                setattr(record, "login_latitude", payload.login_latitude)
-            if payload.login_longitude is not None:
-                setattr(record, "login_longitude", payload.login_longitude)
-            if payload.login_area:
-                setattr(record, "login_area", payload.login_area)
-            if payload.login_selfie_url:
-                setattr(record, "login_selfie_url", payload.login_selfie_url)
-            setattr(record, "status", payload.status or "Working")
-            setattr(record, "updated_at", now_ts)
+            _apply_in_fields(record)
             db.commit()
 
     db.refresh(record)
@@ -4799,12 +5541,12 @@ def attendance_punch_in(payload: AttendancePunchIn, db: Session = Depends(get_db
     # Automatically generate executive punch-in alert for CRM Dashboard
     try:
         time_str = login_dt.strftime("%I:%M:%S %p") if login_dt else now_ts.strftime("%I:%M:%S %p")
-        punch_loc = payload.login_area or payload.area or "Verified Field Location"
+        punch_loc = area or "Verified Field Location"
         alert_in = ExecutiveAlert(
             title=f"Punch In: {exec_obj.name}",
             severity="success",
             entity_type="attendance_punch",
-            pincode=exec_obj.pincode or "",
+            pincode=pincode or exec_obj.pincode or "",
             is_read=False,
             message=f"{exec_obj.name} ({exec_obj.code or f'ID-{exec_obj.id}'}) punched IN at {time_str} from {punch_loc}",
             executive_name=exec_obj.name,
@@ -4827,7 +5569,11 @@ def attendance_punch_in(payload: AttendancePunchIn, db: Session = Depends(get_db
 
 @app.post("/attendance/punch-out")
 def attendance_punch_out(payload: AttendancePunchOut, db: Session = Depends(get_db)):
-    exec_obj = db.query(SalesExecutive).filter(SalesExecutive.id == payload.executive_id).first()
+    exec_id = payload.sales_executive_id or payload.executive_id or payload.employee_id
+    if not exec_id:
+        raise HTTPException(status_code=400, detail="Executive / employee ID is required")
+
+    exec_obj = db.query(SalesExecutive).filter(SalesExecutive.id == exec_id).first()
     if not exec_obj:
         raise HTTPException(status_code=404, detail="Sales executive not found")
 
@@ -4846,24 +5592,132 @@ def attendance_punch_out(payload: AttendancePunchOut, db: Session = Depends(get_
             )
 
     today_val = payload.attendance_date or datetime.now(ZoneInfo("Asia/Kolkata")).date()
-    logout_dt = parse_ist_datetime(payload.logout_time)
+    logout_dt = parse_ist_datetime(payload.logout_time or payload.punch_time)
     now_ts = datetime.now(ZoneInfo("Asia/Kolkata")).replace(tzinfo=None)
-    
+    loc_ts = parse_ist_datetime(payload.location_timestamp or payload.punch_time or payload.logout_time) or now_ts
+
+    lat = payload.latitude if payload.latitude is not None else payload.logout_latitude
+    lng = payload.longitude if payload.longitude is not None else payload.logout_longitude
+    area = payload.area or payload.logout_area
+    city = payload.city or payload.logout_city
+    district = payload.district or payload.logout_district
+    state = payload.state or payload.logout_state
+    country = payload.country or payload.logout_country or "India"
+    pincode = payload.pincode or payload.logout_pincode
+    full_addr = payload.full_address or payload.logout_full_address or area
+    acc = payload.location_accuracy if payload.location_accuracy is not None else payload.logout_accuracy
+    loc_source = payload.location_source or payload.logout_location_source or "BROWSER_GEOLOCATION"
+
+    # Validate location, coordinates, accuracy <= 500m, attendance type, and required photo
+    lat, lng, acc = validate_attendance_location_and_payload(
+        lat=lat,
+        lng=lng,
+        acc=acc,
+        attendance_type=payload.punch_type or "PUNCH_OUT",
+        live_photo=payload.logout_selfie_url,
+        require_photo=True,
+    )
+
     record = db.query(Attendance).filter(
-        Attendance.executive_id == payload.executive_id,
+        Attendance.executive_id == exec_id,
         Attendance.attendance_date == today_val
     ).first()
-    
+
+    def _apply_out_fields(rec):
+        setattr(rec, "executive_name", exec_obj.name)
+        setattr(rec, "executive_code", exec_obj.code)
+        setattr(rec, "logout_time", logout_dt)
+        # If punch in was not previously performed, populate base coordinates as fallback
+        if getattr(rec, "latitude", None) is None and lat is not None:
+            setattr(rec, "latitude", lat)
+        if getattr(rec, "longitude", None) is None and lng is not None:
+            setattr(rec, "longitude", lng)
+        if not getattr(rec, "area", None) and area:
+            setattr(rec, "area", area)
+        if not getattr(rec, "city", None) and city:
+            setattr(rec, "city", city)
+        if not getattr(rec, "district", None) and district:
+            setattr(rec, "district", district)
+        if not getattr(rec, "state", None) and state:
+            setattr(rec, "state", state)
+        if not getattr(rec, "country", None) and country:
+            setattr(rec, "country", country)
+        if not getattr(rec, "pincode", None) and pincode:
+            setattr(rec, "pincode", pincode)
+        if not getattr(rec, "full_address", None) and full_addr:
+            setattr(rec, "full_address", full_addr)
+        if getattr(rec, "location_accuracy", None) is None and acc is not None:
+            setattr(rec, "location_accuracy", acc)
+        if not getattr(rec, "location_source", None) and loc_source:
+            setattr(rec, "location_source", loc_source)
+        if getattr(rec, "location_timestamp", None) is None:
+            setattr(rec, "location_timestamp", loc_ts)
+
+        # Strictly record punch out location in logout_* columns
+        if lat is not None:
+            setattr(rec, "logout_latitude", lat)
+        if lng is not None:
+            setattr(rec, "logout_longitude", lng)
+        if area:
+            setattr(rec, "logout_area", area)
+        if city:
+            setattr(rec, "logout_city", city)
+        if district:
+            setattr(rec, "logout_district", district)
+        if state:
+            setattr(rec, "logout_state", state)
+        if country:
+            setattr(rec, "logout_country", country)
+        if pincode:
+            setattr(rec, "logout_pincode", pincode)
+        if full_addr:
+            setattr(rec, "logout_full_address", full_addr)
+        if acc is not None:
+            setattr(rec, "logout_accuracy", acc)
+        if loc_source:
+            setattr(rec, "logout_location_source", loc_source)
+        setattr(rec, "logout_location_timestamp", loc_ts)
+        if payload.logout_selfie_url:
+            setattr(rec, "logout_selfie_url", payload.logout_selfie_url)
+        if payload.total_working_minutes is not None:
+            setattr(rec, "total_working_minutes", payload.total_working_minutes)
+        elif getattr(rec, "login_time", None) is not None and logout_dt:
+            diff = (logout_dt - getattr(rec, "login_time")).total_seconds()
+            setattr(rec, "total_working_minutes", max(0, int(diff / 60)))
+        setattr(rec, "status", payload.status or "Completed")
+        setattr(rec, "updated_at", now_ts)
+
     if not record:
         record = Attendance(
-            executive_id=payload.executive_id,
+            executive_id=exec_id,
             executive_name=exec_obj.name,
             executive_code=exec_obj.code,
             attendance_date=today_val,
             logout_time=logout_dt,
-            logout_latitude=payload.logout_latitude,
-            logout_longitude=payload.logout_longitude,
-            logout_area=payload.logout_area,
+            latitude=lat,
+            longitude=lng,
+            area=area,
+            city=city,
+            district=district,
+            state=state,
+            country=country,
+            pincode=pincode,
+            full_address=full_addr,
+            location_accuracy=acc,
+            location_source=loc_source,
+            location_timestamp=loc_ts,
+            logout_latitude=lat,
+            logout_longitude=lng,
+            logout_area=area,
+            logout_city=city,
+            logout_district=district,
+            logout_state=state,
+            logout_country=country,
+            logout_pincode=pincode,
+            logout_full_address=full_addr,
+            logout_accuracy=acc,
+            logout_location_source=loc_source,
+            logout_location_timestamp=loc_ts,
             logout_selfie_url=payload.logout_selfie_url,
             total_working_minutes=payload.total_working_minutes or 0,
             status=payload.status or "Completed",
@@ -4872,52 +5726,18 @@ def attendance_punch_out(payload: AttendancePunchOut, db: Session = Depends(get_
         )
         db.add(record)
     else:
-        setattr(record, "executive_name", exec_obj.name)
-        setattr(record, "executive_code", exec_obj.code)
-        setattr(record, "logout_time", logout_dt)
-        if payload.logout_latitude is not None:
-            setattr(record, "logout_latitude", payload.logout_latitude)
-        if payload.logout_longitude is not None:
-            setattr(record, "logout_longitude", payload.logout_longitude)
-        if payload.logout_area:
-            setattr(record, "logout_area", payload.logout_area)
-        if payload.logout_selfie_url:
-            setattr(record, "logout_selfie_url", payload.logout_selfie_url)
-        if payload.total_working_minutes is not None:
-            setattr(record, "total_working_minutes", payload.total_working_minutes)
-        elif getattr(record, "login_time", None) is not None:
-            diff = (logout_dt - getattr(record, "login_time")).total_seconds()
-            setattr(record, "total_working_minutes", max(0, int(diff / 60)))
-        setattr(record, "status", payload.status or "Completed")
-        setattr(record, "updated_at", now_ts)
-        
+        _apply_out_fields(record)
+
     try:
         db.commit()
     except Exception:
         db.rollback()
         record = db.query(Attendance).filter(
-            Attendance.executive_id == payload.executive_id,
+            Attendance.executive_id == exec_id,
             Attendance.attendance_date == today_val
         ).first()
         if record:
-            setattr(record, "executive_name", exec_obj.name)
-            setattr(record, "executive_code", exec_obj.code)
-            setattr(record, "logout_time", logout_dt)
-            if payload.logout_latitude is not None:
-                setattr(record, "logout_latitude", payload.logout_latitude)
-            if payload.logout_longitude is not None:
-                setattr(record, "logout_longitude", payload.logout_longitude)
-            if payload.logout_area:
-                setattr(record, "logout_area", payload.logout_area)
-            if payload.logout_selfie_url:
-                setattr(record, "logout_selfie_url", payload.logout_selfie_url)
-            if payload.total_working_minutes is not None:
-                setattr(record, "total_working_minutes", payload.total_working_minutes)
-            elif getattr(record, "login_time", None) is not None:
-                diff = (logout_dt - getattr(record, "login_time")).total_seconds()
-                setattr(record, "total_working_minutes", max(0, int(diff / 60)))
-            setattr(record, "status", payload.status or "Completed")
-            setattr(record, "updated_at", now_ts)
+            _apply_out_fields(record)
             db.commit()
 
     db.refresh(record)
@@ -4925,12 +5745,12 @@ def attendance_punch_out(payload: AttendancePunchOut, db: Session = Depends(get_
     # Automatically generate executive punch-out alert for CRM Dashboard
     try:
         time_str = logout_dt.strftime("%I:%M:%S %p") if logout_dt else now_ts.strftime("%I:%M:%S %p")
-        punch_loc = payload.logout_area or payload.area or "Verified Field Location"
+        punch_loc = area or "Verified Field Location"
         alert_out = ExecutiveAlert(
             title=f"Punch Out: {exec_obj.name}",
             severity="warning",
             entity_type="attendance_punch",
-            pincode=exec_obj.pincode or "",
+            pincode=pincode or exec_obj.pincode or "",
             is_read=False,
             message=f"{exec_obj.name} ({exec_obj.code or f'ID-{exec_obj.id}'}) punched OUT at {time_str} from {punch_loc}",
             executive_name=exec_obj.name,
@@ -4953,22 +5773,50 @@ def attendance_punch_out(payload: AttendancePunchOut, db: Session = Depends(get_
 
 @app.post("/attendance/lunch")
 def attendance_lunch_punch(payload: AttendanceLunchPunch, db: Session = Depends(get_db)):
-    exec_obj = db.query(SalesExecutive).filter(SalesExecutive.id == payload.executive_id).first()
+    exec_id = payload.sales_executive_id or payload.executive_id or payload.employee_id
+    if not exec_id:
+        raise HTTPException(status_code=400, detail="Executive / employee ID is required")
+
+    exec_obj = db.query(SalesExecutive).filter(SalesExecutive.id == exec_id).first()
     if not exec_obj:
         raise HTTPException(status_code=404, detail="Sales executive not found")
 
     today_val = payload.attendance_date or datetime.now(ZoneInfo("Asia/Kolkata")).date()
     punch_dt = parse_ist_datetime(payload.punch_time)
     now_ts = datetime.now(ZoneInfo("Asia/Kolkata")).replace(tzinfo=None)
+    loc_ts = parse_ist_datetime(payload.location_timestamp or payload.punch_time) or now_ts
+
+    lat = payload.latitude
+    lng = payload.longitude
+    area = payload.area
+    city = payload.city
+    district = payload.district
+    state = payload.state
+    country = payload.country or "India"
+    pincode = payload.pincode
+    full_addr = payload.full_address or area
+    acc = payload.location_accuracy
+    loc_source = payload.location_source or "BROWSER_GEOLOCATION"
+    selfie_img = payload.selfie_url or payload.lunch_selfie_url
+
+    # Validate location, coordinates, accuracy <= 500m, and action type
+    lat, lng, acc = validate_attendance_location_and_payload(
+        lat=lat,
+        lng=lng,
+        acc=acc,
+        attendance_type=payload.action,
+        live_photo=selfie_img,
+        require_photo=False,
+    )
 
     record = db.query(Attendance).filter(
-        Attendance.executive_id == payload.executive_id,
+        Attendance.executive_id == exec_id,
         Attendance.attendance_date == today_val
     ).first()
 
     if not record:
         record = Attendance(
-            executive_id=payload.executive_id,
+            executive_id=exec_id,
             executive_name=exec_obj.name,
             executive_code=exec_obj.code,
             attendance_date=today_val,
@@ -4978,52 +5826,103 @@ def attendance_lunch_punch(payload: AttendanceLunchPunch, db: Session = Depends(
         )
         db.add(record)
 
-    setattr(record, "executive_name", exec_obj.name)
-    setattr(record, "executive_code", exec_obj.code)
-    if payload.action == "lunch_out":
-        setattr(record, "lunch_out_time", punch_dt)
-        if payload.latitude is not None:
-            setattr(record, "lunch_out_latitude", payload.latitude)
-        if payload.longitude is not None:
-            setattr(record, "lunch_out_longitude", payload.longitude)
-        if payload.area:
-            setattr(record, "lunch_out_area", payload.area)
-    elif payload.action == "lunch_in":
-        setattr(record, "lunch_in_time", punch_dt)
-        if payload.latitude is not None:
-            setattr(record, "lunch_in_latitude", payload.latitude)
-        if payload.longitude is not None:
-            setattr(record, "lunch_in_longitude", payload.longitude)
-        if payload.area:
-            setattr(record, "lunch_in_area", payload.area)
-    setattr(record, "updated_at", now_ts)
+    def _apply_lunch_fields(rec):
+        setattr(rec, "executive_name", exec_obj.name)
+        setattr(rec, "executive_code", exec_obj.code)
+        # If punch in was not previously performed, populate base coordinates as fallback
+        if getattr(rec, "latitude", None) is None and lat is not None:
+            setattr(rec, "latitude", lat)
+        if getattr(rec, "longitude", None) is None and lng is not None:
+            setattr(rec, "longitude", lng)
+        if not getattr(rec, "area", None) and area:
+            setattr(rec, "area", area)
+        if not getattr(rec, "city", None) and city:
+            setattr(rec, "city", city)
+        if not getattr(rec, "district", None) and district:
+            setattr(rec, "district", district)
+        if not getattr(rec, "state", None) and state:
+            setattr(rec, "state", state)
+        if not getattr(rec, "country", None) and country:
+            setattr(rec, "country", country)
+        if not getattr(rec, "pincode", None) and pincode:
+            setattr(rec, "pincode", pincode)
+        if not getattr(rec, "full_address", None) and full_addr:
+            setattr(rec, "full_address", full_addr)
+        if getattr(rec, "location_accuracy", None) is None and acc is not None:
+            setattr(rec, "location_accuracy", acc)
+        if not getattr(rec, "location_source", None) and loc_source:
+            setattr(rec, "location_source", loc_source)
+        if getattr(rec, "location_timestamp", None) is None:
+            setattr(rec, "location_timestamp", loc_ts)
+
+        if payload.action == "lunch_out":
+            setattr(rec, "lunch_out_time", punch_dt)
+            if lat is not None:
+                setattr(rec, "lunch_out_latitude", lat)
+            if lng is not None:
+                setattr(rec, "lunch_out_longitude", lng)
+            if area:
+                setattr(rec, "lunch_out_area", area)
+            if city:
+                setattr(rec, "lunch_out_city", city)
+            if district:
+                setattr(rec, "lunch_out_district", district)
+            if state:
+                setattr(rec, "lunch_out_state", state)
+            if country:
+                setattr(rec, "lunch_out_country", country)
+            if pincode:
+                setattr(rec, "lunch_out_pincode", pincode)
+            if full_addr:
+                setattr(rec, "lunch_out_full_address", full_addr)
+            if acc is not None:
+                setattr(rec, "lunch_out_accuracy", acc)
+            if loc_source:
+                setattr(rec, "lunch_out_location_source", loc_source)
+            setattr(rec, "lunch_out_location_timestamp", loc_ts)
+            if selfie_img:
+                setattr(rec, "lunch_out_selfie_url", selfie_img)
+        elif payload.action == "lunch_in":
+            setattr(rec, "lunch_in_time", punch_dt)
+            if lat is not None:
+                setattr(rec, "lunch_in_latitude", lat)
+            if lng is not None:
+                setattr(rec, "lunch_in_longitude", lng)
+            if area:
+                setattr(rec, "lunch_in_area", area)
+            if city:
+                setattr(rec, "lunch_in_city", city)
+            if district:
+                setattr(rec, "lunch_in_district", district)
+            if state:
+                setattr(rec, "lunch_in_state", state)
+            if country:
+                setattr(rec, "lunch_in_country", country)
+            if pincode:
+                setattr(rec, "lunch_in_pincode", pincode)
+            if full_addr:
+                setattr(rec, "lunch_in_full_address", full_addr)
+            if acc is not None:
+                setattr(rec, "lunch_in_accuracy", acc)
+            if loc_source:
+                setattr(rec, "lunch_in_location_source", loc_source)
+            setattr(rec, "lunch_in_location_timestamp", loc_ts)
+            if selfie_img:
+                setattr(rec, "lunch_in_selfie_url", selfie_img)
+        setattr(rec, "updated_at", now_ts)
+
+    _apply_lunch_fields(record)
 
     try:
         db.commit()
     except Exception:
         db.rollback()
         record = db.query(Attendance).filter(
-            Attendance.executive_id == payload.executive_id,
+            Attendance.executive_id == exec_id,
             Attendance.attendance_date == today_val
         ).first()
         if record:
-            if payload.action == "lunch_out":
-                setattr(record, "lunch_out_time", punch_dt)
-                if payload.latitude is not None:
-                    setattr(record, "lunch_out_latitude", payload.latitude)
-                if payload.longitude is not None:
-                    setattr(record, "lunch_out_longitude", payload.longitude)
-                if payload.area:
-                    setattr(record, "lunch_out_area", payload.area)
-            elif payload.action == "lunch_in":
-                setattr(record, "lunch_in_time", punch_dt)
-                if payload.latitude is not None:
-                    setattr(record, "lunch_in_latitude", payload.latitude)
-                if payload.longitude is not None:
-                    setattr(record, "lunch_in_longitude", payload.longitude)
-                if payload.area:
-                    setattr(record, "lunch_in_area", payload.area)
-            setattr(record, "updated_at", now_ts)
+            _apply_lunch_fields(record)
             db.commit()
 
     db.refresh(record)

@@ -27,6 +27,7 @@ import DoctorAvatar from "./DoctorAvatar.jsx";
 import ModernDatePicker from "./ModernDatePicker.jsx";
 import FacePunchModal from "./FacePunchModal.jsx";
 import AttendancePunchAlertsPanel from "./AttendancePunchAlertsPanel.jsx";
+import GoogleAttendanceMap from "./GoogleAttendanceMap.jsx";
 import {
   getFreshExecutiveLocation,
   reverseGeocodeCoordinates,
@@ -51,12 +52,7 @@ import "./FacePunchModal.css";
 const STORAGE_KEY = "zenve_crm_attendance_records";
 
 export function normalizeDisplayLoc(addr, exec = null) {
-  if (!addr) {
-    const area = exec?.area || exec?.territory || exec?.city || "Field Area";
-    const city = exec?.city || "Field City";
-    const state = exec?.region || exec?.state || "Field State";
-    return [area, city, state].filter(Boolean).join(", ");
-  }
+  if (!addr) return "";
   return formatLocationString(addr, exec);
 }
 
@@ -347,24 +343,42 @@ export default function AttendanceView({
   // ── High-Accuracy Device GPS & Reverse Geocoded Location ──
   const [currentLocation, setCurrentLocation] = useState(null);
   const [locationDetecting, setLocationDetecting] = useState(true);
+  const [locationStage, setLocationStage] = useState("Fetching current location...");
   const [locationError, setLocationError] = useState(null);
 
   // Fresh GPS Geolocation and Reverse Geocoding
   const refreshLiveLocation = useCallback(async () => {
     setLocationDetecting(true);
+    setLocationStage("Requesting location from browser…");
     setLocationError(null);
     try {
-      const loc = await getFreshExecutiveLocation(activeExecutive);
-      setCurrentLocation(loc);
-      setLocationError(loc?.accuracyWarning || null);
+      const loc = await getFreshExecutiveLocation({
+        exec: activeExecutive,
+        onProgress: setLocationStage,
+      });
+      if (!loc || loc.status === "error" || loc.latitude == null) {
+        if (!currentLocation || loc?.latitude == null) {
+          setCurrentLocation(null);
+        }
+        setLocationError(
+          loc?.error ||
+          loc?.message ||
+          "Windows could not provide a current location. Check Windows Location Services and try again."
+        );
+      } else {
+        setCurrentLocation(loc);
+        setLocationError(null);
+      }
     } catch (err) {
-      const fallbackLoc = await getFreshExecutiveLocation(activeExecutive);
-      setCurrentLocation(fallbackLoc);
-      setLocationError(err?.message || null);
+      if (!currentLocation) setCurrentLocation(null);
+      setLocationError(
+        err?.message ||
+        "Location request failed. Please check browser permissions and Windows Location Services."
+      );
     } finally {
       setLocationDetecting(false);
     }
-  }, [activeExecutive]);
+  }, [activeExecutive, currentLocation]);
 
   // Request fresh location on component mount or executive switch
   useEffect(() => {
@@ -374,6 +388,16 @@ export default function AttendanceView({
   // Backward compatibility alias for any remaining sub-render references
   const liveLocality = currentLocation?.displayAddress || "";
   const liveLocalityDetecting = locationDetecting;
+
+  // Desktop location verification: accuracy <= 500m required for punches once location is obtained
+  const canPunchByAccuracy = Boolean(
+    !currentLocation || (
+      currentLocation.canPunch &&
+      currentLocation.latitude != null &&
+      currentLocation.accuracy != null &&
+      currentLocation.accuracy <= 500
+    )
+  );
 
   const todayIso = getTodayIso();
 
@@ -447,9 +471,20 @@ export default function AttendanceView({
         }
 
         if (todayDb && todayDb.login_time) {
-          const inLoc = normalizeDisplayLoc(todayDb.login_area || todayDb.area || activeExecutive.region);
-          const outLoc = (todayDb.area || todayDb.logout_area)
-            ? normalizeDisplayLoc(todayDb.logout_area || todayDb.area)
+          const inLoc = normalizeDisplayLoc(todayDb.login_full_address || todayDb.full_address || [todayDb.login_area || todayDb.area, todayDb.login_city || todayDb.city, todayDb.login_state || todayDb.state].filter(Boolean).join(", "));
+          const hasLogout = Boolean(todayDb.logout_time && (todayDb.logout_latitude != null || todayDb.logout_area || todayDb.logout_full_address));
+          const outLoc = hasLogout
+            ? normalizeDisplayLoc(todayDb.logout_full_address || [todayDb.logout_area, todayDb.logout_city, todayDb.logout_state].filter(Boolean).join(", "))
+            : null;
+
+          const hasLunchOut = Boolean(todayDb.lunch_out_time || todayDb.lunch_out);
+          const lunchOutLoc = hasLunchOut && (todayDb.lunch_out_latitude != null || todayDb.lunch_out_area)
+            ? normalizeDisplayLoc(todayDb.lunch_out_full_address || [todayDb.lunch_out_area, todayDb.lunch_out_city, todayDb.lunch_out_state].filter(Boolean).join(", "))
+            : null;
+
+          const hasLunchIn = Boolean(todayDb.lunch_in_time || todayDb.lunch_in);
+          const lunchInLoc = hasLunchIn && (todayDb.lunch_in_latitude != null || todayDb.lunch_in_area)
+            ? normalizeDisplayLoc(todayDb.lunch_in_full_address || [todayDb.lunch_in_area, todayDb.lunch_in_city, todayDb.lunch_in_state].filter(Boolean).join(", "))
             : null;
 
           const mapped = {
@@ -460,27 +495,69 @@ export default function AttendanceView({
             date: String(todayDb.attendance_date),
             punchIn: formatIsoToTimeStr(todayDb.login_time),
             punchInLocation: {
-              area: VERIFIED_FIELD_LOCATION.area,
-              city: VERIFIED_FIELD_LOCATION.city,
-              state: VERIFIED_FIELD_LOCATION.state,
+              area: todayDb.login_area || todayDb.area || "",
+              city: todayDb.login_city || todayDb.city || "",
+              state: todayDb.login_state || todayDb.state || "",
+              country: todayDb.login_country || todayDb.country || "India",
+              pincode: todayDb.login_pincode || todayDb.pincode || "",
+              full_address: todayDb.login_full_address || todayDb.full_address || inLoc,
+              location_accuracy: todayDb.login_accuracy ?? todayDb.location_accuracy ?? null,
               locality: inLoc,
               displayAddress: inLoc,
               formattedAddress: inLoc,
-              coords: { latitude: todayDb.latitude ?? todayDb.login_latitude ?? VERIFIED_FIELD_LOCATION.latitude, longitude: todayDb.longitude ?? todayDb.login_longitude ?? VERIFIED_FIELD_LOCATION.longitude },
+              coords: { latitude: todayDb.login_latitude ?? todayDb.latitude ?? null, longitude: todayDb.login_longitude ?? todayDb.longitude ?? null },
+              location_timestamp: todayDb.login_location_timestamp || todayDb.location_timestamp,
             },
             faceImage: todayDb.login_selfie_url,
             lunchOut: formatIsoToTimeStr(todayDb.lunch_out_time || todayDb.lunch_out),
+            lunchOutLocation: lunchOutLoc
+              ? {
+                  area: todayDb.lunch_out_area || "",
+                  city: todayDb.lunch_out_city || "",
+                  state: todayDb.lunch_out_state || "",
+                  country: todayDb.lunch_out_country || "India",
+                  pincode: todayDb.lunch_out_pincode || "",
+                  full_address: todayDb.lunch_out_full_address || lunchOutLoc,
+                  location_accuracy: todayDb.lunch_out_accuracy ?? null,
+                  locality: lunchOutLoc,
+                  displayAddress: lunchOutLoc,
+                  formattedAddress: lunchOutLoc,
+                  coords: { latitude: todayDb.lunch_out_latitude ?? null, longitude: todayDb.lunch_out_longitude ?? null },
+                  location_timestamp: todayDb.lunch_out_location_timestamp,
+                }
+              : null,
             lunchIn: formatIsoToTimeStr(todayDb.lunch_in_time || todayDb.lunch_in),
+            lunchInLocation: lunchInLoc
+              ? {
+                  area: todayDb.lunch_in_area || "",
+                  city: todayDb.lunch_in_city || "",
+                  state: todayDb.lunch_in_state || "",
+                  country: todayDb.lunch_in_country || "India",
+                  pincode: todayDb.lunch_in_pincode || "",
+                  full_address: todayDb.lunch_in_full_address || lunchInLoc,
+                  location_accuracy: todayDb.lunch_in_accuracy ?? null,
+                  locality: lunchInLoc,
+                  displayAddress: lunchInLoc,
+                  formattedAddress: lunchInLoc,
+                  coords: { latitude: todayDb.lunch_in_latitude ?? null, longitude: todayDb.lunch_in_longitude ?? null },
+                  location_timestamp: todayDb.lunch_in_location_timestamp,
+                }
+              : null,
             punchOut: formatIsoToTimeStr(todayDb.logout_time),
             punchOutLocation: outLoc
               ? {
-                  area: VERIFIED_FIELD_LOCATION.area,
-                  city: VERIFIED_FIELD_LOCATION.city,
-                  state: VERIFIED_FIELD_LOCATION.state,
+                  area: todayDb.logout_area || "",
+                  city: todayDb.logout_city || "",
+                  state: todayDb.logout_state || "",
+                  country: todayDb.logout_country || "India",
+                  pincode: todayDb.logout_pincode || "",
+                  full_address: todayDb.logout_full_address || outLoc,
+                  location_accuracy: todayDb.logout_accuracy ?? null,
                   locality: outLoc,
                   displayAddress: outLoc,
                   formattedAddress: outLoc,
-                  coords: { latitude: todayDb.latitude ?? todayDb.logout_latitude ?? VERIFIED_FIELD_LOCATION.latitude, longitude: todayDb.longitude ?? todayDb.logout_longitude ?? VERIFIED_FIELD_LOCATION.longitude },
+                  coords: { latitude: todayDb.logout_latitude ?? null, longitude: todayDb.logout_longitude ?? null },
+                  location_timestamp: todayDb.logout_location_timestamp,
                 }
               : null,
             punchOutFaceImage: todayDb.logout_selfie_url,
@@ -594,166 +671,159 @@ export default function AttendanceView({
     setPunchModalOpen(true);
   };
 
+  // Action: Open Face & Location Verification Modal for Lunch Out
+  const handleLunchOut = () => {
+    if (!isPunchedIn || isLunchOut || isPunchedOut) return;
+    setPunchActionType("lunch_out");
+    setPunchModalOpen(true);
+  };
+
+  // Action: Open Face & Location Verification Modal for Lunch In
+  const handleLunchIn = () => {
+    if (!isLunchOut || isLunchIn || isPunchedOut) return;
+    setPunchActionType("lunch_in");
+    setPunchModalOpen(true);
+  };
+
   // Helper: get fresh high-accuracy device GPS position and reverse-geocoded address
-  const fetchCurrentLocation = async () => {
+  const fetchCurrentLocation = async (actionLabel = "attendance") => {
     try {
-      const loc = await getFreshExecutiveLocation();
-      if (loc && loc.latitude) {
-        const fullAddr = normalizeDisplayLoc(loc.displayAddress || loc.formattedAddress || VERIFIED_FIELD_LOCATION.displayAddress);
+      const loc = await getFreshExecutiveLocation({ exec: activeExecutive });
+      if (loc && loc.status !== "error" && loc.latitude != null && loc.longitude != null) {
+        if (!loc.canPunch || (loc.accuracy != null && loc.accuracy > 500)) {
+          return {
+            success: false,
+            error:
+              loc.lowAccuracyWarning ||
+              `Precise location unavailable (accuracy: ±${Math.round(loc.accuracy)}m). Attendance requires accuracy ≤ 500m. Please enable Windows Location Services and Wi-Fi.`,
+            accuracy: loc.accuracy,
+            locationObj: loc,
+          };
+        }
         return {
+          success: true,
           latitude: loc.latitude,
           longitude: loc.longitude,
-          area: fullAddr,
-          locality: fullAddr,
-          displayAddress: fullAddr,
+          area: loc.area,
+          city: loc.city,
+          district: loc.district,
+          state: loc.state,
+          country: loc.country || "India",
+          pincode: loc.pincode || "",
+          full_address: loc.full_address || loc.displayAddress,
+          accuracy: loc.accuracy,
+          location_accuracy: loc.accuracy,
+          location_source: loc.location_source || "WINDOWS_LOCATION",
+          location_timestamp: loc.location_timestamp || new Date().toISOString(),
+          displayAddress: loc.displayAddress,
           locationObj: loc,
         };
       }
+      return {
+        success: false,
+        error:
+          loc?.error ||
+          loc?.message ||
+          "Unable to determine your current location. Please enable GPS/location permission and try again.",
+      };
     } catch (e) {
-      console.warn("fetchCurrentLocation error:", e);
-    }
-    return {
-      latitude: VERIFIED_FIELD_LOCATION.latitude,
-      longitude: VERIFIED_FIELD_LOCATION.longitude,
-      area: VERIFIED_FIELD_LOCATION.displayAddress,
-      locality: VERIFIED_FIELD_LOCATION.displayAddress,
-      displayAddress: VERIFIED_FIELD_LOCATION.displayAddress,
-      locationObj: VERIFIED_FIELD_LOCATION,
-    };
-  };
-
-  // Action: Record Lunch Out (auto-fetches GPS location)
-  const handleLunchOut = async () => {
-    if (!isPunchedIn || isLunchOut || isPunchedOut) return;
-    const now = new Date();
-    const timeStr = formatTime(now);
-    const isoNow = getLocalIsoString();
-
-    showToast("📍 Fetching your location for Lunch Out…");
-    const { latitude, longitude, area } = await fetchCurrentLocation();
-    const fullLoc = normalizeDisplayLoc(area);
-
-    const updated = {
-      ...records,
-      [todayKey]: {
-        ...(todayRecord || {
-          id: todayKey,
-          execId: activeExecutive.id,
-          execName: activeExecutive.name,
-          date: todayIso,
-        }),
-        lunchOut: timeStr,
-        lunchOutLocation: {
-          locality: fullLoc,
-          displayAddress: fullLoc,
-          formattedAddress: fullLoc,
-          coords: { latitude, longitude }
-        },
-      },
-    };
-    setRecords(updated);
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-    } catch (e) {
-      console.error(e);
-    }
-    showToast(`🍴 Lunch Out recorded at ${timeStr}${fullLoc ? ` · 📍 ${fullLoc}` : ""}!`);
-
-    try {
-      await punchLunchAttendance({
-        executive_id: Number(activeExecutive.id),
-        attendance_date: todayRecord?.date || todayIso,
-        action: "lunch_out",
-        punch_time: isoNow,
-        latitude,
-        longitude,
-        area: fullLoc,
-      });
-    } catch (err) {
-      console.error("Backend punchLunchAttendance lunch_out error:", err);
-    }
-  };
-
-  // Action: Record Lunch In (auto-fetches GPS location)
-  const handleLunchIn = async () => {
-    if (!isLunchOut || isLunchIn || isPunchedOut) return;
-    const now = new Date();
-    const timeStr = formatTime(now);
-    const isoNow = getLocalIsoString();
-
-    showToast("📍 Fetching your location for Lunch In…");
-    const { latitude, longitude, area } = await fetchCurrentLocation();
-    const fullLoc = normalizeDisplayLoc(area);
-
-    const updated = {
-      ...records,
-      [todayKey]: {
-        ...todayRecord,
-        lunchIn: timeStr,
-        lunchInLocation: {
-          locality: fullLoc,
-          displayAddress: fullLoc,
-          formattedAddress: fullLoc,
-          coords: { latitude, longitude }
-        },
-      },
-    };
-    setRecords(updated);
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-    } catch (e) {
-      console.error(e);
-    }
-    showToast(`🍱 Lunch In recorded at ${timeStr}${fullLoc ? ` · 📍 ${fullLoc}` : ""}!`);
-
-    try {
-      await punchLunchAttendance({
-        executive_id: Number(activeExecutive.id),
-        attendance_date: todayRecord?.date || todayIso,
-        action: "lunch_in",
-        punch_time: isoNow,
-        latitude,
-        longitude,
-        area: fullLoc,
-      });
-    } catch (err) {
-      console.error("Backend punchLunchAttendance lunch_in error:", err);
+      return {
+        success: false,
+        error: e?.message || "Unable to determine your current location. Please enable GPS/location permission and try again.",
+      };
     }
   };
 
   // Confirm and Save Verified Punch Record to LocalStorage and MySQL Database
   const handleConfirmPunch = async ({ punchTime, punchDate, locationData, faceImage }) => {
-    const locArea = locationData?.area || VERIFIED_FIELD_LOCATION.area;
-    const locCity = locationData?.city || VERIFIED_FIELD_LOCATION.city;
-    const locRegion = locationData?.region || locationData?.state || VERIFIED_FIELD_LOCATION.region;
-    const locFull = normalizeDisplayLoc(locationData?.displayAddress || locationData?.locality || locationData?.formattedAddress);
-    const locLat = locationData?.coords?.latitude || locationData?.lat || locationData?.latitude || VERIFIED_FIELD_LOCATION.latitude;
-    const locLng = locationData?.coords?.longitude || locationData?.lng || locationData?.longitude || VERIFIED_FIELD_LOCATION.longitude;
+    // 1. Strict real-time GPS validation - never fallback to fake/hardcoded location
+    const locLat = locationData?.latitude ?? locationData?.coords?.latitude ?? locationData?.lat;
+    const locLng = locationData?.longitude ?? locationData?.coords?.longitude ?? locationData?.lng;
+
+    if (locLat == null || locLng == null) {
+      const msg = "Unable to determine your current location. Please enable GPS/location permission and try again.";
+      alert(msg);
+      showToast(msg, "error");
+      return;
+    }
+
+    const locAccuracy = locationData?.accuracy != null ? Number(locationData.accuracy) : (locationData?.location_accuracy != null ? Number(locationData.location_accuracy) : null);
+
+    // Enforce strict accuracy validation before allowing attendance punch
+    if (locAccuracy != null && locAccuracy > 500) {
+      const msg = `Attendance rejected: Location accuracy (±${Math.round(locAccuracy)}m) is too poor. Attendance requires accuracy ≤ 500m. Please enable Windows Location Services and connect to Wi-Fi.`;
+      alert(msg);
+      showToast(msg, "error");
+      return;
+    }
+
+    const locArea = locationData?.area || "";
+    const locCity = locationData?.city || "";
+    const locDistrict = locationData?.district || "";
+    const locState = locationData?.state || locationData?.region || "";
+    const locCountry = locationData?.country || "India";
+    const locPincode = locationData?.pincode || locationData?.postalCode || "";
+    const locSource = locationData?.location_source || "WINDOWS_LOCATION";
+    const locFull = locationData?.full_address || locationData?.displayAddress || locationData?.locality || locationData?.formattedAddress || [locArea, locCity, locState].filter(Boolean).join(", ");
+    const locTs = locationData?.location_timestamp || getLocalIsoString();
 
     const locObj = {
       ...locationData,
       area: locArea,
       city: locCity,
-      region: locRegion,
+      district: locDistrict,
+      state: locState,
+      region: locState,
+      country: locCountry,
+      pincode: locPincode,
+      full_address: locFull,
+      location_accuracy: locAccuracy,
+      accuracy: locAccuracy,
+      location_source: locSource,
+      location_timestamp: locTs,
       locality: locFull,
       displayAddress: locFull,
       formattedAddress: locFull,
-      coords: { latitude: locLat, longitude: locLng },
+      coords: { latitude: Number(locLat), longitude: Number(locLng) },
     };
 
     if (punchActionType === "in") {
       let dbRes = null;
       try {
         const payload = {
+          sales_executive_id: Number(activeExecutive.id),
+          employee_id: Number(activeExecutive.id),
+          employee_name: activeExecutive.name,
           executive_id: Number(activeExecutive.id),
           attendance_date: punchDate || todayIso,
+          punch_type: "PUNCH_IN",
+          punch_time: getLocalIsoString(),
           login_time: getLocalIsoString(),
-          latitude: locLat,
-          longitude: locLng,
-          area: locFull,
-          login_latitude: locLat,
-          login_longitude: locLng,
-          login_area: locFull,
+          latitude: Number(locLat),
+          longitude: Number(locLng),
+          area: locArea || locFull,
+          city: locCity,
+          district: locDistrict,
+          state: locState,
+          country: locCountry,
+          pincode: locPincode,
+          full_address: locFull,
+          location_accuracy: locAccuracy,
+          location_source: locSource,
+          location_timestamp: locTs,
+          // Legacy columns support
+          login_latitude: Number(locLat),
+          login_longitude: Number(locLng),
+          login_area: locArea || locFull,
+          login_city: locCity,
+          login_district: locDistrict,
+          login_state: locState,
+          login_country: locCountry,
+          login_pincode: locPincode,
+          login_full_address: locFull,
+          login_accuracy: locAccuracy,
+          login_location_source: locSource,
+          login_location_timestamp: locTs,
           login_selfie_url: faceImage,
           status: "Working",
         };
@@ -822,6 +892,103 @@ export default function AttendanceView({
       }
 
       showToast(`🟢 Punched In successfully at ${punchTime}! Single member face verified.`);
+    } else if (punchActionType === "lunch_out") {
+      try {
+        const payload = {
+          sales_executive_id: Number(activeExecutive.id),
+          executive_id: Number(activeExecutive.id),
+          employee_id: Number(activeExecutive.id),
+          attendance_date: punchDate || todayRecord?.date || todayIso,
+          action: "lunch_out",
+          punch_type: "LUNCH_OUT",
+          punch_time: getLocalIsoString(),
+          latitude: Number(locLat),
+          longitude: Number(locLng),
+          area: locArea || locFull,
+          city: locCity,
+          district: locDistrict,
+          state: locState,
+          country: locCountry,
+          pincode: locPincode,
+          full_address: locFull,
+          location_accuracy: locAccuracy,
+          location_source: locSource,
+          location_timestamp: locTs,
+          selfie_url: faceImage,
+          lunch_selfie_url: faceImage,
+        };
+        await punchLunchAttendance(payload);
+      } catch (err) {
+        console.error("Backend punchLunchAttendance error:", err);
+      }
+
+      setPunchModalOpen(false);
+
+      const updated = {
+        ...records,
+        [todayKey]: {
+          ...(todayRecord || {
+            id: todayKey,
+            execId: activeExecutive.id,
+            execName: activeExecutive.name,
+            date: todayIso,
+          }),
+          lunchOut: punchTime,
+          lunchOutLocation: locObj,
+          lunchOutFaceImage: faceImage,
+        },
+      };
+      setRecords(updated);
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      } catch (e) {}
+      showToast(`🍴 Lunch Out recorded at ${punchTime} · 📍 ${locFull}!`);
+    } else if (punchActionType === "lunch_in") {
+      try {
+        const payload = {
+          sales_executive_id: Number(activeExecutive.id),
+          executive_id: Number(activeExecutive.id),
+          employee_id: Number(activeExecutive.id),
+          attendance_date: todayRecord?.date || todayIso,
+          action: "lunch_in",
+          punch_type: "LUNCH_IN",
+          punch_time: getLocalIsoString(),
+          latitude: Number(locLat),
+          longitude: Number(locLng),
+          area: locArea || locFull,
+          city: locCity,
+          district: locDistrict,
+          state: locState,
+          country: locCountry,
+          pincode: locPincode,
+          full_address: locFull,
+          location_accuracy: locAccuracy,
+          location_source: locSource,
+          location_timestamp: locTs,
+          selfie_url: faceImage,
+          lunch_selfie_url: faceImage,
+        };
+        await punchLunchAttendance(payload);
+      } catch (err) {
+        console.error("Backend punchLunchAttendance error:", err);
+      }
+
+      setPunchModalOpen(false);
+
+      const updated = {
+        ...records,
+        [todayKey]: {
+          ...todayRecord,
+          lunchIn: punchTime,
+          lunchInLocation: locObj,
+          lunchInFaceImage: faceImage,
+        },
+      };
+      setRecords(updated);
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      } catch (e) {}
+      showToast(`🍱 Lunch In recorded at ${punchTime} · 📍 ${locFull}!`);
     } else {
       // Punch Out
       if (!todayRecord?.punchIn) return;
@@ -841,15 +1008,39 @@ export default function AttendanceView({
       let dbRes = null;
       try {
         const payload = {
+          sales_executive_id: Number(activeExecutive.id),
+          employee_id: Number(activeExecutive.id),
+          employee_name: activeExecutive.name,
           executive_id: Number(activeExecutive.id),
           attendance_date: punchDate || todayIso,
+          punch_type: "PUNCH_OUT",
+          punch_time: getLocalIsoString(),
           logout_time: getLocalIsoString(),
-          latitude: locLat,
-          longitude: locLng,
-          area: locFull,
-          logout_latitude: locLat,
-          logout_longitude: locLng,
-          logout_area: locFull,
+          latitude: Number(locLat),
+          longitude: Number(locLng),
+          area: locArea || locFull,
+          city: locCity,
+          district: locDistrict,
+          state: locState,
+          country: locCountry,
+          pincode: locPincode,
+          full_address: locFull,
+          location_accuracy: locAccuracy,
+          location_source: locSource,
+          location_timestamp: locTs,
+          // Legacy columns support
+          logout_latitude: Number(locLat),
+          logout_longitude: Number(locLng),
+          logout_area: locArea || locFull,
+          logout_city: locCity,
+          logout_district: locDistrict,
+          logout_state: locState,
+          logout_country: locCountry,
+          logout_pincode: locPincode,
+          logout_full_address: locFull,
+          logout_accuracy: locAccuracy,
+          logout_location_source: locSource,
+          logout_location_timestamp: locTs,
           logout_selfie_url: faceImage,
           total_working_minutes: totalMinutes,
           status: "Completed",
@@ -922,8 +1113,41 @@ export default function AttendanceView({
     // 1. Load from MySQL database records
     (dbRecords || []).forEach((d) => {
       const dDate = String(d.attendance_date);
-      const inLoc = normalizeDisplayLoc(d.login_area || d.area);
-      const outLoc = (d.area || d.logout_area) ? normalizeDisplayLoc(d.logout_area || d.area) : null;
+      const inLoc = normalizeDisplayLoc(d.login_full_address || d.full_address || [d.login_area || d.area, d.login_city || d.city, d.login_state || d.state].filter(Boolean).join(", "));
+      const hasLogout = Boolean(d.logout_time && (d.logout_latitude != null || d.logout_area || d.logout_full_address));
+      const outLoc = hasLogout
+        ? normalizeDisplayLoc(d.logout_full_address || [d.logout_area, d.logout_city, d.logout_state].filter(Boolean).join(", "))
+        : null;
+
+      const hasLunchOut = Boolean(d.lunch_out_time || d.lunch_out);
+      const lunchOutLoc = hasLunchOut && (d.lunch_out_latitude != null || d.lunch_out_area)
+        ? normalizeDisplayLoc(d.lunch_out_full_address || [d.lunch_out_area, d.lunch_out_city, d.lunch_out_state].filter(Boolean).join(", "))
+        : null;
+
+      const hasLunchIn = Boolean(d.lunch_in_time || d.lunch_in);
+      const lunchInLoc = hasLunchIn && (d.lunch_in_latitude != null || d.lunch_in_area)
+        ? normalizeDisplayLoc(d.lunch_in_full_address || [d.lunch_in_area, d.lunch_in_city, d.lunch_in_state].filter(Boolean).join(", "))
+        : null;
+
+      const inArea = d.login_area || d.area || "";
+      const inCity = d.login_city || d.city || "";
+      const inState = d.login_state || d.state || "";
+      const inCountry = d.login_country || d.country || "India";
+      const inPincode = d.login_pincode || d.pincode || "";
+      const inFull = d.login_full_address || d.full_address || inLoc;
+      const inAccuracy = d.login_accuracy ?? d.location_accuracy ?? null;
+      const inLat = d.login_latitude ?? d.latitude ?? null;
+      const inLng = d.login_longitude ?? d.longitude ?? null;
+
+      const outArea = d.logout_area || "";
+      const outCity = d.logout_city || "";
+      const outState = d.logout_state || "";
+      const outCountry = d.logout_country || "India";
+      const outPincode = d.logout_pincode || "";
+      const outFull = d.logout_full_address || outLoc;
+      const outAccuracy = d.logout_accuracy ?? null;
+      const outLat = d.logout_latitude ?? null;
+      const outLng = d.logout_longitude ?? null;
 
       map.set(dDate, {
         id: `${d.executive_id}_${dDate}`,
@@ -935,23 +1159,73 @@ export default function AttendanceView({
         punchInLocation: {
           locality: inLoc,
           displayAddress: inLoc,
-          formattedAddress: inLoc,
-          area: VERIFIED_FIELD_LOCATION.area,
-          city: "Bengaluru",
-          coords: { latitude: d.latitude ?? d.login_latitude ?? VERIFIED_FIELD_LOCATION.latitude, longitude: d.longitude ?? d.login_longitude ?? VERIFIED_FIELD_LOCATION.longitude },
+          formattedAddress: inFull,
+          full_address: inFull,
+          area: inArea,
+          city: inCity,
+          state: inState,
+          region: inState,
+          country: inCountry,
+          pincode: inPincode,
+          accuracy: inAccuracy,
+          location_accuracy: inAccuracy,
+          coords: { latitude: inLat, longitude: inLng },
+          location_timestamp: d.login_location_timestamp || d.location_timestamp,
         },
         faceImage: d.login_selfie_url,
         lunchOut: formatIsoToTimeStr(d.lunch_out_time || d.lunch_out),
+        lunchOutLocation: lunchOutLoc
+          ? {
+              locality: lunchOutLoc,
+              displayAddress: lunchOutLoc,
+              formattedAddress: d.lunch_out_full_address || lunchOutLoc,
+              full_address: d.lunch_out_full_address || lunchOutLoc,
+              area: d.lunch_out_area || "",
+              city: d.lunch_out_city || "",
+              state: d.lunch_out_state || "",
+              country: d.lunch_out_country || "India",
+              pincode: d.lunch_out_pincode || "",
+              accuracy: d.lunch_out_accuracy ?? null,
+              location_accuracy: d.lunch_out_accuracy ?? null,
+              coords: { latitude: d.lunch_out_latitude ?? null, longitude: d.lunch_out_longitude ?? null },
+              location_timestamp: d.lunch_out_location_timestamp,
+            }
+          : null,
         lunchIn: formatIsoToTimeStr(d.lunch_in_time || d.lunch_in),
+        lunchInLocation: lunchInLoc
+          ? {
+              locality: lunchInLoc,
+              displayAddress: lunchInLoc,
+              formattedAddress: d.lunch_in_full_address || lunchInLoc,
+              full_address: d.lunch_in_full_address || lunchInLoc,
+              area: d.lunch_in_area || "",
+              city: d.lunch_in_city || "",
+              state: d.lunch_in_state || "",
+              country: d.lunch_in_country || "India",
+              pincode: d.lunch_in_pincode || "",
+              accuracy: d.lunch_in_accuracy ?? null,
+              location_accuracy: d.lunch_in_accuracy ?? null,
+              coords: { latitude: d.lunch_in_latitude ?? null, longitude: d.lunch_in_longitude ?? null },
+              location_timestamp: d.lunch_in_location_timestamp,
+            }
+          : null,
         punchOut: formatIsoToTimeStr(d.logout_time),
         punchOutLocation: outLoc
           ? {
               locality: outLoc,
               displayAddress: outLoc,
-              formattedAddress: outLoc,
-              area: VERIFIED_FIELD_LOCATION.area,
-              city: "Bengaluru",
-              coords: { latitude: d.latitude ?? d.logout_latitude ?? VERIFIED_FIELD_LOCATION.latitude, longitude: d.longitude ?? d.logout_longitude ?? VERIFIED_FIELD_LOCATION.longitude },
+              formattedAddress: outFull,
+              full_address: outFull,
+              area: outArea,
+              city: outCity,
+              state: outState,
+              region: outState,
+              country: outCountry,
+              pincode: outPincode,
+              accuracy: outAccuracy,
+              location_accuracy: outAccuracy,
+              coords: { latitude: outLat, longitude: outLng },
+              location_timestamp: d.logout_location_timestamp,
             }
           : null,
         punchOutFaceImage: d.logout_selfie_url,
@@ -1002,6 +1276,8 @@ export default function AttendanceView({
             displayAddress: outLoc,
             formattedAddress: outLoc,
           } : (item.punchOutLocation || null),
+          lunchOutLocation: item.lunchOutLocation || undefined,
+          lunchInLocation: item.lunchInLocation || undefined,
           remarks: item.remarks && /📍/.test(item.remarks)
             ? item.remarks.replace(/📍\s*[^,\n]+.*$/i, `📍 ${inLoc}`)
             : (item.remarks || `Face verified · 📍 ${inLoc}`),
@@ -1031,6 +1307,8 @@ export default function AttendanceView({
           displayAddress: outLoc,
           formattedAddress: outLoc,
         } : (todayRecord.punchOutLocation || null),
+        lunchOutLocation: todayRecord.lunchOutLocation || undefined,
+        lunchInLocation: todayRecord.lunchInLocation || undefined,
         remarks: todayRecord.remarks && /📍/.test(todayRecord.remarks)
           ? todayRecord.remarks.replace(/📍\s*[^,\n]+.*$/i, `📍 ${inLoc}`)
           : (todayRecord.remarks || `Face verified · 📍 ${inLoc}`),
@@ -1179,140 +1457,29 @@ export default function AttendanceView({
             </div>
           )}
 
-          <div className="attend-header-geo-chip" title="Live Auto-Generated GPS Location">
-            <span className={`attend-geo-dot${locationDetecting ? " detecting" : ""}`}></span>
+          <div className="attend-header-geo-chip" title="Live Device Location Status">
+            <span className={`attend-geo-dot ${locationDetecting ? "detecting" : (currentLocation?.accuracyEvaluation?.badgeClass || "")}`}></span>
             <span>
               {locationDetecting
-                ? "📡 Detecting GPS location…"
-                : currentLocation?.displayAddress
-                ? `📍 ${currentLocation.displayAddress}`
-                : "GPS Live Synced"}
+                ? `📡 ${locationStage || "Detecting GPS location…"}`
+                : currentLocation?.accuracyEvaluation
+                ? `${currentLocation.accuracyEvaluation.badgeText} (±${Math.round(currentLocation?.accuracy || 0)}m)`
+                : currentLocation?.area
+                ? `📍 ${currentLocation.area}, ${currentLocation.city}`
+                : "📍 Location Required"}
             </span>
           </div>
         </div>
       </div>
 
-      {/* ── High-Accuracy Live Current Location Panel ── */}
-      <div className="attend-location-panel">
-        <div className="attend-loc-panel-top">
-          <div className="attend-loc-title-group">
-            <span className="attend-loc-pin-icon">
-              <MapPin size={18} />
-            </span>
-            <div className="attend-loc-title-text">
-              <h3>Current Location</h3>
-              <p>Device GPS & Verified Territory Address</p>
-            </div>
-            {locationDetecting ? (
-              <span className="attend-loc-pill detecting">
-                <span className="attend-loc-dot detecting"></span> Detecting GPS…
-              </span>
-            ) : currentLocation?.isAccurate ? (
-              <span className="attend-loc-pill verified">
-                <span className="attend-loc-dot verified"></span> GPS Verified
-              </span>
-            ) : locationError ? (
-              <span className="attend-loc-pill warning">
-                <span className="attend-loc-dot warning"></span> Check GPS
-              </span>
-            ) : (
-              <span className="attend-loc-pill verified">
-                <span className="attend-loc-dot verified"></span> Active
-              </span>
-            )}
-          </div>
-
-          <button
-            type="button"
-            className="attend-loc-refresh-btn"
-            onClick={refreshLiveLocation}
-            disabled={locationDetecting}
-            title="Refresh GPS Location"
-          >
-            <RefreshCw size={13} className={locationDetecting ? "spin" : ""} />
-            <span>{locationDetecting ? "Detecting…" : "Refresh Location"}</span>
-          </button>
-        </div>
-
-        {locationError && (
-          <div className="attend-loc-error-banner">
-            <AlertCircle size={15} style={{ flexShrink: 0, marginTop: 1 }} />
-            <div className="attend-loc-error-copy">
-              <span>{locationError}</span>
-            </div>
-            <button type="button" onClick={refreshLiveLocation} className="attend-loc-retry-btn">
-              Retry GPS
-            </button>
-          </div>
-        )}
-
-        <div className="attend-loc-grid">
-          <div className="attend-loc-address-col">
-            <div className="attend-loc-address-text">
-              📍 {locationDetecting
-                ? "Acquiring high-accuracy GPS coordinates…"
-                : (currentLocation?.displayAddress || [currentLocation?.area || activeExecutive?.area || activeExecutive?.city, currentLocation?.city || activeExecutive?.city, currentLocation?.state || activeExecutive?.region || activeExecutive?.state].filter(Boolean).join(", "))}
-            </div>
-
-            {/* Dedicated Accurate Area Highlight Banner */}
-            <div className="attend-loc-area-highlight" style={{ marginTop: "8px", background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: "8px", padding: "7px 12px", display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
-              <span style={{ fontSize: "0.68rem", fontWeight: 800, color: "#15803d", background: "#dcfce7", padding: "2px 6px", borderRadius: "4px", border: "1px solid #86efac", letterSpacing: "0.04em" }}>
-                ACCURATE AREA
-              </span>
-              <span style={{ fontSize: "0.82rem", fontWeight: 600, color: "#14532d", lineHeight: 1.4 }}>
-                {locationDetecting
-                  ? "Resolving precise street & area…"
-                  : (currentLocation?.area || activeExecutive?.area || activeExecutive?.city || "Field Area")}
-              </span>
-            </div>
-
-            <div className="attend-loc-breakdown-row" style={{ display: "flex", gap: "8px", marginTop: "8px", flexWrap: "wrap" }}>
-              <span className="attend-loc-tag" style={{ background: "#f1f5f9", padding: "3px 8px", borderRadius: "6px", fontSize: "0.78rem" }}>
-                <strong>Area:</strong> {currentLocation?.area || activeExecutive?.area || activeExecutive?.city || "Field Area"}
-              </span>
-              <span className="attend-loc-tag" style={{ background: "#f1f5f9", padding: "3px 8px", borderRadius: "6px", fontSize: "0.78rem" }}>
-                <strong>City:</strong> {currentLocation?.city || activeExecutive?.city || "Field City"}
-              </span>
-              <span className="attend-loc-tag" style={{ background: "#f1f5f9", padding: "3px 8px", borderRadius: "6px", fontSize: "0.78rem" }}>
-                <strong>State:</strong> {currentLocation?.state || activeExecutive?.region || activeExecutive?.state || "Field State"}
-              </span>
-              {currentLocation?.pincode && (
-                <span className="attend-loc-tag" style={{ background: "#f1f5f9", padding: "3px 8px", borderRadius: "6px", fontSize: "0.78rem" }}>
-                  <strong>PIN:</strong> {currentLocation.pincode}
-                </span>
-              )}
-            </div>
-            {currentLocation?.district && (
-              <div className="attend-loc-sub-meta" style={{ marginTop: "4px" }}>
-                District: <strong>{currentLocation.district}</strong>
-                {currentLocation.state ? `, State: ${currentLocation.state}` : ""}
-                {currentLocation.pincode ? `, PIN: ${currentLocation.pincode}` : ""}
-              </div>
-            )}
-          </div>
-
-          <div className="attend-loc-coords-col">
-            <div className="attend-coord-badge">
-              <span className="coord-label">Latitude:</span>
-              <span className="coord-value">
-                {currentLocation?.latitude != null ? currentLocation.latitude.toFixed(6) : "—"}
-              </span>
-            </div>
-            <div className="attend-coord-badge">
-              <span className="coord-label">Longitude:</span>
-              <span className="coord-value">
-                {currentLocation?.longitude != null ? currentLocation.longitude.toFixed(6) : "—"}
-              </span>
-            </div>
-            <div className={`attend-coord-badge high-acc`}>
-              <span className="coord-label">Accuracy:</span>
-              <span className="coord-value">
-                {currentLocation?.accuracyText ? currentLocation.accuracyText : (currentLocation?.accuracy ? `±${currentLocation.accuracy}m` : "±10m")}
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* ── Desktop High-Accuracy Location & Google Maps Verification ── */}
+      <GoogleAttendanceMap
+        location={currentLocation}
+        detecting={locationDetecting}
+        detectionStage={locationStage}
+        error={locationError}
+        onDetectLocation={refreshLiveLocation}
+      />
 
       {/* Main Grid: Clock & Action Center */}
       <div className="attend-main-grid">
@@ -1396,10 +1563,17 @@ export default function AttendanceView({
             {/* 1. MORNING PUNCH IN BUTTON (Biometric Face Verification Modal) */}
             <button
               type="button"
-              className={`attend-punch-btn punch-in-btn ${isPunchedIn ? "punched" : ""}`}
+              id="btn-morning-punch-in"
+              className={`attend-punch-btn punch-in-btn ${isPunchedIn ? "punched" : !canPunchByAccuracy ? "disabled accuracy-locked" : ""}`}
               onClick={handlePunchIn}
-              disabled={isPunchedIn}
-              title={isPunchedIn ? `Morning Punched In at ${todayRecord?.punchIn}` : "Click to record Morning Punch In with biometric face verification"}
+              disabled={isPunchedIn || !canPunchByAccuracy}
+              title={
+                isPunchedIn
+                  ? `Morning Punched In at ${todayRecord?.punchIn}`
+                  : !canPunchByAccuracy
+                  ? `Punch In disabled: High-accuracy location (≤ 500m) is required. Current accuracy is ${currentLocation?.accuracy != null ? `±${Math.round(currentLocation.accuracy)}m` : "unavailable"}. Please enable Windows Location Services and click 'Detect Current Location'.`
+                  : "Click to record Morning Punch In with biometric face verification"
+              }
             >
               <div className="attend-btn-icon-wrap in-icon">
                 {isPunchedIn ? <Check size={24} /> : <LogIn size={24} />}
@@ -1409,7 +1583,11 @@ export default function AttendanceView({
                   {isPunchedIn ? "Morning Punched In" : "Morning Punch In"}
                 </span>
                 <span className="attend-btn-time">
-                  {isPunchedIn ? todayRecord?.punchIn : "Click to Start Shift"}
+                  {isPunchedIn
+                    ? todayRecord?.punchIn
+                    : !canPunchByAccuracy
+                    ? "Accurate GPS Required"
+                    : "Click to Start Shift"}
                 </span>
               </div>
             </button>
@@ -1417,15 +1595,16 @@ export default function AttendanceView({
             {/* 2. LUNCH OUT BUTTON (Timing only - NO face auto generation) */}
             <button
               type="button"
+              id="btn-lunch-out"
               className={`attend-punch-btn lunch-out-btn ${
                 isLunchOut
                   ? "punched"
-                  : !isPunchedIn || isPunchedOut
+                  : !isPunchedIn || isPunchedOut || !canPunchByAccuracy
                   ? "disabled"
                   : ""
               }`}
               onClick={handleLunchOut}
-              disabled={!isPunchedIn || isLunchOut || isPunchedOut}
+              disabled={!isPunchedIn || isLunchOut || isPunchedOut || !canPunchByAccuracy}
               title={
                 !isPunchedIn
                   ? "Please punch in morning first"
@@ -1433,6 +1612,8 @@ export default function AttendanceView({
                   ? `Lunch Out recorded at ${todayRecord?.lunchOut} (Timing only)`
                   : isPunchedOut
                   ? "Shift already ended"
+                  : !canPunchByAccuracy
+                  ? `Lunch Out disabled: High-accuracy location (≤ 500m) required.`
                   : "Click to record Lunch Out (Timing only - no biometric prompt)"
               }
             >
@@ -1450,6 +1631,8 @@ export default function AttendanceView({
                     ? "Punch In First"
                     : isPunchedOut
                     ? "Shift Ended"
+                    : !canPunchByAccuracy
+                    ? "GPS Required"
                     : "Click to Record"}
                 </span>
               </div>
@@ -1458,15 +1641,16 @@ export default function AttendanceView({
             {/* 3. LUNCH IN BUTTON (Timing only - NO face auto generation) */}
             <button
               type="button"
+              id="btn-lunch-in"
               className={`attend-punch-btn lunch-in-btn ${
                 isLunchIn
                   ? "punched"
-                  : !isLunchOut || isPunchedOut
+                  : !isLunchOut || isPunchedOut || !canPunchByAccuracy
                   ? "disabled"
                   : ""
               }`}
               onClick={handleLunchIn}
-              disabled={!isLunchOut || isLunchIn || isPunchedOut}
+              disabled={!isLunchOut || isLunchIn || isPunchedOut || !canPunchByAccuracy}
               title={
                 !isLunchOut
                   ? "Please record Lunch Out first"
@@ -1474,6 +1658,8 @@ export default function AttendanceView({
                   ? `Lunch In recorded at ${todayRecord?.lunchIn} (Timing recorded)`
                   : isPunchedOut
                   ? "Shift already ended"
+                  : !canPunchByAccuracy
+                  ? `Lunch In disabled: High-accuracy location (≤ 500m) required.`
                   : "Click to record Lunch In (Timing only - no biometric prompt)"
               }
             >
@@ -1491,6 +1677,8 @@ export default function AttendanceView({
                     ? "Lunch Out First"
                     : isPunchedOut
                     ? "Shift Ended"
+                    : !canPunchByAccuracy
+                    ? "GPS Required"
                     : "Click to Resume"}
                 </span>
               </div>
@@ -1499,14 +1687,17 @@ export default function AttendanceView({
             {/* 4. EVENING LOGOUT BUTTON (Biometric Face Verification Modal) */}
             <button
               type="button"
-              className={`attend-punch-btn punch-out-btn ${isPunchedOut ? "punched" : !isPunchedIn ? "disabled" : ""}`}
+              id="btn-evening-punch-out"
+              className={`attend-punch-btn punch-out-btn ${isPunchedOut ? "punched" : !isPunchedIn || !canPunchByAccuracy ? "disabled" : ""}`}
               onClick={handlePunchOut}
-              disabled={!isPunchedIn || isPunchedOut}
+              disabled={!isPunchedIn || isPunchedOut || !canPunchByAccuracy}
               title={
                 !isPunchedIn
                   ? "Please complete Morning Punch In first"
                   : isPunchedOut
                   ? `Evening Logged Out at ${todayRecord?.punchOut}`
+                  : !canPunchByAccuracy
+                  ? `Evening Logout disabled: High-accuracy location (≤ 500m) required.`
                   : "Click to record Evening Logout with biometric face verification"
               }
             >
@@ -1520,9 +1711,11 @@ export default function AttendanceView({
                 <span className="attend-btn-time">
                   {isPunchedOut
                     ? todayRecord?.punchOut
-                    : isPunchedIn
-                    ? "Click to End Shift"
-                    : "Punch In First"}
+                    : !isPunchedIn
+                    ? "Punch In First"
+                    : !canPunchByAccuracy
+                    ? "GPS Required"
+                    : "Click to End Shift"}
                 </span>
               </div>
             </button>
@@ -1580,11 +1773,13 @@ export default function AttendanceView({
                   </span>
                 )}
               </div>
-              <span className="attend-loc-sub" title={normalizeDisplayLoc(todayRecord?.lunchOutLocation?.displayAddress || todayRecord?.lunchOutLocation?.locality)}>
-                {todayRecord?.lunchOutLocation?.locality ? (
-                  <><MapPin size={10} /> {formatShortLocation(todayRecord.lunchOutLocation)}</>
-                ) : todayRecord?.lunchOut ? "GPS Fetched" : "Break Out"}
-              </span>
+              {todayRecord?.lunchOut && (
+                <span className="attend-loc-sub" title={formatShortLocation(todayRecord?.lunchOutLocation)}>
+                  {formatShortLocation(todayRecord?.lunchOutLocation) ? (
+                    <><MapPin size={10} /> {formatShortLocation(todayRecord.lunchOutLocation)}</>
+                  ) : "GPS Fetched"}
+                </span>
+              )}
             </div>
 
             <div className="attend-bar-divider"></div>
@@ -1600,11 +1795,13 @@ export default function AttendanceView({
                   </span>
                 )}
               </div>
-              <span className="attend-loc-sub" title={normalizeDisplayLoc(todayRecord?.lunchInLocation?.displayAddress || todayRecord?.lunchInLocation?.locality)}>
-                {todayRecord?.lunchInLocation?.locality ? (
-                  <><MapPin size={10} /> {formatShortLocation(todayRecord.lunchInLocation)}</>
-                ) : todayRecord?.lunchIn ? "GPS Fetched" : "Break In"}
-              </span>
+              {todayRecord?.lunchIn && (
+                <span className="attend-loc-sub" title={formatShortLocation(todayRecord?.lunchInLocation)}>
+                  {formatShortLocation(todayRecord?.lunchInLocation) ? (
+                    <><MapPin size={10} /> {formatShortLocation(todayRecord.lunchInLocation)}</>
+                  ) : "GPS Fetched"}
+                </span>
+              )}
             </div>
 
             <div className="attend-bar-divider"></div>
@@ -1902,9 +2099,16 @@ export default function AttendanceView({
                             {row.lunchOut || "—"}
                           </span>
                           {row.lunchOut && (
-                            <span className="attend-loc-sub timing-only">
-                              Timing Only
-                            </span>
+                            formatShortLocation(row.lunchOutLocation, row.executiveObj || row) ? (
+                              <span className="attend-loc-sub" title={formatExecutiveLocation(row.lunchOutLocation, row.executiveObj || row)}>
+                                <MapPin size={10} />
+                                {formatExecutiveLocation(row.lunchOutLocation, row.executiveObj || row)}
+                              </span>
+                            ) : (
+                              <span className="attend-loc-sub timing-only">
+                                Timing Only
+                              </span>
+                            )
                           )}
                         </div>
                       </td>
@@ -1914,9 +2118,16 @@ export default function AttendanceView({
                             {row.lunchIn || "—"}
                           </span>
                           {row.lunchIn && (
-                            <span className="attend-loc-sub timing-only">
-                              Timing Only
-                            </span>
+                            formatShortLocation(row.lunchInLocation, row.executiveObj || row) ? (
+                              <span className="attend-loc-sub" title={formatExecutiveLocation(row.lunchInLocation, row.executiveObj || row)}>
+                                <MapPin size={10} />
+                                {formatExecutiveLocation(row.lunchInLocation, row.executiveObj || row)}
+                              </span>
+                            ) : (
+                              <span className="attend-loc-sub timing-only">
+                                Timing Only
+                              </span>
+                            )
                           )}
                         </div>
                       </td>
