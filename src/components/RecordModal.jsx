@@ -17,14 +17,14 @@ import {
   ShieldCheck,
   Target,
   Tag,
-  TrendingUp,
   User,
   UserPlus,
-  Users,
   X,
+  ShieldAlert,
 } from "lucide-react";
 import NavIcon from "./NavIcon.jsx";
 import { findLabel } from "../data.js";
+import { sendMobileOtp, verifyMobileOtp } from "../api.js";
 
 function RegionDatalist() {
   return (
@@ -180,6 +180,7 @@ function getFieldPlaceholder(field) {
 }
 
 function groupColumnsIntoSections(columns, tableKey) {
+  const cleanColumns = (columns || []).filter((c) => c.key !== "is_phone_verified");
   if (
     tableKey === "sales_executives" ||
     tableKey === "sales_managers" ||
@@ -189,10 +190,10 @@ function groupColumnsIntoSections(columns, tableKey) {
     const accountKeys = ["password", "region", "city", "monthly_target"];
     const statusKeys = ["is_active", "status"];
 
-    const basicCols = columns.filter((c) => basicKeys.includes(c.key));
-    const accountCols = columns.filter((c) => accountKeys.includes(c.key));
-    const statusCols = columns.filter((c) => statusKeys.includes(c.key));
-    const otherCols = columns.filter(
+    const basicCols = cleanColumns.filter((c) => basicKeys.includes(c.key));
+    const accountCols = cleanColumns.filter((c) => accountKeys.includes(c.key));
+    const statusCols = cleanColumns.filter((c) => statusKeys.includes(c.key));
+    const otherCols = cleanColumns.filter(
       (c) =>
         !basicKeys.includes(c.key) &&
         !accountKeys.includes(c.key) &&
@@ -339,11 +340,83 @@ export default function RecordModal({ mode, tableKey, columns, values, onChange,
   const [showPassword, setShowPassword] = useState(false);
   const [inputError, setInputError] = useState("");
 
+  // Phone OTP verification states
+  const [phoneOtp, setPhoneOtp] = useState("");
+  const [phoneOtpSent, setPhoneOtpSent] = useState(false);
+  const [phoneOtpLoading, setPhoneOtpLoading] = useState(false);
+  const [phoneOtpVerifying, setPhoneOtpVerifying] = useState(false);
+  const [phoneOtpCountdown, setPhoneOtpCountdown] = useState(0);
+  const [phoneOtpMsg, setPhoneOtpMsg] = useState("");
+
+  useEffect(() => {
+    let timer;
+    if (phoneOtpCountdown > 0) {
+      timer = setInterval(() => {
+        setPhoneOtpCountdown((p) => p - 1);
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [phoneOtpCountdown]);
+
   // Reset modal state on mode change
   useEffect(() => {
     setShowPassword(false);
     setInputError("");
+    setPhoneOtp("");
+    setPhoneOtpSent(false);
+    setPhoneOtpCountdown(0);
+    setPhoneOtpMsg("");
   }, [mode]);
+
+  async function handleSendPhoneOtp() {
+    setInputError("");
+    const cleanPhone = String(values.phone || "").replace(/\D/g, "");
+    if (cleanPhone.length !== 10) {
+      setInputError("Please enter a valid 10-digit phone number before requesting OTP.");
+      return;
+    }
+    setPhoneOtpLoading(true);
+    try {
+      const res = await sendMobileOtp({
+        phone: cleanPhone,
+        purpose: "verify_phone",
+        role: tableKey,
+      });
+      setPhoneOtpSent(true);
+      setPhoneOtpCountdown(60);
+      setPhoneOtpMsg(res.message || "OTP sent successfully!");
+    } catch (err) {
+      setInputError(err.message || "Failed to send verification OTP.");
+    } finally {
+      setPhoneOtpLoading(false);
+    }
+  }
+
+  async function handleVerifyPhoneOtp() {
+    setInputError("");
+    const cleanPhone = String(values.phone || "").replace(/\D/g, "");
+    if (!phoneOtp.trim()) {
+      setInputError("Please enter the 6-digit OTP code.");
+      return;
+    }
+    setPhoneOtpVerifying(true);
+    try {
+      await verifyMobileOtp({
+        phone: cleanPhone,
+        otp: phoneOtp.trim(),
+        purpose: "verify_phone",
+        role: tableKey,
+      });
+      onChange("is_phone_verified", true);
+      setPhoneOtpSent(false);
+      setPhoneOtp("");
+      setPhoneOtpMsg("Mobile number verified successfully!");
+    } catch (err) {
+      setInputError(err.message || "Invalid or expired OTP code. Please try again.");
+    } finally {
+      setPhoneOtpVerifying(false);
+    }
+  }
 
   // If region was previously populated with "Bengaluru", normalize to "Karnataka"
   useEffect(() => {
@@ -354,6 +427,7 @@ export default function RecordModal({ mode, tableKey, columns, values, onChange,
         onChange("city", "Bengaluru");
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [values.region]);
 
   function renderRegionQuickPills(currentVal) {
@@ -601,6 +675,16 @@ export default function RecordModal({ mode, tableKey, columns, values, onChange,
       event.preventDefault();
       return;
     }
+    const isExecOrManager =
+      tableKey === "sales_executives" ||
+      tableKey === "sales_managers" ||
+      tableKey === "regional_managers";
+
+    if (mode === "new" && isExecOrManager && !values.is_phone_verified) {
+      event.preventDefault();
+      setInputError("Mobile number verification is required. Please verify the mobile number via OTP before creating this profile.");
+      return;
+    }
     onSave(event);
   }
 
@@ -649,10 +733,161 @@ export default function RecordModal({ mode, tableKey, columns, values, onChange,
       );
     }
 
+    if (key === "phone") {
+      const isVerified = Boolean(values.is_phone_verified);
+      const cleanPhone = String(values.phone || "").replace(/\D/g, "");
+      const isExecOrManager =
+        tableKey === "sales_executives" ||
+        tableKey === "sales_managers" ||
+        tableKey === "regional_managers";
+
+      return (
+        <div className="zzc-exec-field zzc-exec-field-full" key={key}>
+          <div className="zzc-exec-field-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <label htmlFor={`field_${key}`}>
+              {label}{field.required ? <span className="zzc-exec-required"> *</span> : ""}
+            </label>
+            {isExecOrManager && (
+              isVerified ? (
+                <span style={{ fontSize: "0.74rem", fontWeight: 700, color: "#16a34a", background: "#dcfce7", padding: "2px 8px", borderRadius: "12px", display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                  <Check size={12} strokeWidth={3} /> Mobile Verified
+                </span>
+              ) : (
+                <span style={{ fontSize: "0.74rem", fontWeight: 600, color: "#d97706", background: "#fef3c7", padding: "2px 8px", borderRadius: "12px", display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                  <ShieldAlert size={12} /> Verification Required
+                </span>
+              )
+            )}
+          </div>
+
+          <div className="zzc-exec-input-shell">
+            <Icon size={15} aria-hidden="true" />
+            <div className="zzc-exec-input-control">
+              <input
+                id={`field_${key}`}
+                type="tel"
+                inputMode="numeric"
+                maxLength={10}
+                value={values[key] ?? ""}
+                required={field.required}
+                placeholder="10-digit mobile number"
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  const digits = raw.replace(/\D/g, "");
+                  if (digits.length > 10) return;
+                  onChange(key, digits);
+                  if (isVerified) {
+                    onChange("is_phone_verified", false);
+                  }
+                  setInputError("");
+                }}
+              />
+            </div>
+          </div>
+
+          {isExecOrManager && !isVerified && (
+            <div style={{ marginTop: "8px", background: "#f8fafc", border: "1px dashed #cbd5e1", borderRadius: "10px", padding: "10px 12px" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px", flexWrap: "wrap", gap: "6px" }}>
+                <span style={{ fontSize: "0.76rem", fontWeight: 600, color: "#334155" }}>
+                  Mobile Number Verification
+                </span>
+                {phoneOtpMsg && (
+                  <span style={{ fontSize: "0.72rem", color: "#0284c7", fontWeight: 500 }}>
+                    {phoneOtpMsg}
+                  </span>
+                )}
+              </div>
+
+              {!phoneOtpSent ? (
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <button
+                    type="button"
+                    style={{
+                      padding: "5px 12px",
+                      fontSize: "0.78rem",
+                      fontWeight: 600,
+                      borderRadius: "6px",
+                      border: "none",
+                      background: "#0284c7",
+                      color: "#ffffff",
+                      cursor: "pointer",
+                      opacity: cleanPhone.length === 10 ? 1 : 0.6,
+                    }}
+                    disabled={cleanPhone.length !== 10 || phoneOtpLoading}
+                    onClick={handleSendPhoneOtp}
+                  >
+                    {phoneOtpLoading ? "Sending OTP..." : "Send Verification OTP"}
+                  </button>
+                  <span style={{ fontSize: "0.74rem", color: "#64748b" }}>
+                    {cleanPhone.length === 10 ? "Click to send verification code" : "Enter 10-digit number first"}
+                  </span>
+                </div>
+              ) : (
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={6}
+                    placeholder="6-digit OTP"
+                    value={phoneOtp}
+                    onChange={(e) => setPhoneOtp(e.target.value.replace(/\D/g, ""))}
+                    style={{
+                      width: "140px",
+                      padding: "6px 10px",
+                      fontSize: "0.85rem",
+                      fontWeight: 700,
+                      letterSpacing: "0.2em",
+                      textAlign: "center",
+                      border: "1px solid #cbd5e1",
+                      borderRadius: "6px",
+                    }}
+                  />
+                  <button
+                    type="button"
+                    style={{
+                      padding: "6px 14px",
+                      fontSize: "0.78rem",
+                      fontWeight: 700,
+                      borderRadius: "6px",
+                      border: "none",
+                      background: "#16a34a",
+                      color: "#ffffff",
+                      cursor: "pointer",
+                    }}
+                    disabled={phoneOtp.length < 4 || phoneOtpVerifying}
+                    onClick={handleVerifyPhoneOtp}
+                  >
+                    {phoneOtpVerifying ? "Verifying..." : "Verify OTP"}
+                  </button>
+                  <button
+                    type="button"
+                    style={{
+                      background: "none",
+                      border: "none",
+                      color: "#0284c7",
+                      fontSize: "0.74rem",
+                      fontWeight: 600,
+                      cursor: phoneOtpCountdown > 0 ? "not-allowed" : "pointer",
+                      textDecoration: "underline",
+                    }}
+                    disabled={phoneOtpCountdown > 0 || phoneOtpLoading}
+                    onClick={handleSendPhoneOtp}
+                  >
+                    {phoneOtpCountdown > 0 ? `Resend (${phoneOtpCountdown}s)` : "Resend OTP"}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      );
+    }
+
     const isFullWidth =
       field.type === "textarea" ||
       key.toLowerCase().includes("address") ||
-      key.toLowerCase().includes("description");
+      key.toLowerCase().includes("description") ||
+      key === "email";
 
     return (
       <div className={`zzc-exec-field ${isFullWidth ? "zzc-exec-field-full" : ""}`} key={key}>

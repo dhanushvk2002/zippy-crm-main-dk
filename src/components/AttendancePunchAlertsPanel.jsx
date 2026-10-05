@@ -1,10 +1,9 @@
-import React, { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Bell, Clock, MapPin, LogIn, LogOut, ChevronLeft, ChevronRight } from "lucide-react";
 import DoctorAvatar from "./DoctorAvatar.jsx";
 
 export default function AttendancePunchAlertsPanel({
   alerts = [],
-  currentExec = null,
   execsInScope = null,
   onGoToAttendance = null,
 }) {
@@ -17,10 +16,15 @@ export default function AttendancePunchAlertsPanel({
   // Merge server alerts and local real-time alerts
   useEffect(() => {
     function loadAlerts() {
-      let localAlerts = [];
+      let localAlerts;
       try {
         localAlerts = JSON.parse(localStorage.getItem("zenve_crm_attendance_alerts") || "[]");
-      } catch (e) {}
+      } catch {
+        localAlerts = [];
+      }
+      if (!Array.isArray(localAlerts)) {
+        localAlerts = [];
+      }
 
       const combined = [...localAlerts, ...(alerts || [])];
       const seen = new Set();
@@ -48,10 +52,15 @@ export default function AttendancePunchAlertsPanel({
     return () => window.removeEventListener("crm_attendance_punch_alert", handleRealtimeAlert);
   }, [alerts]);
 
-  // Reset to page 1 on filter or search
-  useEffect(() => {
+  function handleFilterChange(type) {
+    setFilterType(type);
     setPage(1);
-  }, [filterType, searchQuery]);
+  }
+
+  function handleSearchChange(e) {
+    setSearchQuery(e.target.value);
+    setPage(1);
+  }
 
   // Filtering
   const filtered = useMemo(() => {
@@ -136,21 +145,21 @@ export default function AttendancePunchAlertsPanel({
             <button
               type="button"
               className={`filter-pill compact ${filterType === "all" ? "active" : ""}`}
-              onClick={() => setFilterType("all")}
+              onClick={() => handleFilterChange("all")}
             >
               All Punches ({liveAlerts.length})
             </button>
             <button
               type="button"
               className={`filter-pill compact filter-pill-in ${filterType === "in" ? "active" : ""}`}
-              onClick={() => setFilterType("in")}
+              onClick={() => handleFilterChange("in")}
             >
               <span className="dot-green" /> Punch In ({punchInCount})
             </button>
             <button
               type="button"
               className={`filter-pill compact filter-pill-out ${filterType === "out" ? "active" : ""}`}
-              onClick={() => setFilterType("out")}
+              onClick={() => handleFilterChange("out")}
             >
               <span className="dot-orange" /> Punch Out ({punchOutCount})
             </button>
@@ -161,7 +170,7 @@ export default function AttendancePunchAlertsPanel({
               type="text"
               placeholder="Search by executive, code or location…"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={handleSearchChange}
             />
           </div>
         </div>

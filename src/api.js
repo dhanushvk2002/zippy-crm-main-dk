@@ -484,7 +484,8 @@ export const TABLE_CONFIG = {
     fields: [
       { key: "name", type: "text", required: true },
       { key: "code", type: "text", required: true },
-      { key: "phone", type: "text" },
+      { key: "phone", type: "text", required: true },
+      { key: "is_phone_verified", type: "bool", label: "Phone Verified", default: false },
       { key: "email", type: "email" },
       { key: "password_display", type: "text", label: "Password", readOnly: true, tableOnly: true },
       // Set the dashboard login password when creating an executive.
@@ -500,7 +501,8 @@ export const TABLE_CONFIG = {
     fields: [
       { key: "name", type: "text", required: true },
       { key: "code", type: "text" },
-      { key: "phone", type: "text" },
+      { key: "phone", type: "text", required: true },
+      { key: "is_phone_verified", type: "bool", label: "Phone Verified", default: false },
       { key: "email", type: "text" },
       { key: "password_display", type: "text", label: "Password", readOnly: true, tableOnly: true },
       { key: "password", type: "password", label: "Password", required: true, formOnly: true },
@@ -513,7 +515,8 @@ export const TABLE_CONFIG = {
     fields: [
       { key: "name", type: "text", required: true },
       { key: "code", type: "text" },
-      { key: "phone", type: "text" },
+      { key: "phone", type: "text", required: true },
+      { key: "is_phone_verified", type: "bool", label: "Phone Verified", default: false },
       { key: "email", type: "text" },
       { key: "password_display", type: "text", label: "Password", readOnly: true, tableOnly: true },
       { key: "password", type: "password", label: "Password", required: true, formOnly: true },
@@ -569,7 +572,7 @@ async function handleResponse(res) {
     try {
       const body = await res.json();
       detail = body.detail || JSON.stringify(body);
-    } catch (e) {
+    } catch {
       /* ignore parse errors */
     }
     throw new Error(detail);
@@ -604,7 +607,7 @@ export async function fetchStatCounts(statConfig) {
       try {
         const count = await fetchCount(stat.tableKey);
         return [stat.key, count];
-      } catch (e) {
+      } catch {
         return [stat.key, null]; // null = failed to load, shown as "—"
       }
     })
@@ -644,6 +647,56 @@ export async function loginSalesExecutive(identifier, password) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ identifier, password }),
+  });
+  return handleResponse(res);
+}
+
+// Sales manager dashboard login
+export async function loginSalesManager(identifier, password) {
+  const res = await fetch(`${API_BASE}/sales-managers/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ identifier, password }),
+  });
+  return handleResponse(res);
+}
+
+// Regional manager dashboard login
+export async function loginRegionalManager(identifier, password) {
+  const res = await fetch(`${API_BASE}/regional-managers/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ identifier, password }),
+  });
+  return handleResponse(res);
+}
+
+// Send OTP to mobile (Supports Real SMS API Key and Mock OTP)
+export async function sendMobileOtp({ phone, purpose = "login", role = null, forceMock = false }) {
+  const res = await fetch(`${API_BASE}/auth/send-otp`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ phone, purpose, role, force_mock: forceMock }),
+  });
+  return handleResponse(res);
+}
+
+// Verify mobile OTP for registration or confirmation
+export async function verifyMobileOtp({ phone, otp, purpose = "verify_phone", role = null }) {
+  const res = await fetch(`${API_BASE}/auth/verify-otp`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ phone, otp, purpose, role }),
+  });
+  return handleResponse(res);
+}
+
+// Mobile Login for Sales Executive, Sales Manager, and Regional Manager
+export async function loginWithMobileOtp({ phone, otp, role }) {
+  const res = await fetch(`${API_BASE}/auth/login-mobile`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ phone, otp, role }),
   });
   return handleResponse(res);
 }

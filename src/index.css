@@ -1055,24 +1055,28 @@ body.modal-open {
 }
 
 .zzc-exec-modal {
-  width: min(840px, 100%);
-  max-height: 94vh;
+  width: min(840px, 96vw);
+  max-height: 90vh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   border: 1px solid #dce8eb;
-  border-radius: 12px;
+  border-radius: 14px;
   background: #fff;
-  box-shadow: 0 20px 60px rgba(24, 57, 67, .18);
+  box-shadow: 0 25px 70px rgba(24, 57, 67, .24);
   color: #173b51;
+  position: relative;
 }
 
 .zzc-exec-header {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 15px 20px;
+  padding: 16px 20px;
   border-bottom: 1px solid #e5edef;
+  background: #fff;
+  z-index: 2;
 }
 
 .zzc-exec-header-icon,
@@ -1123,8 +1127,13 @@ body.modal-open {
 }
 
 .zzc-exec-layout {
+  flex: 1 1 auto;
   min-height: 0;
-  display: block;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
 }
 
 .zzc-exec-aside {
@@ -1190,11 +1199,11 @@ body.modal-open {
 
 .zzc-exec-form {
   min-width: 0;
-  overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 12px 16px;
+  gap: 14px;
+  padding: 16px 20px 32px;
+  box-sizing: border-box;
 }
 
 .zzc-exec-section {
@@ -1415,13 +1424,17 @@ body.modal-open {
 }
 
 .zzc-exec-footer {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 10px;
-  padding: 11px 16px;
+  gap: 12px;
+  padding: 13px 20px;
   border-top: 1px solid #e5edef;
-  background: #fbfcfd;
+  background: #ffffff;
+  box-shadow: 0 -4px 14px rgba(0, 0, 0, 0.04);
+  position: relative;
+  z-index: 10;
 }
 
 .zzc-exec-footer .zzc-btn-primary {

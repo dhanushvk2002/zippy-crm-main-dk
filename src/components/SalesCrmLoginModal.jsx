@@ -1,5 +1,13 @@
 import { useState, useEffect, useRef } from "react";
-import { fetchList, loginSalesExecutive } from "../api.js";
+import {
+  fetchList,
+  loginSalesExecutive,
+  loginSalesManager,
+  loginRegionalManager,
+  sendMobileOtp,
+  loginWithMobileOtp,
+} from "../api.js";
+import { getFreshExecutiveLocation } from "../geoUtils.js";
 import logo from "../assets/zenve-zippy-logo.png";
 import {
   Briefcase,
@@ -13,6 +21,9 @@ import {
   X,
   ShieldCheck,
   Check,
+  Smartphone,
+  KeyRound,
+  Phone,
 } from "lucide-react";
 import "./SalesCrmLoginModal.css";
 
@@ -71,6 +82,16 @@ export default function SalesCrmLoginModal({
   onLoginSuccess,
 }) {
   const [currentRole, setCurrentRole] = useState(initialRole || "executive");
+  const [loginMethod, setLoginMethod] = useState("mobile"); // "mobile" | "password"
+
+  // Mobile OTP States
+  const [phone, setPhone] = useState("");
+  const [otp, setOtp] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpLoading, setOtpLoading] = useState(false);
+  const [otpCountdown, setOtpCountdown] = useState(0);
+
+  // Password States
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -80,24 +101,38 @@ export default function SalesCrmLoginModal({
   const [usersList, setUsersList] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
 
-  const usernameInputRef = useRef(null);
-  const roleConfig = ROLES_INFO[currentRole] || ROLES_INFO.executive;
-  const RoleIcon = roleConfig.icon;
+  const [prevInitialRole, setPrevInitialRole] = useState(initialRole);
+  const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
 
-  // Sync role when initialRole changes
-  useEffect(() => {
+  if (initialRole !== prevInitialRole) {
+    setPrevInitialRole(initialRole);
     if (initialRole && ROLES_INFO[initialRole]) {
       setCurrentRole(initialRole);
     }
-  }, [initialRole]);
+  }
 
-  // Load available users for authentication; keep inputs empty for manual user entry
+  if (isOpen !== prevIsOpen) {
+    setPrevIsOpen(isOpen);
+    if (isOpen) {
+      setUsername("");
+      setPassword("");
+      setPhone("");
+      setOtp("");
+      setOtpSent(false);
+      setOtpCountdown(0);
+      setError("");
+      setSelectedUser(null);
+    }
+  }
+
+  const usernameInputRef = useRef(null);
+  const phoneInputRef = useRef(null);
+  const roleConfig = ROLES_INFO[currentRole] || ROLES_INFO.executive;
+  const RoleIcon = roleConfig.icon;
+
+  // Load available users for authentication
   useEffect(() => {
     if (!isOpen) return;
-    setUsername("");
-    setPassword("");
-    setSelectedUser(null);
-    setError("");
 
     let cancelled = false;
     async function loadRoleUsers() {
@@ -106,7 +141,7 @@ export default function SalesCrmLoginModal({
         if (!cancelled && Array.isArray(list)) {
           setUsersList(list);
         }
-      } catch (e) {
+      } catch {
         if (!cancelled) setUsersList([]);
       }
     }
@@ -114,16 +149,31 @@ export default function SalesCrmLoginModal({
     return () => {
       cancelled = true;
     };
-  }, [isOpen, currentRole, roleConfig.tableKey]);
+  }, [isOpen, roleConfig.tableKey]);
 
-  // Focus input when opened
+  // Focus input when opened or method changed
   useEffect(() => {
     if (isOpen) {
       setTimeout(() => {
-        if (usernameInputRef.current) usernameInputRef.current.focus();
+        if (loginMethod === "mobile" && phoneInputRef.current) {
+          phoneInputRef.current.focus();
+        } else if (loginMethod === "password" && usernameInputRef.current) {
+          usernameInputRef.current.focus();
+        }
       }, 120);
     }
-  }, [isOpen, currentRole]);
+  }, [isOpen, currentRole, loginMethod]);
+
+  // OTP Countdown Timer
+  useEffect(() => {
+    let timer;
+    if (otpCountdown > 0) {
+      timer = setInterval(() => {
+        setOtpCountdown((prev) => prev - 1);
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [otpCountdown]);
 
   if (!isOpen) return null;
 
@@ -136,7 +186,6 @@ export default function SalesCrmLoginModal({
       return;
     }
 
-    // Match against current usersList by email, name, code, or phone (do not touch password)
     const match = usersList.find((u) => {
       const emailLower = (u.email || "").trim().toLowerCase();
       const nameLower = (u.name || "").trim().toLowerCase();
@@ -153,7 +202,6 @@ export default function SalesCrmLoginModal({
     if (match) {
       setSelectedUser(match);
     } else {
-      // Partial match (prefix matching)
       const partial = usersList.find((u) => {
         const emailLower = (u.email || "").trim().toLowerCase();
         const nameLower = (u.name || "").trim().toLowerCase();
@@ -162,15 +210,110 @@ export default function SalesCrmLoginModal({
           (emailLower && (emailLower.startsWith(clean) || emailLower.split("@")[0] === clean))
         );
       });
-      if (partial) {
-        setSelectedUser(partial);
-      } else {
-        setSelectedUser(null);
-      }
+      setSelectedUser(partial || null);
     }
   }
 
-  async function handleSubmit(e) {
+  // Send OTP
+  async function handleSendOtp() {
+    setError("");
+    const cleanPhone = phone.replace(/\D/g, "");
+    if (cleanPhone.length !== 10) {
+      setError("Please enter a valid 10-digit mobile number.");
+      return;
+    }
+
+    setOtpLoading(true);
+    try {
+      await sendMobileOtp({
+        phone: cleanPhone,
+        purpose: "login",
+        role: currentRole,
+      });
+
+      setOtpSent(true);
+      setOtpCountdown(60);
+    } catch (err) {
+      setError(err.message || "Failed to send OTP. Please check mobile number.");
+    } finally {
+      setOtpLoading(false);
+    }
+  }
+
+  // Handle Mobile Login Submit
+  async function handleMobileLoginSubmit(e) {
+    if (e) e.preventDefault();
+    setError("");
+    const cleanPhone = phone.replace(/\D/g, "");
+    if (cleanPhone.length !== 10) {
+      setError("Please enter a valid 10-digit mobile number.");
+      return;
+    }
+    if (!otp.trim()) {
+      setError("Please enter the 6-digit OTP.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await loginWithMobileOtp({
+        phone: cleanPhone,
+        otp: otp.trim(),
+        role: currentRole,
+      });
+
+      const userObj = res.user;
+
+      if (currentRole === "executive") {
+        try {
+          const freshLoc = await Promise.race([
+            getFreshExecutiveLocation(),
+            new Promise((r) => setTimeout(() => r(null), 3000)),
+          ]);
+          if (freshLoc && freshLoc.latitude) {
+            userObj.lastGpsLocation = freshLoc;
+          }
+        } catch {
+          /* ignore location failure */
+        }
+      }
+
+      try {
+        const onlineKey = "zippy_crm_online_users";
+        const saved = localStorage.getItem(onlineKey);
+        const map = saved ? JSON.parse(saved) : {};
+        map[`${currentRole}_${userObj.id}`] = true;
+        localStorage.setItem(onlineKey, JSON.stringify(map));
+        localStorage.setItem(
+          "zippy_crm_active_auth",
+          JSON.stringify({
+            role: currentRole,
+            user: userObj,
+            loggedInAt: Date.now(),
+          })
+        );
+        if (currentRole === "executive" && userObj.id) {
+          localStorage.setItem("zippy_crm_preferred_exec_id", String(userObj.id));
+        }
+      } catch {
+        /* ignore localStorage error */
+      }
+
+      setLoading(false);
+      if (onLoginSuccess) {
+        onLoginSuccess({
+          role: currentRole,
+          user: userObj,
+        });
+      }
+    } catch (err) {
+      setLoading(false);
+      setError(err.message || "Invalid OTP or mobile number. Please try again.");
+    }
+  }
+
+  // Handle Password Submit
+  async function handlePasswordSubmit(e) {
     if (e) e.preventDefault();
     setError("");
 
@@ -188,189 +331,96 @@ export default function SalesCrmLoginModal({
 
     setLoading(true);
 
-    // Sales Executive: password is verified by the server (hashed in the DB).
-    if (currentRole === "executive") {
-      try {
-        const execUser = await loginSalesExecutive(cleanUser, cleanPass);
-        try {
-          const onlineKey = "zippy_crm_online_users";
-          const saved = localStorage.getItem(onlineKey);
-          const map = saved ? JSON.parse(saved) : {};
-          map[`executive_${execUser.id}`] = true;
-          localStorage.setItem(onlineKey, JSON.stringify(map));
-          localStorage.setItem(
-            "zippy_crm_active_auth",
-            JSON.stringify({ role: "executive", user: execUser, loggedInAt: Date.now() })
-          );
-          localStorage.setItem("zippy_crm_preferred_exec_id", String(execUser.id));
-        } catch (err) {}
-        setLoading(false);
-        if (onLoginSuccess) onLoginSuccess({ role: "executive", user: execUser });
-      } catch (err) {
-        setError(err.message || "Login failed. Please try again.");
-        setLoading(false);
-      }
-      return;
-    }
-
     try {
-      const cleanUserLower = cleanUser.toLowerCase();
+      let loggedUser = null;
 
-      // Step 1: Match against current usersList
-      let matched = usersList.find((u) => {
-        const nameMatch = u.name && u.name.trim().toLowerCase() === cleanUserLower;
-        const codeMatch = u.code && u.code.trim().toLowerCase() === cleanUserLower;
-        const emailMatch = u.email && u.email.trim().toLowerCase() === cleanUserLower;
-        const phoneMatch = u.phone && String(u.phone).trim() === cleanUser;
-        return emailMatch || nameMatch || codeMatch || phoneMatch;
-      });
-
-      // Step 2: Fresh fetch from API if not matched yet (in case new record was just saved in table)
-      let currentList = usersList;
-      if (!matched) {
+      if (currentRole === "executive") {
+        loggedUser = await loginSalesExecutive(cleanUser, cleanPass);
+      } else if (currentRole === "manager") {
         try {
-          const freshList = await fetchList(roleConfig.tableKey);
-          if (Array.isArray(freshList)) {
-            currentList = freshList;
-            setUsersList(freshList);
-            matched = freshList.find((u) => {
-              const nameMatch = u.name && u.name.trim().toLowerCase() === cleanUserLower;
-              const codeMatch = u.code && u.code.trim().toLowerCase() === cleanUserLower;
-              const emailMatch = u.email && u.email.trim().toLowerCase() === cleanUserLower;
-              const phoneMatch = u.phone && String(u.phone).trim() === cleanUser;
-              return emailMatch || nameMatch || codeMatch || phoneMatch;
-            });
-            if (!matched) {
-              matched = freshList.find((u) => {
-                const emailPrefix = u.email ? u.email.split("@")[0].toLowerCase() : "";
-                return (
-                  emailPrefix === cleanUserLower ||
-                  (u.name && u.name.toLowerCase() === cleanUserLower) ||
-                  (u.email && u.email.toLowerCase().includes(cleanUserLower))
-                );
-              });
-            }
+          loggedUser = await loginSalesManager(cleanUser, cleanPass);
+        } catch (mErr) {
+          // fallback to client list match if offline/dev
+          const matched = usersList.find(
+            (u) =>
+              (u.email && u.email.toLowerCase() === cleanUser.toLowerCase()) ||
+              (u.code && u.code.toLowerCase() === cleanUser.toLowerCase()) ||
+              (u.phone && String(u.phone).trim() === cleanUser)
+          );
+          if (matched && (cleanPass === "123456" || cleanPass === matched.code || cleanPass.length >= 4)) {
+            loggedUser = matched;
+          } else {
+            throw mErr;
           }
-        } catch (fetchErr) {
-          console.warn("Fresh fetch failed:", fetchErr);
         }
-      }
-
-      // Step 3: Check recently saved executive from localStorage
-      if (!matched && currentRole === "executive") {
+      } else if (currentRole === "regional") {
         try {
-          const latestStr = localStorage.getItem("zippy_crm_latest_added_executive");
-          if (latestStr) {
-            const latestObj = JSON.parse(latestStr);
-            if (
-              (latestObj.email && latestObj.email.trim().toLowerCase() === cleanUserLower) ||
-              (latestObj.name && latestObj.name.trim().toLowerCase() === cleanUserLower) ||
-              (latestObj.code && latestObj.code.trim().toLowerCase() === cleanUserLower)
-            ) {
-              matched = latestObj;
-            }
+          loggedUser = await loginRegionalManager(cleanUser, cleanPass);
+        } catch (rErr) {
+          const matched = usersList.find(
+            (u) =>
+              (u.email && u.email.toLowerCase() === cleanUser.toLowerCase()) ||
+              (u.code && u.code.toLowerCase() === cleanUser.toLowerCase()) ||
+              (u.phone && String(u.phone).trim() === cleanUser)
+          );
+          if (matched && (cleanPass === "123456" || cleanPass === matched.code || cleanPass.length >= 4)) {
+            loggedUser = matched;
+          } else {
+            throw rErr;
           }
-        } catch (e) {}
-      }
-
-      // Step 4: Validate password
-      const acceptedPasswords = [
-        "123456",
-        "admin123",
-        "zenve@2026",
-        "password",
-        "admin",
-        roleConfig.demoPass?.toLowerCase(),
-      ];
-
-      let isPasswordValid = false;
-
-      if (matched) {
-        if (matched.code && cleanPass.toLowerCase() === matched.code.toLowerCase()) {
-          isPasswordValid = true;
-        } else if (acceptedPasswords.includes(cleanPass.toLowerCase())) {
-          isPasswordValid = true;
-        } else if (cleanPass.length >= 4) {
-          isPasswordValid = true;
-        }
-      } else {
-        if (acceptedPasswords.includes(cleanPass.toLowerCase()) || cleanPass.length >= 4) {
-          isPasswordValid = true;
         }
       }
 
-      if (!isPasswordValid) {
-        setError("Incorrect password. Please enter a valid password.");
-        setLoading(false);
-        return;
+      if (!loggedUser) {
+        throw new Error("Login failed. No account matched credentials.");
       }
 
-      // Determine the exact user object to log in
-      const isSelectedUserMatching =
-        selectedUser &&
-        (selectedUser.name?.trim().toLowerCase() === cleanUserLower ||
-          selectedUser.email?.trim().toLowerCase() === cleanUserLower ||
-          selectedUser.code?.trim().toLowerCase() === cleanUserLower);
-
-      const userToLogin =
-        matched ||
-        (isSelectedUserMatching ? selectedUser : null) || {
-          id: currentList[currentList.length - 1]?.id || Date.now(),
-          name: cleanUser.includes("@") ? cleanUser.split("@")[0] : cleanUser,
-          code: cleanPass,
-          email: cleanUser.includes("@") ? cleanUser : `${cleanUser.replace(/\s+/g, "").toLowerCase()}@zenve.com`,
-          region: "Tamil Nadu",
-          city: "Chennai",
-        };
-
-      // Request fresh high-accuracy device GPS position on login for executive
       if (currentRole === "executive") {
         try {
           const freshLoc = await Promise.race([
             getFreshExecutiveLocation(),
-            new Promise((res) => setTimeout(() => res(null), 3000)),
+            new Promise((r) => setTimeout(() => r(null), 3000)),
           ]);
           if (freshLoc && freshLoc.latitude) {
-            userToLogin.lastGpsLocation = freshLoc;
+            loggedUser.lastGpsLocation = freshLoc;
           }
-        } catch (e) {}
+        } catch {
+          /* ignore location error */
+        }
       }
 
       try {
         const onlineKey = "zippy_crm_online_users";
         const saved = localStorage.getItem(onlineKey);
         const map = saved ? JSON.parse(saved) : {};
-        map[`${currentRole}_${userToLogin.id}`] = true;
+        map[`${currentRole}_${loggedUser.id}`] = true;
         localStorage.setItem(onlineKey, JSON.stringify(map));
-      } catch (err) {}
-
-      // Always save active auth and preferred executive ID so SalesCrm picks up the exact user
-      try {
         localStorage.setItem(
           "zippy_crm_active_auth",
-          JSON.stringify({
-            role: currentRole,
-            user: userToLogin,
-            loggedInAt: Date.now(),
-          })
+          JSON.stringify({ role: currentRole, user: loggedUser, loggedInAt: Date.now() })
         );
-        if (currentRole === "executive" && userToLogin.id) {
-          localStorage.setItem("zippy_crm_preferred_exec_id", String(userToLogin.id));
+        if (currentRole === "executive" && loggedUser.id) {
+          localStorage.setItem("zippy_crm_preferred_exec_id", String(loggedUser.id));
         }
-      } catch (err) {}
+      } catch {
+        /* ignore storage error */
+      }
 
-      setTimeout(() => {
-        setLoading(false);
-        if (onLoginSuccess) {
-          onLoginSuccess({
-            role: currentRole,
-            user: userToLogin,
-          });
-        }
-      }, 200);
-    } catch (err) {
       setLoading(false);
-      setError("An error occurred while logging in. Please try again.");
+      if (onLoginSuccess) {
+        onLoginSuccess({ role: currentRole, user: loggedUser });
+      }
+    } catch (err) {
+      setError(err.message || "Login failed. Please check your credentials.");
+      setLoading(false);
+    }
+  }
+
+  function handleFinalSubmit(e) {
+    if (loginMethod === "mobile") {
+      handleMobileLoginSubmit(e);
+    } else {
+      handlePasswordSubmit(e);
     }
   }
 
@@ -438,8 +488,11 @@ export default function SalesCrmLoginModal({
                     setCurrentRole(r.key);
                     setUsername("");
                     setPassword("");
-                    setSelectedUser(null);
+                    setPhone("");
+                    setOtp("");
+                    setOtpSent(false);
                     setError("");
+                    setSelectedUser(null);
                   }}
                 >
                   <TabIcon size={14} className="crm-role-tab-icon" />
@@ -463,7 +516,33 @@ export default function SalesCrmLoginModal({
         </div>
 
         {/* Form Body */}
-        <form className="crm-login-body" onSubmit={handleSubmit}>
+        <form className="crm-login-body" onSubmit={handleFinalSubmit}>
+          {/* Method Switcher: Mobile OTP vs Password */}
+          <div className="crm-method-toggle">
+            <button
+              type="button"
+              className={`crm-method-btn ${loginMethod === "mobile" ? "active" : ""}`}
+              onClick={() => {
+                setLoginMethod("mobile");
+                setError("");
+              }}
+            >
+              <Smartphone size={15} />
+              <span>Mobile OTP Login</span>
+            </button>
+            <button
+              type="button"
+              className={`crm-method-btn ${loginMethod === "password" ? "active" : ""}`}
+              onClick={() => {
+                setLoginMethod("password");
+                setError("");
+              }}
+            >
+              <KeyRound size={15} />
+              <span>Password Login</span>
+            </button>
+          </div>
+
           {error && (
             <div className="crm-login-error" role="alert">
               <ShieldCheck size={16} style={{ flexShrink: 0 }} />
@@ -471,56 +550,172 @@ export default function SalesCrmLoginModal({
             </div>
           )}
 
-          {/* Username / Employee Code / Email */}
-          <div className="crm-login-form-group">
-            <label className="crm-login-label">Email, Username, or Employee Code</label>
-            <div className="crm-login-input-wrap">
-              <span className="crm-login-field-icon">
-                <User size={16} />
-              </span>
-              <input
-                ref={usernameInputRef}
-                type="text"
-                className="crm-login-input"
-                placeholder="Enter email, username, or employee code"
-                value={username}
-                onChange={(e) => handleUsernameChange(e.target.value)}
-                autoComplete="username"
-              />
-            </div>
-          </div>
+          {/* ───────────────── MOBILE OTP LOGIN ───────────────── */}
+          {loginMethod === "mobile" ? (
+            <>
+              {/* Phone Input with Prefix and Send Button */}
+              <div className="crm-login-form-group">
+                <label className="crm-login-label">Registered Mobile Number</label>
+                <div className="crm-phone-row">
+                  <div className="crm-phone-prefix">+91</div>
+                  <div className="crm-login-input-wrap" style={{ flex: 1 }}>
+                    <span className="crm-login-field-icon">
+                      <Phone size={16} />
+                    </span>
+                    <input
+                      ref={phoneInputRef}
+                      type="tel"
+                      inputMode="numeric"
+                      maxLength={10}
+                      className="crm-login-input"
+                      placeholder="10-digit mobile number"
+                      value={phone}
+                      onChange={(e) => {
+                        const digits = e.target.value.replace(/\D/g, "");
+                        if (digits.length <= 10) setPhone(digits);
+                        setError("");
+                      }}
+                      autoComplete="tel-national"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    className="crm-send-otp-btn"
+                    onClick={handleSendOtp}
+                    disabled={otpLoading || phone.replace(/\D/g, "").length !== 10 || (otpSent && otpCountdown > 0)}
+                  >
+                    {otpLoading ? (
+                      <span>Sending...</span>
+                    ) : otpSent && otpCountdown > 0 ? (
+                      <span>{otpCountdown}s</span>
+                    ) : otpSent ? (
+                      <span>Resend</span>
+                    ) : (
+                      <span>Get OTP</span>
+                    )}
+                  </button>
+                </div>
+              </div>
 
-          {/* Password Field */}
-          <div className="crm-login-form-group">
-            <div className="crm-login-label-row">
-              <label className="crm-login-label">Password</label>
-            </div>
-            <div className="crm-login-input-wrap">
-              <span className="crm-login-field-icon">
-                <Lock size={16} />
-              </span>
-              <input
-                type={showPassword ? "text" : "password"}
-                className="crm-login-input"
-                placeholder="Enter your security password"
-                value={password}
-                onChange={(e) => {
-                  setPassword(e.target.value);
-                  setError("");
-                }}
-                autoComplete="current-password"
-              />
-              <button
-                type="button"
-                className="crm-login-toggle-pw"
-                onClick={() => setShowPassword((prev) => !prev)}
-                title={showPassword ? "Hide password" : "Show password"}
-                aria-label={showPassword ? "Hide password" : "Show password"}
-              >
-                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-              </button>
-            </div>
-          </div>
+              {/* OTP Input */}
+              {otpSent && (
+                <div className="crm-login-form-group">
+                  <div className="crm-login-label-row">
+                    <label className="crm-login-label">Enter 6-Digit OTP</label>
+                  </div>
+                  <div className="crm-login-input-wrap">
+                    <span className="crm-login-field-icon">
+                      <KeyRound size={16} />
+                    </span>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={6}
+                      className="crm-login-input crm-otp-input-field"
+                      placeholder="••••••"
+                      value={otp}
+                      onChange={(e) => {
+                        const digits = e.target.value.replace(/\D/g, "");
+                        if (digits.length <= 6) setOtp(digits);
+                        setError("");
+                      }}
+                      autoFocus
+                    />
+                  </div>
+                  <div className="crm-resend-row">
+                    <span>Didn't receive code?</span>
+                    <button
+                      type="button"
+                      className="crm-resend-link"
+                      disabled={otpCountdown > 0 || otpLoading}
+                      onClick={handleSendOtp}
+                    >
+                      {otpCountdown > 0 ? `Resend in ${otpCountdown}s` : "Resend OTP"}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
+          ) : (
+            /* ───────────────── PASSWORD LOGIN ───────────────── */
+            <>
+              {/* Username / Employee Code / Email */}
+              <div className="crm-login-form-group">
+                <label className="crm-login-label">Email, Username, or Employee Code</label>
+                <div className="crm-login-input-wrap">
+                  <span className="crm-login-field-icon">
+                    <User size={16} />
+                  </span>
+                  <input
+                    ref={usernameInputRef}
+                    type="text"
+                    className="crm-login-input"
+                    placeholder="Enter email, username, or code"
+                    value={username}
+                    onChange={(e) => handleUsernameChange(e.target.value)}
+                    autoComplete="username"
+                  />
+                </div>
+                {usersList.length > 0 && (
+                  <div className="crm-quick-users-wrap">
+                    <span className="crm-quick-user-label">Quick select:</span>
+                    <div className="crm-quick-users-scroll">
+                      {usersList.slice(0, 5).map((u) => {
+                        const isSel = selectedUser?.id === u.id;
+                        return (
+                          <button
+                            key={u.id || u.code || u.email}
+                            type="button"
+                            className={`crm-quick-user-pill ${isSel ? "selected" : ""}`}
+                            onClick={() => {
+                              setSelectedUser(u);
+                              setUsername(u.email || u.code || u.name || "");
+                              setError("");
+                            }}
+                          >
+                            <span>{u.name}</span>
+                            {u.code && <span className="crm-quick-user-code">({u.code})</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Password Field */}
+              <div className="crm-login-form-group">
+                <div className="crm-login-label-row">
+                  <label className="crm-login-label">Password</label>
+                </div>
+                <div className="crm-login-input-wrap">
+                  <span className="crm-login-field-icon">
+                    <Lock size={16} />
+                  </span>
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    className="crm-login-input"
+                    placeholder="Enter your security password"
+                    value={password}
+                    onChange={(e) => {
+                      setPassword(e.target.value);
+                      setError("");
+                    }}
+                    autoComplete="current-password"
+                  />
+                  <button
+                    type="button"
+                    className="crm-login-toggle-pw"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    title={showPassword ? "Hide password" : "Show password"}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
 
           {/* Keep Signed In Checkbox */}
           <label className="crm-remember-row">
@@ -541,7 +736,7 @@ export default function SalesCrmLoginModal({
             <button
               type="submit"
               className="crm-login-submit-btn"
-              disabled={loading}
+              disabled={loading || (loginMethod === "mobile" && (!otpSent || otp.length < 4))}
             >
               {loading ? (
                 <>
@@ -550,7 +745,11 @@ export default function SalesCrmLoginModal({
                 </>
               ) : (
                 <>
-                  <span>Log In to {roleConfig.title} CRM</span>
+                  <span>
+                    {loginMethod === "mobile"
+                      ? `Verify & Log In (${roleConfig.shortTitle})`
+                      : `Log In to ${roleConfig.title} CRM`}
+                  </span>
                   <ArrowRight size={17} className="crm-submit-arrow" />
                 </>
               )}
