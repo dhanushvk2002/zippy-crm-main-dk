@@ -1,20 +1,3 @@
-/**
- * geoUtils.js — Ultra-Accurate GPS Geolocation & Reverse Geocoding Utility
- *
- * Implements high-accuracy device GPS tracking and multi-source reverse geocoding
- * according to enterprise field tracking requirements:
- *   - Device GPS via navigator.geolocation with enableHighAccuracy: true, timeout: 15000, maximumAge: 0
- *   - Field normalization:
- *       Area:     neighbourhood → suburb → locality → village → quarter → hamlet → residential → road
- *       City:     city → town → municipality → city_district
- *       District: district → state_district → county
- *       State:    state → principalSubdivision
- *       Pincode:  postcode → postalCode
- *       Country:  country → countryName
- *   - Clean UI formatting: Area, City, State, Pincode (e.g. BTM Layout, Bengaluru, Karnataka, 560076)
- *   - Strict accuracy checking (coords.accuracy threshold and display: ±X meters)
- *   - No hardcoded cities, no IP address overrides as primary.
- */
 
 import { API_BASE } from "./api.js";
 
@@ -101,7 +84,12 @@ async function lookupNominatim(lat, lng) {
     const pincode = clean(a.postcode || a.postalCode);
     const country = clean(a.country);
 
-    return { area, city, district, state, pincode, country, raw: data };
+    let cleanArea = area;
+    if (cleanArea && city && cleanArea.toLowerCase() === city.toLowerCase()) {
+      cleanArea = "";
+    }
+
+    return { area: cleanArea, city, district, state, pincode, country, raw: data };
   } catch {
     return null;
   }
@@ -144,7 +132,12 @@ async function lookupBigDataCloud(lat, lng) {
     const pincode = clean(data.postcode);
     const country = clean(data.countryName);
 
-    return { area, city, district, state, pincode, country, raw: data };
+    let cleanArea = area;
+    if (cleanArea && city && cleanArea.toLowerCase() === city.toLowerCase()) {
+      cleanArea = "";
+    }
+
+    return { area: cleanArea, city, district, state, pincode, country, raw: data };
   } catch {
     return null;
   }
@@ -211,12 +204,14 @@ async function lookupGoogleGeocoder(lat, lng) {
             return hit ? clean(hit.long_name || hit.short_name) : "";
           };
 
-          const area =
+          const taluk =
+            getComponent(["administrative_area_level_3", "subdistrict", "tehsil"]) || "";
+          const sublocality =
             getComponent(["sublocality_level_1", "sublocality", "neighborhood"]) || "";
-          const city =
-            getComponent(["locality", "administrative_area_level_2"]) || "";
+          const locality =
+            getComponent(["locality"]) || "";
           const district =
-            getComponent(["administrative_area_level_2"]) || "";
+            (getComponent(["administrative_area_level_2"]) || "").replace(/\s+District$/i, "").trim();
           const state =
             getComponent(["administrative_area_level_1"]) || "";
           const country =
@@ -225,7 +220,29 @@ async function lookupGoogleGeocoder(lat, lng) {
             getComponent(["postal_code"]) || "";
           const formatted_address = clean(res.formatted_address) || "";
 
+          let village = "";
+          let area = "";
+          let city = "";
+
+          if (sublocality) {
+            area = sublocality;
+            city = locality || district;
+          } else if (locality) {
+            if (taluk && taluk.toLowerCase() !== locality.toLowerCase()) {
+              village = locality;
+              area = locality;
+            } else {
+              city = locality;
+              area = locality;
+            }
+          } else {
+            area = taluk || district;
+            city = district;
+          }
+
           resolve({
+            village,
+            taluk,
             area: area || city,
             city: city || district,
             district,
@@ -271,7 +288,7 @@ async function lookupBackendProxy(lat, lng) {
         displayAddress: clean(data.display_address),
       };
     }
-  } catch {}
+  } catch { }
   return null;
 }
 
@@ -400,13 +417,15 @@ export async function reverseGeocodeCoordinates(lat, lng, exec = null) {
  * - If accuracy > 100m and <= 500m: Acceptable / Verified with warning (Amber)
  * - If accuracy > 500m: Invalid / Retry (Red)
  */
-export const TARGET_LOCATION_ACCURACY_METERS = 100;
-export const MAX_LOCATION_ACCURACY_METERS = 500;
+export const TARGET_LOCATION_ACCURACY_METERS = 500;
+export const MAX_LOCATION_ACCURACY_METERS = 1000;
+export const EXTREME_LOCATION_ACCURACY_METERS = 2000;
 
 export const ACCURACY_CONFIG = {
-  GOOD_THRESHOLD: TARGET_LOCATION_ACCURACY_METERS, // 100m
-  ACCEPTABLE_THRESHOLD: MAX_LOCATION_ACCURACY_METERS, // 500m
-  DEFAULT_MAX_ALLOWED: MAX_LOCATION_ACCURACY_METERS, // 500m
+  GOOD_THRESHOLD: TARGET_LOCATION_ACCURACY_METERS, // 500m
+  ACCEPTABLE_THRESHOLD: MAX_LOCATION_ACCURACY_METERS, // 1000m
+  DEFAULT_MAX_ALLOWED: MAX_LOCATION_ACCURACY_METERS, // 1000m
+  EXTREME_THRESHOLD: EXTREME_LOCATION_ACCURACY_METERS, // 2000m
 };
 
 export function getMaxAllowedAccuracy() {
@@ -417,7 +436,7 @@ export function getMaxAllowedAccuracy() {
         return Number(stored);
       }
     }
-  } catch {}
+  } catch { }
   return MAX_LOCATION_ACCURACY_METERS;
 }
 
@@ -426,7 +445,7 @@ export function setMaxAllowedAccuracy(meters) {
     if (typeof localStorage !== "undefined" && meters > 0) {
       localStorage.setItem("ZIPPY_ATTENDANCE_MAX_ACCURACY", String(meters));
     }
-  } catch {}
+  } catch { }
 }
 
 /**
@@ -447,9 +466,9 @@ export function calculateHaversineDistance(lat1, lon1, lat2, lon2) {
   const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.cos(toRad(Number(lat1))) *
-      Math.cos(toRad(Number(lat2))) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
+    Math.cos(toRad(Number(lat2))) *
+    Math.sin(dLon / 2) *
+    Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return Math.round(R * c);
 }
@@ -465,7 +484,7 @@ export async function getGeolocationDiagnostics() {
       const p = await navigator.permissions.query({ name: "geolocation" });
       permissionState = p.state; // 'granted' | 'denied' | 'prompt'
     }
-  } catch {}
+  } catch { }
   return {
     isSupported,
     permissionState,
@@ -547,7 +566,7 @@ export function getDeviceHeadingAsync(maxWaitMs = 1200) {
       try {
         window.removeEventListener("deviceorientationabsolute", handleOrientation, true);
         window.removeEventListener("deviceorientation", handleOrientation, true);
-      } catch {}
+      } catch { }
     };
 
     const timer = setTimeout(() => {
@@ -650,13 +669,13 @@ export function getDeviceGpsPosition({
       if (watchId !== null) {
         try {
           navigator.geolocation.clearWatch(watchId);
-        } catch {}
+        } catch { }
         watchId = null;
       }
       allTimers.forEach((id) => {
         try {
           clearTimeout(id);
-        } catch {}
+        } catch { }
       });
       allTimers.length = 0;
     };
@@ -883,7 +902,7 @@ export function evaluateLocationAccuracy(accuracyMeters) {
     };
   }
 
-  // 1. If accuracy <= 100m: Excellent / Verified
+  // 1. If accuracy <= 500m: Excellent / Verified
   if (acc <= target) {
     return {
       level: "good",
@@ -897,29 +916,29 @@ export function evaluateLocationAccuracy(accuracyMeters) {
     };
   }
 
-  // 2. If accuracy > 100m and <= 500m: Acceptable / Verified with warning
-  if (acc <= maxAllowed) {
+  // 2. If accuracy > 500m and <= 2000m: Acceptable / Verified with warning
+  if (acc <= EXTREME_LOCATION_ACCURACY_METERS) {
     return {
       level: "warning",
       isAcceptable: true,
       isPrecise: false,
-      badgeText: "Location accuracy is low but acceptable",
+      badgeText: "Location detected with limited accuracy",
       badgeClass: "warning",
-      statusMessage: `Acceptable accuracy (±${Math.round(acc)}m)`,
+      statusMessage: `Location detected with limited accuracy (±${Math.round(acc)}m)`,
       userGuidance: "Wi-Fi triangulation provides acceptable desktop positioning.",
       canPunch: true,
     };
   }
 
-  // 3. If accuracy > 500m: Invalid / Retry
+  // 3. If accuracy > 2000m: Invalid / Extremely poor
   return {
     level: "invalid",
     isAcceptable: false,
     isPrecise: false,
     badgeText: "Location accuracy is too low",
     badgeClass: "rejected",
-    statusMessage: `Location accuracy is too low. Please wait a few seconds and try again.\nCurrent Accuracy: ${Math.round(acc)} m\nMaximum Allowed: ${maxAllowed} m`,
-    userGuidance: `Location accuracy is too low. Please wait a few seconds and try again. Current Accuracy: ${Math.round(acc)} m, Maximum Allowed: ${maxAllowed} m.`,
+    statusMessage: `Location accuracy is extremely poor (${Math.round(acc)}m). Please enable Windows Location Services and try again.`,
+    userGuidance: `Location accuracy is too low (${Math.round(acc)}m). Please enable Windows Location Services and try again.`,
     canPunch: false,
   };
 }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
   Clock,
   LogIn,
@@ -25,8 +25,14 @@ import {
 } from "lucide-react";
 import DoctorAvatar from "./DoctorAvatar.jsx";
 import FacePunchModal from "./FacePunchModal.jsx";
+import LocationMapModal from "./LocationMapModal.jsx";
 import AttendancePunchAlertsPanel from "./AttendancePunchAlertsPanel.jsx";
-import { getAttendanceLocation } from "../utils/location.js";
+import {
+  getAttendanceLocation,
+  LOCATION_OPTIMAL_ACCURACY,
+  LOCATION_MAX_ACCURACY,
+  LOCATION_EXTREME_LIMIT,
+} from "../utils/location.js";
 import {
   getFreshExecutiveLocation,
   reverseGeocodeCoordinates,
@@ -113,15 +119,15 @@ export function normalizeRecordLocations(rec, exec = null) {
   return updated;
 }
 
-export function formatShortLocation(loc, exec = null) {
+function formatShortLocation(loc, exec = null) {
   return formatExecutiveLocation(loc, exec);
 }
 
-export function formatShortLocationString(str, exec = null) {
+function formatShortLocationString(str, exec = null) {
   return formatLocationString(str, exec);
 }
 
-export function formatShortRemarks(rem, exec = null) {
+function formatShortRemarks(rem, exec = null) {
   if (!rem) return "";
   const s = String(rem);
   if (/📍/.test(s)) {
@@ -131,6 +137,16 @@ export function formatShortRemarks(rem, exec = null) {
     return `${prefix} · 📍 ${formatLocationString(rawAddr, exec)}`;
   }
   return s;
+}
+
+export function getLocTooltip(loc, fallback = "") {
+  if (!loc) return fallback;
+  const name = formatExecutiveLocation(loc) || fallback;
+  if (!name) return "";
+  const isMap = loc.location_source === "MAP_CONFIRMED";
+  const src = isMap ? "Map Confirmed" : "Current Location";
+  const acc = !isMap && loc.accuracy != null ? ` · ±${Math.round(loc.accuracy)}m` : "";
+  return `${name} (${src}${acc})`;
 }
 
 function getLocalIsoString() {
@@ -346,28 +362,32 @@ export default function AttendanceView({
   const [locationDetecting, setLocationDetecting] = useState(true);
   const [locationStage, setLocationStage] = useState("Fetching current location...");
   const [locationError, setLocationError] = useState(null);
+  const isLocatingRef = useRef(false);
 
   // Fresh GPS Geolocation and Reverse Geocoding
   const refreshLiveLocation = useCallback(async () => {
+    if (isLocatingRef.current) return;
+    isLocatingRef.current = true;
     setLocationDetecting(true);
     setLocationStage("Fetching current location...");
     setLocationError(null);
     try {
       const loc = await getAttendanceLocation((stage) => setLocationStage(stage));
       if (!loc || loc.latitude == null) {
-        if (!currentLocation) setCurrentLocation(null);
+        setCurrentLocation((prev) => prev || null);
         setLocationError("Your device could not determine your current location. Please enable Windows Location Services and try again.");
       } else {
         setCurrentLocation(loc);
         setLocationError(null);
       }
     } catch (err) {
-      if (!currentLocation) setCurrentLocation(null);
+      setCurrentLocation((prev) => prev || null);
       setLocationError(err?.message || "Location request failed. Please check browser permissions and Windows Location Services.");
     } finally {
       setLocationDetecting(false);
+      isLocatingRef.current = false;
     }
-  }, [currentLocation]);
+  }, []);
 
   // Request fresh location on component mount or executive switch
   useEffect(() => {
@@ -378,13 +398,16 @@ export default function AttendanceView({
   const liveLocality = currentLocation?.displayAddress || "";
   const liveLocalityDetecting = locationDetecting;
 
-  // Desktop location verification: accuracy <= 500m required for punches once location is obtained
+  // Desktop location verification:
+  // Allowed if location is obtained, and either confirmed via map OR within acceptable accuracy (<= 1000m)
   const canPunchByAccuracy = Boolean(
     !currentLocation || (
       currentLocation.canPunch &&
       currentLocation.latitude != null &&
-      currentLocation.accuracy != null &&
-      currentLocation.accuracy <= 500
+      (currentLocation.location_source === "MAP_CONFIRMED" || (
+        currentLocation.accuracy != null &&
+        currentLocation.accuracy <= LOCATION_MAX_ACCURACY
+      ))
     )
   );
 
@@ -460,20 +483,40 @@ export default function AttendanceView({
         }
 
         if (todayDb && todayDb.login_time) {
-          const inLoc = normalizeDisplayLoc(todayDb.login_full_address || todayDb.full_address || [todayDb.login_area || todayDb.area, todayDb.login_city || todayDb.city, todayDb.login_state || todayDb.state].filter(Boolean).join(", "));
+          const inVillage = todayDb.login_village || todayDb.village || "";
+          const inTaluk = todayDb.login_taluk || todayDb.taluk || "";
+          const inLoc = normalizeDisplayLoc(
+            todayDb.login_formatted_address || todayDb.formatted_address || todayDb.login_full_address || todayDb.full_address ||
+            [inVillage || todayDb.login_area || todayDb.area, inTaluk, todayDb.login_city || todayDb.city, todayDb.login_district || todayDb.district, todayDb.login_state || todayDb.state].filter(Boolean).join(", ")
+          );
           const hasLogout = Boolean(todayDb.logout_time && (todayDb.logout_latitude != null || todayDb.logout_area || todayDb.logout_full_address));
+          const outVillage = todayDb.logout_village || "";
+          const outTaluk = todayDb.logout_taluk || "";
           const outLoc = hasLogout
-            ? normalizeDisplayLoc(todayDb.logout_full_address || [todayDb.logout_area, todayDb.logout_city, todayDb.logout_state].filter(Boolean).join(", "))
+            ? normalizeDisplayLoc(
+                todayDb.logout_formatted_address || todayDb.logout_full_address ||
+                [outVillage || todayDb.logout_area, outTaluk, todayDb.logout_city, todayDb.logout_district, todayDb.logout_state].filter(Boolean).join(", ")
+              )
             : null;
 
           const hasLunchOut = Boolean(todayDb.lunch_out_time || todayDb.lunch_out);
+          const lunchOutVillage = todayDb.lunch_out_village || "";
+          const lunchOutTaluk = todayDb.lunch_out_taluk || "";
           const lunchOutLoc = hasLunchOut && (todayDb.lunch_out_latitude != null || todayDb.lunch_out_area)
-            ? normalizeDisplayLoc(todayDb.lunch_out_full_address || [todayDb.lunch_out_area, todayDb.lunch_out_city, todayDb.lunch_out_state].filter(Boolean).join(", "))
+            ? normalizeDisplayLoc(
+                todayDb.lunch_out_formatted_address || todayDb.lunch_out_full_address ||
+                [lunchOutVillage || todayDb.lunch_out_area, lunchOutTaluk, todayDb.lunch_out_city, todayDb.lunch_out_district, todayDb.lunch_out_state].filter(Boolean).join(", ")
+              )
             : null;
 
           const hasLunchIn = Boolean(todayDb.lunch_in_time || todayDb.lunch_in);
+          const lunchInVillage = todayDb.lunch_in_village || "";
+          const lunchInTaluk = todayDb.lunch_in_taluk || "";
           const lunchInLoc = hasLunchIn && (todayDb.lunch_in_latitude != null || todayDb.lunch_in_area)
-            ? normalizeDisplayLoc(todayDb.lunch_in_full_address || [todayDb.lunch_in_area, todayDb.lunch_in_city, todayDb.lunch_in_state].filter(Boolean).join(", "))
+            ? normalizeDisplayLoc(
+                todayDb.lunch_in_formatted_address || todayDb.lunch_in_full_address ||
+                [lunchInVillage || todayDb.lunch_in_area, lunchInTaluk, todayDb.lunch_in_city, todayDb.lunch_in_district, todayDb.lunch_in_state].filter(Boolean).join(", ")
+              )
             : null;
 
           const mapped = {
@@ -484,16 +527,21 @@ export default function AttendanceView({
             date: String(todayDb.attendance_date),
             punchIn: formatIsoToTimeStr(todayDb.login_time),
             punchInLocation: {
-              area: todayDb.login_area || todayDb.area || "",
+              village: inVillage,
+              taluk: inTaluk,
+              area: todayDb.login_area || todayDb.area || inVillage || "",
               city: todayDb.login_city || todayDb.city || "",
+              district: todayDb.login_district || todayDb.district || "",
               state: todayDb.login_state || todayDb.state || "",
               country: todayDb.login_country || todayDb.country || "India",
               pincode: todayDb.login_pincode || todayDb.pincode || "",
-              full_address: todayDb.login_full_address || todayDb.full_address || inLoc,
+              full_address: todayDb.login_formatted_address || todayDb.login_full_address || todayDb.full_address || inLoc,
+              formatted_address: todayDb.login_formatted_address || todayDb.login_full_address || todayDb.full_address || inLoc,
+              location_source: todayDb.login_location_source || todayDb.location_source || "BROWSER_GPS",
               location_accuracy: todayDb.login_accuracy ?? todayDb.location_accuracy ?? null,
+              accuracy: todayDb.login_accuracy ?? todayDb.location_accuracy ?? null,
               locality: inLoc,
               displayAddress: inLoc,
-              formattedAddress: inLoc,
               coords: { latitude: todayDb.login_latitude ?? todayDb.latitude ?? null, longitude: todayDb.login_longitude ?? todayDb.longitude ?? null },
               location_timestamp: todayDb.login_location_timestamp || todayDb.location_timestamp,
             },
@@ -501,16 +549,21 @@ export default function AttendanceView({
             lunchOut: formatIsoToTimeStr(todayDb.lunch_out_time || todayDb.lunch_out),
             lunchOutLocation: lunchOutLoc
               ? {
+                  village: lunchOutVillage,
+                  taluk: lunchOutTaluk,
                   area: todayDb.lunch_out_area || "",
                   city: todayDb.lunch_out_city || "",
+                  district: todayDb.lunch_out_district || "",
                   state: todayDb.lunch_out_state || "",
                   country: todayDb.lunch_out_country || "India",
                   pincode: todayDb.lunch_out_pincode || "",
-                  full_address: todayDb.lunch_out_full_address || lunchOutLoc,
+                  full_address: todayDb.lunch_out_formatted_address || todayDb.lunch_out_full_address || lunchOutLoc,
+                  formatted_address: todayDb.lunch_out_formatted_address || todayDb.lunch_out_full_address || lunchOutLoc,
+                  location_source: todayDb.lunch_out_location_source || "BROWSER_GPS",
                   location_accuracy: todayDb.lunch_out_accuracy ?? null,
+                  accuracy: todayDb.lunch_out_accuracy ?? null,
                   locality: lunchOutLoc,
                   displayAddress: lunchOutLoc,
-                  formattedAddress: lunchOutLoc,
                   coords: { latitude: todayDb.lunch_out_latitude ?? null, longitude: todayDb.lunch_out_longitude ?? null },
                   location_timestamp: todayDb.lunch_out_location_timestamp,
                 }
@@ -518,16 +571,21 @@ export default function AttendanceView({
             lunchIn: formatIsoToTimeStr(todayDb.lunch_in_time || todayDb.lunch_in),
             lunchInLocation: lunchInLoc
               ? {
+                  village: lunchInVillage,
+                  taluk: lunchInTaluk,
                   area: todayDb.lunch_in_area || "",
                   city: todayDb.lunch_in_city || "",
+                  district: todayDb.lunch_in_district || "",
                   state: todayDb.lunch_in_state || "",
                   country: todayDb.lunch_in_country || "India",
                   pincode: todayDb.lunch_in_pincode || "",
-                  full_address: todayDb.lunch_in_full_address || lunchInLoc,
+                  full_address: todayDb.lunch_in_formatted_address || todayDb.lunch_in_full_address || lunchInLoc,
+                  formatted_address: todayDb.lunch_in_formatted_address || todayDb.lunch_in_full_address || lunchInLoc,
+                  location_source: todayDb.lunch_in_location_source || "BROWSER_GPS",
                   location_accuracy: todayDb.lunch_in_accuracy ?? null,
+                  accuracy: todayDb.lunch_in_accuracy ?? null,
                   locality: lunchInLoc,
                   displayAddress: lunchInLoc,
-                  formattedAddress: lunchInLoc,
                   coords: { latitude: todayDb.lunch_in_latitude ?? null, longitude: todayDb.lunch_in_longitude ?? null },
                   location_timestamp: todayDb.lunch_in_location_timestamp,
                 }
@@ -535,16 +593,21 @@ export default function AttendanceView({
             punchOut: formatIsoToTimeStr(todayDb.logout_time),
             punchOutLocation: outLoc
               ? {
+                  village: outVillage,
+                  taluk: outTaluk,
                   area: todayDb.logout_area || "",
                   city: todayDb.logout_city || "",
+                  district: todayDb.logout_district || "",
                   state: todayDb.logout_state || "",
                   country: todayDb.logout_country || "India",
                   pincode: todayDb.logout_pincode || "",
-                  full_address: todayDb.logout_full_address || outLoc,
+                  full_address: todayDb.logout_formatted_address || todayDb.logout_full_address || outLoc,
+                  formatted_address: todayDb.logout_formatted_address || todayDb.logout_full_address || outLoc,
+                  location_source: todayDb.logout_location_source || "BROWSER_GPS",
                   location_accuracy: todayDb.logout_accuracy ?? null,
+                  accuracy: todayDb.logout_accuracy ?? null,
                   locality: outLoc,
                   displayAddress: outLoc,
-                  formattedAddress: outLoc,
                   coords: { latitude: todayDb.logout_latitude ?? null, longitude: todayDb.logout_longitude ?? null },
                   location_timestamp: todayDb.logout_location_timestamp,
                 }
@@ -641,37 +704,64 @@ export default function AttendanceView({
     return () => clearInterval(interval);
   }, [isPunchedIn, isPunchedOut, todayRecord]);
 
-  // Biometric Face & Location Modal States
+  // Biometric Face & Google Maps Location Modal States
   const [punchModalOpen, setPunchModalOpen] = useState(false);
-  const [punchActionType, setPunchActionType] = useState("in"); // "in" | "out"
+  const [locationConfirmModalOpen, setLocationConfirmModalOpen] = useState(false);
+  const [punchActionType, setPunchActionType] = useState("in"); // "in" | "out" | "lunch_out" | "lunch_in"
   const [previewPhotoModal, setPreviewPhotoModal] = useState(null); // photo preview lightbox
 
-  // Action: Open Face & Location Verification Modal for Punch In
+  // Action: Open Unified Camera & Google Map Attendance Modal for Punch In
   const handlePunchIn = () => {
     if (isPunchedIn) return;
     setPunchActionType("in");
     setPunchModalOpen(true);
   };
 
-  // Action: Open Face & Location Verification Modal for Punch Out
+  // Action: Open Unified Camera & Google Map Attendance Modal for Punch Out
   const handlePunchOut = () => {
     if (!isPunchedIn || isPunchedOut) return;
     setPunchActionType("out");
     setPunchModalOpen(true);
   };
 
-  // Action: Open Face & Location Verification Modal for Lunch Out
+  // Action: Open Unified Camera & Google Map Attendance Modal for Lunch Out
   const handleLunchOut = () => {
     if (!isPunchedIn || isLunchOut || isPunchedOut) return;
     setPunchActionType("lunch_out");
     setPunchModalOpen(true);
   };
 
-  // Action: Open Face & Location Verification Modal for Lunch In
+  // Action: Open Unified Camera & Google Map Attendance Modal for Lunch In
   const handleLunchIn = () => {
     if (!isLunchOut || isLunchIn || isPunchedOut) return;
     setPunchActionType("lunch_in");
     setPunchModalOpen(true);
+  };
+
+  // Handle Location Confirmed from Google Maps Modal and execute attendance save
+  const handleLocationConfirmed = async (confirmedLoc) => {
+    setLocationConfirmModalOpen(false);
+
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: true,
+    });
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, "0");
+    const d = String(now.getDate()).padStart(2, "0");
+    const dateStr = `${y}-${m}-${d}`;
+
+    const faceImg = activeExecutive?.photo || defaultFacePhoto || "";
+
+    await handleConfirmPunch({
+      punchTime: timeStr,
+      punchDate: dateStr,
+      locationData: confirmedLoc,
+      faceImage: faceImg,
+    });
   };
 
   // Helper: get fresh high-accuracy device GPS position and reverse-geocoded address
@@ -706,7 +796,7 @@ export default function AttendanceView({
 
   // Confirm and Save Verified Punch Record to LocalStorage and MySQL Database
   const handleConfirmPunch = async ({ punchTime, punchDate, locationData, faceImage }) => {
-    // 1. Strict real-time GPS validation - never fallback to fake/hardcoded location
+    // 1. Strict real-time GPS / Map validation - never fallback to fake/hardcoded location
     const locLat = locationData?.latitude ?? locationData?.coords?.latitude ?? locationData?.lat;
     const locLng = locationData?.longitude ?? locationData?.coords?.longitude ?? locationData?.lng;
 
@@ -717,28 +807,50 @@ export default function AttendanceView({
       return;
     }
 
-    const locAccuracy = locationData?.accuracy != null ? Number(locationData.accuracy) : (locationData?.location_accuracy != null ? Number(locationData.location_accuracy) : null);
+    const locSource = locationData?.location_source || (locationData?.accuracy != null ? "BROWSER_GPS" : "MAP_CONFIRMED");
+    const isMapConfirmed = locSource === "MAP_CONFIRMED";
+    const locAccuracy = isMapConfirmed
+      ? null
+      : (locationData?.accuracy != null ? Number(locationData.accuracy) : (locationData?.location_accuracy != null ? Number(locationData.location_accuracy) : null));
 
-    // Enforce strict accuracy validation before allowing attendance punch (>500m rejected)
-    if (locAccuracy != null && locAccuracy > 500) {
-      const msg = "Your current location accuracy is poor. Please enable Windows Location Services, allow browser location permission, and try again.";
+    // Enforce strict accuracy validation only when from browser GPS:
+    // If accuracy is poor (> 1000m), block direct punch and prompt user to adjust on map
+    if (!isMapConfirmed && locAccuracy != null && locAccuracy > LOCATION_EXTREME_LIMIT) {
+      const msg = `Your current location accuracy is poor (${Math.round(locAccuracy)} meters). Please adjust or confirm your location on the map.`;
       alert(msg);
       showToast(msg, "error");
       return;
     }
 
-    const locArea = locationData?.area || "";
+    // If accuracy is moderate (between 100m and 1000m), show warning and proceed
+    if (!isMapConfirmed && locAccuracy != null && locAccuracy > LOCATION_OPTIMAL_ACCURACY) {
+      showToast(`Location detected with moderate accuracy (${Math.round(locAccuracy)} meters).`, "warning");
+    }
+
+    const locStreet = locationData?.street || locationData?.route || "";
+    const locVillage = locationData?.village || "";
+    const locTaluk = locationData?.taluk || "";
     const locCity = locationData?.city || "";
+    let locArea = locationData?.area || "";
+    if (locArea && locCity && locArea.toLowerCase() === locCity.toLowerCase()) {
+      locArea = "";
+    }
+    const locAreaStreet = locationData?.area_street || locationData?.areaStreet || (locArea && locStreet ? `${locArea}, ${locStreet}` : locArea || locStreet || locVillage || "");
     const locDistrict = locationData?.district || "";
     const locState = locationData?.state || locationData?.region || "";
     const locCountry = locationData?.country || "India";
-    const locPincode = locationData?.pincode || locationData?.postalCode || "";
-    const locSource = locationData?.location_source || "WINDOWS_LOCATION";
-    const locFull = locationData?.full_address || locationData?.displayAddress || locationData?.locality || locationData?.formattedAddress || [locArea, locCity, locState].filter(Boolean).join(", ");
+    const locPincode = locationData?.pincode || locationData?.pin || locationData?.postalCode || "";
+    const locFull = locationData?.formatted_address || locationData?.formattedAddress || locationData?.displayAddress || locationData?.full_address || [locArea || locVillage, locStreet, locTaluk, locCity, locDistrict, locState].filter(Boolean).join(", ");
     const locTs = locationData?.location_timestamp || getLocalIsoString();
 
     const locObj = {
       ...locationData,
+      street: locStreet,
+      route: locStreet,
+      area_street: locAreaStreet,
+      areaStreet: locAreaStreet,
+      village: locVillage,
+      taluk: locTaluk,
       area: locArea,
       city: locCity,
       district: locDistrict,
@@ -746,7 +858,9 @@ export default function AttendanceView({
       region: locState,
       country: locCountry,
       pincode: locPincode,
+      pin: locPincode,
       full_address: locFull,
+      formatted_address: locFull,
       location_accuracy: locAccuracy,
       accuracy: locAccuracy,
       location_source: locSource,
@@ -771,26 +885,36 @@ export default function AttendanceView({
           login_time: getLocalIsoString(),
           latitude: Number(locLat),
           longitude: Number(locLng),
-          area: locArea || locFull,
+          street: locStreet,
+          area_street: locAreaStreet,
+          village: locVillage,
+          taluk: locTaluk,
+          area: locArea || locVillage || "",
           city: locCity,
           district: locDistrict,
           state: locState,
           country: locCountry,
           pincode: locPincode,
+          pin: locPincode,
           full_address: locFull,
+          formatted_address: locFull,
           location_accuracy: locAccuracy,
+          accuracy: locAccuracy,
           location_source: locSource,
           location_timestamp: locTs,
           // Legacy columns support
           login_latitude: Number(locLat),
           login_longitude: Number(locLng),
-          login_area: locArea || locFull,
+          login_village: locVillage,
+          login_taluk: locTaluk,
+          login_area: locArea || locVillage || "",
           login_city: locCity,
           login_district: locDistrict,
           login_state: locState,
           login_country: locCountry,
           login_pincode: locPincode,
           login_full_address: locFull,
+          login_formatted_address: locFull,
           login_accuracy: locAccuracy,
           login_location_source: locSource,
           login_location_timestamp: locTs,
@@ -874,14 +998,21 @@ export default function AttendanceView({
           punch_time: getLocalIsoString(),
           latitude: Number(locLat),
           longitude: Number(locLng),
-          area: locArea || locFull,
+          street: locStreet,
+          area_street: locAreaStreet,
+          village: locVillage,
+          taluk: locTaluk,
+          area: locArea || locVillage || "",
           city: locCity,
           district: locDistrict,
           state: locState,
           country: locCountry,
           pincode: locPincode,
+          pin: locPincode,
           full_address: locFull,
+          formatted_address: locFull,
           location_accuracy: locAccuracy,
+          accuracy: locAccuracy,
           location_source: locSource,
           location_timestamp: locTs,
           selfie_url: faceImage,
@@ -925,14 +1056,21 @@ export default function AttendanceView({
           punch_time: getLocalIsoString(),
           latitude: Number(locLat),
           longitude: Number(locLng),
-          area: locArea || locFull,
+          street: locStreet,
+          area_street: locAreaStreet,
+          village: locVillage,
+          taluk: locTaluk,
+          area: locArea || locVillage || "",
           city: locCity,
           district: locDistrict,
           state: locState,
           country: locCountry,
           pincode: locPincode,
+          pin: locPincode,
           full_address: locFull,
+          formatted_address: locFull,
           location_accuracy: locAccuracy,
+          accuracy: locAccuracy,
           location_source: locSource,
           location_timestamp: locTs,
           selfie_url: faceImage,
@@ -988,26 +1126,36 @@ export default function AttendanceView({
           logout_time: getLocalIsoString(),
           latitude: Number(locLat),
           longitude: Number(locLng),
-          area: locArea || locFull,
+          street: locStreet,
+          area_street: locAreaStreet,
+          village: locVillage,
+          taluk: locTaluk,
+          area: locArea || locVillage || "",
           city: locCity,
           district: locDistrict,
           state: locState,
           country: locCountry,
           pincode: locPincode,
+          pin: locPincode,
           full_address: locFull,
+          formatted_address: locFull,
           location_accuracy: locAccuracy,
+          accuracy: locAccuracy,
           location_source: locSource,
           location_timestamp: locTs,
           // Legacy columns support
           logout_latitude: Number(locLat),
           logout_longitude: Number(locLng),
-          logout_area: locArea || locFull,
+          logout_village: locVillage,
+          logout_taluk: locTaluk,
+          logout_area: locArea || locVillage || "",
           logout_city: locCity,
           logout_district: locDistrict,
           logout_state: locState,
           logout_country: locCountry,
           logout_pincode: locPincode,
           logout_full_address: locFull,
+          logout_formatted_address: locFull,
           logout_accuracy: locAccuracy,
           logout_location_source: locSource,
           logout_location_timestamp: locTs,
@@ -1083,39 +1231,63 @@ export default function AttendanceView({
     // 1. Load from MySQL database records
     (dbRecords || []).forEach((d) => {
       const dDate = String(d.attendance_date);
-      const inLoc = normalizeDisplayLoc(d.login_full_address || d.full_address || [d.login_area || d.area, d.login_city || d.city, d.login_state || d.state].filter(Boolean).join(", "));
+      const inVillage = d.login_village || d.village || "";
+      const inTaluk = d.login_taluk || d.taluk || "";
+      const inLoc = normalizeDisplayLoc(
+        d.login_formatted_address || d.formatted_address || d.login_full_address || d.full_address ||
+        [inVillage || d.login_area || d.area, inTaluk, d.login_city || d.city, d.login_district || d.district, d.login_state || d.state].filter(Boolean).join(", ")
+      );
       const hasLogout = Boolean(d.logout_time && (d.logout_latitude != null || d.logout_area || d.logout_full_address));
+      const outVillage = d.logout_village || "";
+      const outTaluk = d.logout_taluk || "";
       const outLoc = hasLogout
-        ? normalizeDisplayLoc(d.logout_full_address || [d.logout_area, d.logout_city, d.logout_state].filter(Boolean).join(", "))
+        ? normalizeDisplayLoc(
+            d.logout_formatted_address || d.logout_full_address ||
+            [outVillage || d.logout_area, outTaluk, d.logout_city, d.logout_district, d.logout_state].filter(Boolean).join(", ")
+          )
         : null;
 
       const hasLunchOut = Boolean(d.lunch_out_time || d.lunch_out);
+      const lunchOutVillage = d.lunch_out_village || "";
+      const lunchOutTaluk = d.lunch_out_taluk || "";
       const lunchOutLoc = hasLunchOut && (d.lunch_out_latitude != null || d.lunch_out_area)
-        ? normalizeDisplayLoc(d.lunch_out_full_address || [d.lunch_out_area, d.lunch_out_city, d.lunch_out_state].filter(Boolean).join(", "))
+        ? normalizeDisplayLoc(
+            d.lunch_out_formatted_address || d.lunch_out_full_address ||
+            [lunchOutVillage || d.lunch_out_area, lunchOutTaluk, d.lunch_out_city, d.lunch_out_district, d.lunch_out_state].filter(Boolean).join(", ")
+          )
         : null;
 
       const hasLunchIn = Boolean(d.lunch_in_time || d.lunch_in);
+      const lunchInVillage = d.lunch_in_village || "";
+      const lunchInTaluk = d.lunch_in_taluk || "";
       const lunchInLoc = hasLunchIn && (d.lunch_in_latitude != null || d.lunch_in_area)
-        ? normalizeDisplayLoc(d.lunch_in_full_address || [d.lunch_in_area, d.lunch_in_city, d.lunch_in_state].filter(Boolean).join(", "))
+        ? normalizeDisplayLoc(
+            d.lunch_in_formatted_address || d.lunch_in_full_address ||
+            [lunchInVillage || d.lunch_in_area, lunchInTaluk, d.lunch_in_city, d.lunch_in_district, d.lunch_in_state].filter(Boolean).join(", ")
+          )
         : null;
 
-      const inArea = d.login_area || d.area || "";
+      const inArea = d.login_area || d.area || inVillage || "";
       const inCity = d.login_city || d.city || "";
+      const inDistrict = d.login_district || d.district || "";
       const inState = d.login_state || d.state || "";
       const inCountry = d.login_country || d.country || "India";
       const inPincode = d.login_pincode || d.pincode || "";
-      const inFull = d.login_full_address || d.full_address || inLoc;
+      const inFull = d.login_formatted_address || d.login_full_address || d.full_address || inLoc;
       const inAccuracy = d.login_accuracy ?? d.location_accuracy ?? null;
+      const inSource = d.login_location_source || d.location_source || (inAccuracy != null ? "BROWSER_GPS" : "MAP_CONFIRMED");
       const inLat = d.login_latitude ?? d.latitude ?? null;
       const inLng = d.login_longitude ?? d.longitude ?? null;
 
-      const outArea = d.logout_area || "";
+      const outArea = d.logout_area || outVillage || "";
       const outCity = d.logout_city || "";
+      const outDistrict = d.logout_district || "";
       const outState = d.logout_state || "";
       const outCountry = d.logout_country || "India";
       const outPincode = d.logout_pincode || "";
-      const outFull = d.logout_full_address || outLoc;
+      const outFull = d.logout_formatted_address || d.logout_full_address || outLoc;
       const outAccuracy = d.logout_accuracy ?? null;
+      const outSource = d.logout_location_source || (outAccuracy != null ? "BROWSER_GPS" : "MAP_CONFIRMED");
       const outLat = d.logout_latitude ?? null;
       const outLng = d.logout_longitude ?? null;
 
@@ -1131,14 +1303,18 @@ export default function AttendanceView({
           displayAddress: inLoc,
           formattedAddress: inFull,
           full_address: inFull,
+          village: inVillage,
+          taluk: inTaluk,
           area: inArea,
           city: inCity,
+          district: inDistrict,
           state: inState,
           region: inState,
           country: inCountry,
           pincode: inPincode,
           accuracy: inAccuracy,
           location_accuracy: inAccuracy,
+          location_source: inSource,
           coords: { latitude: inLat, longitude: inLng },
           location_timestamp: d.login_location_timestamp || d.location_timestamp,
         },
@@ -1148,15 +1324,19 @@ export default function AttendanceView({
           ? {
               locality: lunchOutLoc,
               displayAddress: lunchOutLoc,
-              formattedAddress: d.lunch_out_full_address || lunchOutLoc,
-              full_address: d.lunch_out_full_address || lunchOutLoc,
+              formattedAddress: d.lunch_out_formatted_address || d.lunch_out_full_address || lunchOutLoc,
+              full_address: d.lunch_out_formatted_address || d.lunch_out_full_address || lunchOutLoc,
+              village: lunchOutVillage,
+              taluk: lunchOutTaluk,
               area: d.lunch_out_area || "",
               city: d.lunch_out_city || "",
+              district: d.lunch_out_district || "",
               state: d.lunch_out_state || "",
               country: d.lunch_out_country || "India",
               pincode: d.lunch_out_pincode || "",
               accuracy: d.lunch_out_accuracy ?? null,
               location_accuracy: d.lunch_out_accuracy ?? null,
+              location_source: d.lunch_out_location_source || "BROWSER_GPS",
               coords: { latitude: d.lunch_out_latitude ?? null, longitude: d.lunch_out_longitude ?? null },
               location_timestamp: d.lunch_out_location_timestamp,
             }
@@ -1166,15 +1346,19 @@ export default function AttendanceView({
           ? {
               locality: lunchInLoc,
               displayAddress: lunchInLoc,
-              formattedAddress: d.lunch_in_full_address || lunchInLoc,
-              full_address: d.lunch_in_full_address || lunchInLoc,
+              formattedAddress: d.lunch_in_formatted_address || d.lunch_in_full_address || lunchInLoc,
+              full_address: d.lunch_in_formatted_address || d.lunch_in_full_address || lunchInLoc,
+              village: lunchInVillage,
+              taluk: lunchInTaluk,
               area: d.lunch_in_area || "",
               city: d.lunch_in_city || "",
+              district: d.lunch_in_district || "",
               state: d.lunch_in_state || "",
               country: d.lunch_in_country || "India",
               pincode: d.lunch_in_pincode || "",
               accuracy: d.lunch_in_accuracy ?? null,
               location_accuracy: d.lunch_in_accuracy ?? null,
+              location_source: d.lunch_in_location_source || "BROWSER_GPS",
               coords: { latitude: d.lunch_in_latitude ?? null, longitude: d.lunch_in_longitude ?? null },
               location_timestamp: d.lunch_in_location_timestamp,
             }
@@ -1186,14 +1370,18 @@ export default function AttendanceView({
               displayAddress: outLoc,
               formattedAddress: outFull,
               full_address: outFull,
+              village: outVillage,
+              taluk: outTaluk,
               area: outArea,
               city: outCity,
+              district: outDistrict,
               state: outState,
               region: outState,
               country: outCountry,
               pincode: outPincode,
               accuracy: outAccuracy,
               location_accuracy: outAccuracy,
+              location_source: outSource,
               coords: { latitude: outLat, longitude: outLng },
               location_timestamp: d.logout_location_timestamp,
             }
@@ -1427,15 +1615,32 @@ export default function AttendanceView({
             </div>
           )}
 
-          <div className="attend-header-geo-chip" title="Live Device Location Status">
-            <span className={`attend-geo-dot ${locationDetecting ? "detecting" : (currentLocation?.accuracyEvaluation?.badgeClass || "")}`}></span>
+          <div
+            className="attend-header-geo-chip"
+            title="Live Device Location Status (Click to refresh)"
+            onClick={() => refreshLiveLocation()}
+            style={{ cursor: "pointer" }}
+          >
+            <span
+              className={`attend-geo-dot ${
+                locationDetecting
+                  ? "detecting"
+                  : currentLocation?.location_source === "MAP_CONFIRMED"
+                  ? "verified"
+                  : currentLocation?.accuracy > LOCATION_OPTIMAL_ACCURACY
+                  ? "warning"
+                  : "verified"
+              }`}
+            ></span>
             <span>
               {locationDetecting
                 ? `📡 ${locationStage || "Detecting GPS location…"}`
-                : currentLocation?.accuracyEvaluation
-                ? `${currentLocation.accuracyEvaluation.badgeText} (±${Math.round(currentLocation?.accuracy || 0)}m)`
-                : currentLocation?.area
-                ? `📍 ${[currentLocation.area, currentLocation.city, currentLocation.state].filter(Boolean).join(", ")}`
+                : currentLocation?.location_source === "MAP_CONFIRMED"
+                ? `📍 ${currentLocation.displayAddress || [currentLocation.village || currentLocation.area, currentLocation.city, currentLocation.state].filter(Boolean).join(", ")} (Map Confirmed)`
+                : currentLocation?.area || currentLocation?.village
+                ? `📍 ${[currentLocation.village || currentLocation.area, currentLocation.city, currentLocation.state].filter(Boolean).join(", ")}${
+                    currentLocation.accuracy != null ? ` (±${Math.round(currentLocation.accuracy)}m)` : ""
+                  }`
                 : "📍 Location Required"}
             </span>
           </div>
@@ -2031,7 +2236,7 @@ export default function AttendanceView({
                             {row.punchIn || "—"}
                           </span>
                           {row.punchIn && (
-                            <span className="attend-loc-sub" title={formatExecutiveLocation(row.punchInLocation, row.executiveObj || row)}>
+                            <span className="attend-loc-sub" title={getLocTooltip(row.punchInLocation, formatExecutiveLocation(row.punchInLocation, row.executiveObj || row))}>
                               <MapPin size={10} />
                               {formatExecutiveLocation(row.punchInLocation, row.executiveObj || row)}
                             </span>
@@ -2045,7 +2250,7 @@ export default function AttendanceView({
                           </span>
                           {row.lunchOut && (
                             formatShortLocation(row.lunchOutLocation, row.executiveObj || row) ? (
-                              <span className="attend-loc-sub" title={formatExecutiveLocation(row.lunchOutLocation, row.executiveObj || row)}>
+                              <span className="attend-loc-sub" title={getLocTooltip(row.lunchOutLocation, formatExecutiveLocation(row.lunchOutLocation, row.executiveObj || row))}>
                                 <MapPin size={10} />
                                 {formatExecutiveLocation(row.lunchOutLocation, row.executiveObj || row)}
                               </span>
@@ -2064,7 +2269,7 @@ export default function AttendanceView({
                           </span>
                           {row.lunchIn && (
                             formatShortLocation(row.lunchInLocation, row.executiveObj || row) ? (
-                              <span className="attend-loc-sub" title={formatExecutiveLocation(row.lunchInLocation, row.executiveObj || row)}>
+                              <span className="attend-loc-sub" title={getLocTooltip(row.lunchInLocation, formatExecutiveLocation(row.lunchInLocation, row.executiveObj || row))}>
                                 <MapPin size={10} />
                                 {formatExecutiveLocation(row.lunchInLocation, row.executiveObj || row)}
                               </span>
@@ -2082,7 +2287,7 @@ export default function AttendanceView({
                             {row.punchOut || "—"}
                           </span>
                           {row.punchOut && (
-                            <span className="attend-loc-sub" title={formatExecutiveLocation(row.punchOutLocation, row.executiveObj || row)}>
+                            <span className="attend-loc-sub" title={getLocTooltip(row.punchOutLocation, formatExecutiveLocation(row.punchOutLocation, row.executiveObj || row))}>
                               <MapPin size={10} />
                               {formatExecutiveLocation(row.punchOutLocation, row.executiveObj || row)}
                             </span>
@@ -2210,6 +2415,33 @@ export default function AttendanceView({
           </div>
         )}
       </div>
+
+      {/* Google Maps Location Confirmation Modal */}
+      <LocationMapModal
+        isOpen={locationConfirmModalOpen}
+        actionLabel={
+          punchActionType === "in"
+            ? "Morning Punch In"
+            : punchActionType === "lunch_out"
+            ? "Lunch Out"
+            : punchActionType === "lunch_in"
+            ? "Lunch In"
+            : "Evening Logout"
+        }
+        title="Confirm Your Location"
+        subtitle={`Please verify your working location before submitting ${
+          punchActionType === "in"
+            ? "Morning Punch In"
+            : punchActionType === "lunch_out"
+            ? "Lunch Out"
+            : punchActionType === "lunch_in"
+            ? "Lunch In"
+            : "Evening Logout"
+        }.`}
+        initialCoords={currentLocation}
+        onClose={() => setLocationConfirmModalOpen(false)}
+        onConfirmLocation={handleLocationConfirmed}
+      />
 
       {/* Biometric Face Capture & Location Punch Modal */}
       <FacePunchModal

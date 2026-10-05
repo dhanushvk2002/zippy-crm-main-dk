@@ -700,7 +700,10 @@ export function buildRecordPayload(tableKey, record, changes = {}) {
 // Turn a display value (as it will be shown in the table/modal) into a
 // normalized string/boolean for form inputs.
 export function displayFieldValue(field, record) {
-  const raw = record ? record[field.key] : undefined;
+  let raw = record ? record[field.key] : undefined;
+  if ((raw === undefined || raw === null) && (field.key === "password_display" || field.key === "password")) {
+    raw = record?.password ?? record?.password_display;
+  }
   if (raw === undefined || raw === null) return field.type === "bool" ? false : "";
   if (field.type === "bool") return raw === true || raw === "true";
   if (field.type === "yesno") return raw === "Yes" || raw === true;

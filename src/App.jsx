@@ -361,6 +361,10 @@ export default function App() {
 }
 
 function formatCell(field, record) {
+  if (field.key === "password_display" || field.key === "password") {
+    const val = record.password_display ?? record.password;
+    return val ? String(val) : "";
+  }
   const value = record[field.key];
   if (value === null || value === undefined) return "";
   if (typeof value === "boolean") return value ? "true" : "false";
