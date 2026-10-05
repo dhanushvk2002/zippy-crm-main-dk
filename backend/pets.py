@@ -4449,55 +4449,6 @@ def sales_login(data: SalesLoginRequest, db: Session = Depends(get_db)):
 import base64
 import uuid
 
-def build_formatted_address(area: str = "", street: str = "", taluk: str = "", city: str = "", district: str = "", state: str = "", pincode: str = "", country: str = "India") -> str:
-    """Builds clean, structured formatted address according to hierarchy:
-    AREA -> STREET -> TALUK -> CITY -> DISTRICT -> STATE - PIN CODE -> COUNTRY.
-    Deduplicates values case-insensitively and never repeats city or empty fields.
-    """
-    parts = []
-    seen = set()
-
-    def add_part(val: str):
-        if not val:
-            return
-        cleaned = val.strip().strip(",")
-        if not cleaned:
-            return
-        norm = cleaned.lower()
-        if norm not in seen:
-            seen.add(norm)
-            parts.append(cleaned)
-
-    # 1. AREA / VILLAGE
-    add_part(area)
-    # 2. STREET / ROAD
-    add_part(street)
-    # 3. TALUK / SUB-DIST
-    add_part(taluk)
-    # 4. CITY / TOWN
-    add_part(city)
-    # 5. DISTRICT
-    add_part(district)
-
-    # 6 & 7. STATE - PIN CODE
-    st = state.strip() if state else ""
-    pin = pincode.strip() if pincode else ""
-    if st and pin:
-        parts.append(f"{st} - {pin}")
-        seen.add(st.lower())
-        seen.add(pin.lower())
-    elif st:
-        add_part(st)
-    elif pin:
-        add_part(pin)
-
-    # 8. COUNTRY
-    if country:
-        add_part(country.strip())
-
-    return ", ".join(parts)
-
-
 def reverse_geocode(lat: Optional[float], lon: Optional[float]) -> dict:
     result = {
         "street": "",
@@ -4515,18 +4466,17 @@ def reverse_geocode(lat: Optional[float], lon: Optional[float]) -> dict:
     if lat is None or lon is None:
         return result
 
-    bdc_done = False
     # 1. Try BigDataCloud Client API (fast, structured administrative subdivisions)
     try:
         url = f"https://api.bigdatacloud.net/data/reverse-geocode-client?latitude={lat}&longitude={lon}&localityLanguage=en"
         r = requests.get(url, timeout=5)
         if r.status_code == 200:
             data = r.json()
-            locality = (data.get("locality") or "").strip()
-            city = (data.get("city") or "").strip()
-            state = (data.get("principalSubdivision") or "").strip()
-            pincode = (data.get("postcode") or "").strip()
-            country = (data.get("countryName") or "India").strip()
+            locality = data.get("locality") or ""
+            city = data.get("city") or ""
+            state = data.get("principalSubdivision") or ""
+            pincode = data.get("postcode") or ""
+            country = data.get("countryName") or "India"
 
             district = ""
             taluk = ""
@@ -4535,201 +4485,88 @@ def reverse_geocode(lat: Optional[float], lon: Optional[float]) -> dict:
             route = ""
 
             for item in data.get("localityInfo", {}).get("administrative", []):
-                name = (item.get("name") or "").strip()
-                desc = (item.get("description") or "").lower()
+                name = item.get("name", "").strip
+                desc = item.get("description","").lower()
                 if not district and ("district" in desc or "county" in desc):
                     district = name.replace(" district", "").replace(" District", "").strip()
                 if not taluk and any(w in desc for w in ["taluk", "tehsil", "subdistrict", "mandal"]):
-                    taluk = name.replace(" taluk", "").replace(" Taluk", "").strip()
+                    taluk = name.strip()
                 if not village and any(w in desc for w in ["village", "hamlet"]):
                     village = name.strip()
-                if not area and any(w in desc for w in ["neighbourhood", "neighborhood", "suburb", "quarter", "subdivision"]):
-                    area = name.strip()
 
             for item in data.get("localityInfo", {}).get("informative", []):
-                name = (item.get("name") or "").strip()
-                desc = (item.get("description") or "").lower()
-                if not area and any(w in desc for w in ["neighbourhood", "neighborhood", "suburb", "quarter", "subdivision"]):
-                    area = name.strip()
-                if not route and any(w in desc for w in ["road", "street", "route", "way", "lane", "avenue", "drive"]):
+                name = item.get("name", "")
+                desc = item.get("description", "").lower()
+                if not village and any(w in desc for w in ["village", "hamlet", "neighbourhood", "suburb", "locality"]):
+                    village = name.strip()
+                if not route and any(w in desc for w in ["road", "street", "route", "way", "lane", "avenue"]):
                     route = name.strip()
 
-            # If city is missing but locality is present, check if locality is the city
-            if not city and locality:
-                city = locality
-            # If locality is present and different from city, it might be an area or village
-            elif locality and city and locality.lower() != city.lower():
-                if not area and not village:
-                    area = locality
+            village = village or locality or ""
+            taluk = taluk or ""
+            district = district or city or ""
+            city = city or locality or district or ""
+            area = village or locality or city or ""
+            street = route or ""
+            area_street = f"{area}, {street}" if area and street and area.lower() != street.lower() else (area or street)
 
-            # STRICT RULE: NEVER use city as area or village
-            if area and city and area.lower() == city.lower():
-                area = ""
-            if village and city and village.lower() == city.lower():
-                village = ""
-
-            result["street"] = route
+            result["street"] = street
             result["route"] = route
-            result["area"] = area
             result["village"] = village
             result["taluk"] = taluk
+            result["area"] = area
+            result["area_street"] = area_street
             result["city"] = city
             result["district"] = district
             result["state"] = state
             result["pincode"] = pincode
             result["country"] = country
-            bdc_done = True
+
+            if result["area"] or result["city"] or result["village"]:
+                print(f"[Backend Geocode] BDC resolved: {lat},{lon} -> Area+Street: {result['area_street']}, City: {result['city']}, District: {result['district']}, State: {result['state']}")
+                return result
     except Exception as e:
-        print("[Backend Geocode] BDC notice:", e)
+        print("[Backend Geocode] BDC fallback notice:", e)
 
-    # 2. OpenStreetMap Nominatim:
-    # If BDC failed OR if BDC did not find an area / street / taluk,
-    # enrich / fallback using Nominatim for granular neighborhood & street
-    need_osm = not bdc_done or not result["area"] or not result["street"] or not result["taluk"]
-    if need_osm:
-        try:
-            url = f"https://nominatim.openstreetmap.org/reverse?lat={lat}&lon={lon}&format=jsonv2&zoom=18&addressdetails=1&accept-language=en"
-            headers = {"User-Agent": "ZenveZippyCRM/1.0"}
-            r = requests.get(url, headers=headers, timeout=5)
-            if r.status_code == 200:
-                data = r.json()
-                addr = data.get("address", {})
+    # 2. Fallback to OpenStreetMap Nominatim
+    try:
+        url = f"https://nominatim.openstreetmap.org/reverse?lat={lat}&lon={lon}&format=jsonv2&zoom=18&addressdetails=1&accept-language=en"
+        headers = {"User-Agent": "ZenveZippyCRM/1.0"}
+        r = requests.get(url, headers=headers, timeout=5)
+        if r.status_code == 200:
+            data = r.json()
+            addr = data.get("address", {})
+            village = addr.get("village") or addr.get("hamlet") or addr.get("isolated_dwelling") or ""
+            taluk = addr.get("subdistrict") or addr.get("tehsil") or addr.get("taluk") or addr.get("mandal") or ""
+            route = addr.get("road") or addr.get("street") or addr.get("pedestrian") or ""
+            house_number = addr.get("house_number") or ""
+            street = f"{house_number} {route}".strip() if house_number and route else route
+            suburb = addr.get("suburb") or addr.get("neighbourhood") or addr.get("subdivision") or ""
+            area = suburb or village or addr.get("locality") or route or ""
+            city = addr.get("city") or addr.get("town") or addr.get("municipality") or addr.get("city_district") or ""
+            district = addr.get("state_district") or addr.get("district") or addr.get("county") or ""
+            state = addr.get("state") or ""
+            pincode = addr.get("postcode") or ""
+            country = addr.get("country") or "India"
 
-                # AREA priority: neighbourhood -> neighborhood -> suburb -> quarter -> residential -> subdivision
-                osm_area = (
-                    addr.get("neighbourhood") or
-                    addr.get("neighborhood") or
-                    addr.get("suburb") or
-                    addr.get("quarter") or
-                    addr.get("residential") or
-                    addr.get("subdivision") or
-                    ""
-                ).strip()
+            district = district.replace(" District", "").replace(" district", "").strip()
 
-                osm_village = (addr.get("village") or addr.get("hamlet") or "").strip()
+            area_street = f"{area}, {street}" if area and street and area.lower() != street.lower() else (area or street or village)
 
-                # STREET priority: road -> street -> pedestrian -> footway
-                osm_route = (
-                    addr.get("road") or
-                    addr.get("street") or
-                    addr.get("pedestrian") or
-                    addr.get("footway") or
-                    ""
-                ).strip()
-                osm_house_num = (addr.get("house_number") or "").strip()
-                osm_street = f"{osm_house_num} {osm_route}".strip() if osm_house_num and osm_route else osm_route
-
-                # TALUK: subdistrict -> tehsil -> taluk -> mandal -> county
-                osm_taluk = (
-                    addr.get("subdistrict") or
-                    addr.get("tehsil") or
-                    addr.get("taluk") or
-                    addr.get("mandal") or
-                    ""
-                ).strip()
-                osm_county = (addr.get("county") or "").strip()
-                if not osm_taluk and osm_county:
-                    osm_taluk = osm_county
-
-                # CITY: city -> town -> municipality -> city_district -> postal_town
-                osm_city = (
-                    addr.get("city") or
-                    addr.get("town") or
-                    addr.get("municipality") or
-                    addr.get("postal_town") or
-                    ""
-                ).strip()
-                if not osm_city:
-                    city_dist = (addr.get("city_district") or "").strip()
-                    if city_dist and not any(w in city_dist.lower() for w in ["corporation", "zone", "ward"]):
-                        osm_city = city_dist
-
-                # DISTRICT: state_district -> district -> county
-                osm_district = (addr.get("state_district") or addr.get("district") or "").strip()
-                if not osm_district and osm_county and osm_county != osm_taluk:
-                    osm_district = osm_county
-                osm_district = osm_district.replace(" District", "").replace(" district", "").strip()
-
-                osm_state = (addr.get("state") or "").strip()
-                osm_pincode = (addr.get("postcode") or "").strip()
-                osm_country = (addr.get("country") or "India").strip()
-
-                effective_city = result["city"] or osm_city
-
-                # STRICT RULE: NEVER use city as area or village
-                if osm_area and effective_city and osm_area.lower() == effective_city.lower():
-                    osm_area = ""
-                if osm_village and effective_city and osm_village.lower() == effective_city.lower():
-                    osm_village = ""
-
-                # Populate or enrich fields
-                if not result["area"] and osm_area:
-                    result["area"] = osm_area
-                if not result["village"] and osm_village:
-                    result["village"] = osm_village
-                if not result["street"] and osm_street:
-                    result["street"] = osm_street
-                    result["route"] = osm_route
-                if not result["taluk"] and osm_taluk:
-                    result["taluk"] = osm_taluk
-                if not result["city"] and osm_city:
-                    result["city"] = osm_city
-                if not result["district"] and osm_district:
-                    result["district"] = osm_district
-                if not result["state"] and osm_state:
-                    result["state"] = osm_state
-                if not result["pincode"] and osm_pincode:
-                    result["pincode"] = osm_pincode
-                if not result["country"] and osm_country:
-                    result["country"] = osm_country
-        except Exception as e:
-            print("[Backend Geocode] Nominatim notice:", e)
-
-    # FINAL STRICT CHECK: NEVER allow city to be area or village
-    c_low = (result["city"] or "").lower()
-    if c_low:
-        if (result["area"] or "").lower() == c_low:
-            result["area"] = ""
-        if (result["village"] or "").lower() == c_low:
-            result["village"] = ""
-
-    # Build area_street
-    area_val = result["area"]
-    street_val = result["street"]
-    if area_val and street_val and area_val.lower() != street_val.lower():
-        result["area_street"] = f"{area_val}, {street_val}"
-    else:
-        result["area_street"] = area_val or street_val or result["village"] or ""
-
-    # Formatted address in strict hierarchy order: AREA, STREET, TALUK, CITY, DISTRICT, STATE - PIN CODE, COUNTRY
-    fmt_addr = build_formatted_address(
-        area=result["area"] or result["village"],
-        street=result["street"],
-        taluk=result["taluk"],
-        city=result["city"],
-        district=result["district"],
-        state=result["state"],
-        pincode=result["pincode"],
-        country=result["country"]
-    )
-    if not fmt_addr:
-        fmt_addr = f"{lat:.6f}, {lon:.6f}"
-
-    result["formatted_address"] = fmt_addr
-    result["display_address"] = fmt_addr
-    result["full_address"] = fmt_addr
-
-    # Required Console Logging
-    print(f"""[Backend Geocode]
-Coordinates: {lat:.6f}, {lon:.6f}
-Area: {result['area']}
-Street: {result['street']}
-Village: {result['village']}
-Taluk: {result['taluk']}
-City: {result['city']}
-District: {result['district']}
-State: {result['state']}
-PIN: {result['pincode']}""")
+            result["street"] = street
+            result["route"] = route
+            result["village"] = village or area
+            result["taluk"] = taluk
+            result["area"] = area or village or city
+            result["area_street"] = area_street
+            result["city"] = city or village or district
+            result["district"] = district or city
+            result["state"] = state
+            result["pincode"] = pincode
+            result["country"] = country
+            print(f"[Backend Geocode] OSM resolved: {lat},{lon} -> Area+Street: {result['area_street']}, City: {result['city']}, District: {result['district']}")
+    except Exception as e:
+        print("[Backend Geocode] Nominatim fallback notice:", e)
 
     return result
 
@@ -4749,21 +4586,29 @@ def api_reverse_geocode(lat: float | None = None, lng: float | None = None, q: s
 
     geo = reverse_geocode(lat, lng)
 
+    # Build clean structured address preserving rural village and taluk
+    parts = []
+    primary = geo.get("village") or geo.get("area")
+    if primary:
+        parts.append(primary)
+    if geo.get("taluk") and geo.get("taluk") not in parts and geo.get("taluk") != geo.get("city"):
+        parts.append(geo["taluk"])
+    if geo.get("city") and geo.get("city") not in parts:
+        parts.append(geo["city"])
+    if geo.get("district") and geo.get("district") not in parts:
+        parts.append(geo["district"])
+    if geo.get("state") and geo.get("state") not in parts:
+        parts.append(geo["state"])
+
+    display_addr = ", ".join(parts) if parts else f"{lat:.6f}, {lng:.6f}"
+    if geo.get("pincode"):
+        display_addr += f" - {geo['pincode']}"
+
     return {
-        "street": geo.get("street", ""),
-        "route": geo.get("route", ""),
-        "area": geo.get("area", ""),
-        "area_street": geo.get("area_street", ""),
-        "village": geo.get("village", ""),
-        "taluk": geo.get("taluk", ""),
-        "city": geo.get("city", ""),
-        "district": geo.get("district", ""),
-        "state": geo.get("state", ""),
-        "pincode": geo.get("pincode", ""),
-        "country": geo.get("country", "India"),
-        "display_address": geo.get("display_address", ""),
-        "formatted_address": geo.get("formatted_address", ""),
-        "full_address": geo.get("full_address", ""),
+        **geo,
+        "display_address": display_addr,
+        "formatted_address": display_addr,
+        "full_address": f"{display_addr}, {geo.get('country', 'India')}"
     }
 
 @app.get("/reverse-geocode/search")
@@ -4788,48 +4633,25 @@ def api_search_location(q: str):
                 lat_val = float(it["lat"])
                 lng_val = float(it["lon"])
                 addr = it.get("address", {})
-                city = (addr.get("city") or addr.get("town") or addr.get("municipality") or addr.get("postal_town") or "").strip()
-                area = (
-                    addr.get("neighbourhood") or
-                    addr.get("neighborhood") or
-                    addr.get("suburb") or
-                    addr.get("quarter") or
-                    addr.get("residential") or
-                    addr.get("subdivision") or
-                    ""
-                ).strip()
-                village = (addr.get("village") or addr.get("hamlet") or "").strip()
-                taluk = (addr.get("subdistrict") or addr.get("tehsil") or addr.get("taluk") or addr.get("mandal") or addr.get("county") or "").strip()
-                district = (addr.get("state_district") or addr.get("district") or "").replace(" District", "").strip()
-                state = (addr.get("state") or "").strip()
-                pincode = (addr.get("postcode") or "").strip()
-                route = (addr.get("road") or addr.get("street") or "").strip()
+                village = addr.get("village") or addr.get("hamlet") or addr.get("suburb") or addr.get("locality") or ""
+                taluk = addr.get("subdistrict") or addr.get("tehsil") or addr.get("taluk") or addr.get("mandal") or ""
+                city = addr.get("city") or addr.get("town") or addr.get("municipality") or ""
+                district = (addr.get("state_district") or addr.get("district") or addr.get("county") or "").replace(" District", "").strip()
+                state = addr.get("state") or ""
+                pincode = addr.get("postcode") or ""
 
-                if city:
-                    if area.lower() == city.lower():
-                        area = ""
-                    if village.lower() == city.lower():
-                        village = ""
-
-                disp = build_formatted_address(
-                    area=area or village,
-                    street=route,
-                    taluk=taluk,
-                    city=city,
-                    district=district,
-                    state=state,
-                    pincode=pincode,
-                    country=addr.get("country", "India")
-                ) or it.get("display_name", "")
+                parts = [p for p in [village, taluk, city, district, state] if p]
+                disp = ", ".join(parts) if parts else it.get("display_name", "")
+                if pincode:
+                    disp += f" - {pincode}"
 
                 results.append({
                     "display_name": disp,
                     "latitude": lat_val,
                     "longitude": lng_val,
-                    "street": route,
                     "village": village,
                     "taluk": taluk,
-                    "area": area,
+                    "area": village or city,
                     "city": city,
                     "district": district,
                     "state": state,
@@ -4880,84 +4702,6 @@ def save_base64_image(b64_str: str) -> str:
         print("Image save error:", e)
         return ""
 
-def extract_attendance_location_fields(req: AttendanceActionRequest, geo: dict) -> dict:
-    """Enforces backend reverse-geocoded priority over frontend-supplied values.
-    Backend reverse-geocoded values have absolute priority.
-    Req values are only fallbacks if geo is empty.
-    Strictly forbids city from being used as area or village.
-    """
-    area = (geo.get("area") or "").strip()
-    village = (geo.get("village") or "").strip()
-    taluk = (geo.get("taluk") or "").strip()
-    street = (geo.get("street") or geo.get("route") or "").strip()
-    city = (geo.get("city") or "").strip()
-    district = (geo.get("district") or "").strip()
-    state = (geo.get("state") or "").strip()
-    pincode = (geo.get("pincode") or "").strip()
-    country = (geo.get("country") or "India").strip()
-
-    # Fallback to req values only if geo is empty
-    if not city:
-        city = (req.city or "").strip()
-    if not district:
-        district = (req.district or "").strip()
-    if not state:
-        state = (req.state or "").strip()
-    if not pincode:
-        pincode = (req.pincode or req.pin or "").strip()
-    if not country:
-        country = (req.country or "India").strip()
-    if not taluk:
-        taluk = (req.taluk or "").strip()
-    if not street:
-        street = (req.street or "").strip()
-    if not village:
-        village = (req.village or "").strip()
-    if not area:
-        req_area = (req.area or "").strip()
-        # Never accept city as area
-        if req_area and city and req_area.lower() == city.lower():
-            req_area = ""
-        area = req_area
-
-    # Strict rule: NEVER allow city as area or village
-    if city:
-        if area and area.lower() == city.lower():
-            area = ""
-        if village and village.lower() == city.lower():
-            village = ""
-
-    formatted_address = build_formatted_address(
-        area=area or village,
-        street=street,
-        taluk=taluk,
-        city=city,
-        district=district,
-        state=state,
-        pincode=pincode,
-        country=country
-    )
-    if not formatted_address:
-        formatted_address = f"{req.latitude:.6f}, {req.longitude:.6f}"
-
-    accuracy = req.accuracy if req.accuracy is not None else req.location_accuracy
-    loc_source = req.location_source or ("BROWSER_GPS" if accuracy is not None else "MAP_CONFIRMED")
-
-    return {
-        "area": area,
-        "village": village,
-        "taluk": taluk,
-        "street": street,
-        "city": city,
-        "district": district,
-        "state": state,
-        "pincode": pincode,
-        "country": country,
-        "formatted_address": formatted_address,
-        "accuracy": accuracy,
-        "location_source": loc_source
-    }
-
 def _execute_punch_in(req: AttendanceActionRequest, db: Session):
     exec_id = req.sales_executive_id or req.executive_id or req.employee_id
     if not exec_id:
@@ -4975,27 +4719,31 @@ def _execute_punch_in(req: AttendanceActionRequest, db: Session):
     # Step 11: Validate location coordinates
     validate_location_payload(req)
 
-    # Real-time reverse geocoding with backend priority
+    # Real-time reverse geocoding with hierarchy preservation (neighborhood/sublocality/route -> AREA+STREET, locality -> CITY)
     geo = reverse_geocode(req.latitude, req.longitude)
-    loc = extract_attendance_location_fields(req, geo)
+    village = req.village or geo.get("village") or ""
+    taluk = req.taluk or geo.get("taluk") or ""
+    street = req.street or geo.get("street") or ""
+    area_street = req.area_street or (f"{req.area}, {street}" if req.area and street and req.area.lower() != street.lower() else req.area) or geo.get("area_street") or ""
+    area = area_street or req.area or geo.get("area") or village or ""
+    city = req.city or geo.get("city") or ""
+    district = req.district or geo.get("district") or ""
+    state = req.state or geo.get("state") or ""
+    country = req.country or geo.get("country") or "India"
+    pincode = req.pincode or req.pin or geo.get("pincode") or ""
+    accuracy = req.accuracy if req.accuracy is not None else req.location_accuracy
+    loc_source = req.location_source or "BROWSER_GPS"
 
-    area = loc["area"]
-    village = loc["village"]
-    taluk = loc["taluk"]
-    street = loc["street"]
-    city = loc["city"]
-    district = loc["district"]
-    state = loc["state"]
-    country = loc["country"]
-    pincode = loc["pincode"]
-    accuracy = loc["accuracy"]
-    loc_source = loc["location_source"]
-    formatted_addr = loc["formatted_address"]
+    # Clean display address (Area+Street, City, District, State - PIN)
+    parts = [p for p in [area or village, taluk, city, district, state] if p]
+    formatted_addr = req.formatted_address or req.full_address or (", ".join(parts) if parts else f"{req.latitude:.6f}, {req.longitude:.6f}")
+    if pincode and pincode not in formatted_addr:
+        formatted_addr += f" - {pincode}"
 
     selfie_url = req.selfie_url or (save_base64_image(req.selfie_data) if req.selfie_data else "")
     now = datetime.now(ZoneInfo("Asia/Kolkata")).replace(tzinfo=None)
 
-    print(f"[Attendance Punch In] Exec {exec_id} ({exec_record.name}) at {now} | Lat: {req.latitude}, Lng: {req.longitude}, Acc: {accuracy}m, Source: {loc_source} | Area: {area}, Street: {street}, City: {city}, District: {district}, State: {state}, PIN: {pincode}")
+    print(f"[Attendance Punch In] Exec {exec_id} ({exec_record.name}) at {now} | Lat: {req.latitude}, Lng: {req.longitude}, Acc: {accuracy}m, Source: {loc_source} | Area+Street: {area}, City: {city}, District: {district}, State: {state}, PIN: {pincode}")
 
     att = Attendance(
         executive_id=exec_id,
@@ -5053,25 +4801,28 @@ def _execute_lunch_out(req: AttendanceActionRequest, db: Session):
     validate_location_payload(req)
 
     geo = reverse_geocode(req.latitude, req.longitude)
-    loc = extract_attendance_location_fields(req, geo)
+    village = req.village or geo.get("village") or ""
+    taluk = req.taluk or geo.get("taluk") or ""
+    street = req.street or geo.get("street") or ""
+    area_street = req.area_street or (f"{req.area}, {street}" if req.area and street and req.area.lower() != street.lower() else req.area) or geo.get("area_street") or ""
+    area = area_street or req.area or geo.get("area") or village or ""
+    city = req.city or geo.get("city") or ""
+    district = req.district or geo.get("district") or ""
+    state = req.state or geo.get("state") or ""
+    country = req.country or geo.get("country") or "India"
+    pincode = req.pincode or req.pin or geo.get("pincode") or ""
+    accuracy = req.accuracy if req.accuracy is not None else req.location_accuracy
+    loc_source = req.location_source or "BROWSER_GPS"
 
-    area = loc["area"]
-    village = loc["village"]
-    taluk = loc["taluk"]
-    street = loc["street"]
-    city = loc["city"]
-    district = loc["district"]
-    state = loc["state"]
-    country = loc["country"]
-    pincode = loc["pincode"]
-    accuracy = loc["accuracy"]
-    loc_source = loc["location_source"]
-    formatted_addr = loc["formatted_address"]
+    parts = [p for p in [area or village, taluk, city, district, state] if p]
+    formatted_addr = req.formatted_address or req.full_address or (", ".join(parts) if parts else f"{req.latitude:.6f}, {req.longitude:.6f}")
+    if pincode and pincode not in formatted_addr:
+        formatted_addr += f" - {pincode}"
 
     selfie_url = req.selfie_url or (save_base64_image(req.selfie_data) if req.selfie_data else "")
     now = datetime.now(ZoneInfo("Asia/Kolkata")).replace(tzinfo=None)
 
-    print(f"[Attendance Lunch Out] Exec {exec_id} at {now} | Lat: {req.latitude}, Lng: {req.longitude}, Acc: {accuracy}m, Source: {loc_source} | Area: {area}, Street: {street}, City: {city}, District: {district}, PIN: {pincode}")
+    print(f"[Attendance Lunch Out] Exec {exec_id} at {now} | Lat: {req.latitude}, Lng: {req.longitude}, Acc: {accuracy}m, Source: {loc_source} | Area+Street: {area}, City: {city}, District: {district}, PIN: {pincode}")
 
     att.lunch_out_time = now
     att.lunch_out_latitude = req.latitude
@@ -5114,25 +4865,28 @@ def _execute_lunch_in(req: AttendanceActionRequest, db: Session):
     validate_location_payload(req)
 
     geo = reverse_geocode(req.latitude, req.longitude)
-    loc = extract_attendance_location_fields(req, geo)
+    village = req.village or geo.get("village") or ""
+    taluk = req.taluk or geo.get("taluk") or ""
+    street = req.street or geo.get("street") or ""
+    area_street = req.area_street or (f"{req.area}, {street}" if req.area and street and req.area.lower() != street.lower() else req.area) or geo.get("area_street") or ""
+    area = area_street or req.area or geo.get("area") or village or ""
+    city = req.city or geo.get("city") or ""
+    district = req.district or geo.get("district") or ""
+    state = req.state or geo.get("state") or ""
+    country = req.country or geo.get("country") or "India"
+    pincode = req.pincode or req.pin or geo.get("pincode") or ""
+    accuracy = req.accuracy if req.accuracy is not None else req.location_accuracy
+    loc_source = req.location_source or "BROWSER_GPS"
 
-    area = loc["area"]
-    village = loc["village"]
-    taluk = loc["taluk"]
-    street = loc["street"]
-    city = loc["city"]
-    district = loc["district"]
-    state = loc["state"]
-    country = loc["country"]
-    pincode = loc["pincode"]
-    accuracy = loc["accuracy"]
-    loc_source = loc["location_source"]
-    formatted_addr = loc["formatted_address"]
+    parts = [p for p in [area or village, taluk, city, district, state] if p]
+    formatted_addr = req.formatted_address or req.full_address or (", ".join(parts) if parts else f"{req.latitude:.6f}, {req.longitude:.6f}")
+    if pincode and pincode not in formatted_addr:
+        formatted_addr += f" - {pincode}"
 
     selfie_url = req.selfie_url or (save_base64_image(req.selfie_data) if req.selfie_data else "")
     now = datetime.now(ZoneInfo("Asia/Kolkata")).replace(tzinfo=None)
 
-    print(f"[Attendance Lunch In] Exec {exec_id} at {now} | Lat: {req.latitude}, Lng: {req.longitude}, Acc: {accuracy}m, Source: {loc_source} | Area: {area}, Street: {street}, City: {city}, District: {district}, PIN: {pincode}")
+    print(f"[Attendance Lunch In] Exec {exec_id} at {now} | Lat: {req.latitude}, Lng: {req.longitude}, Acc: {accuracy}m, Source: {loc_source} | Area+Street: {area}, City: {city}, District: {district}, PIN: {pincode}")
 
     att.lunch_in_time = now
     att.lunch_in_latitude = req.latitude
@@ -5171,25 +4925,28 @@ def _execute_punch_out(req: AttendanceActionRequest, db: Session):
     validate_location_payload(req)
 
     geo = reverse_geocode(req.latitude, req.longitude)
-    loc = extract_attendance_location_fields(req, geo)
+    village = req.village or geo.get("village") or ""
+    taluk = req.taluk or geo.get("taluk") or ""
+    street = req.street or geo.get("street") or ""
+    area_street = req.area_street or (f"{req.area}, {street}" if req.area and street and req.area.lower() != street.lower() else req.area) or geo.get("area_street") or ""
+    area = area_street or req.area or geo.get("area") or village or ""
+    city = req.city or geo.get("city") or ""
+    district = req.district or geo.get("district") or ""
+    state = req.state or geo.get("state") or ""
+    country = req.country or geo.get("country") or "India"
+    pincode = req.pincode or req.pin or geo.get("pincode") or ""
+    accuracy = req.accuracy if req.accuracy is not None else req.location_accuracy
+    loc_source = req.location_source or "BROWSER_GPS"
 
-    area = loc["area"]
-    village = loc["village"]
-    taluk = loc["taluk"]
-    street = loc["street"]
-    city = loc["city"]
-    district = loc["district"]
-    state = loc["state"]
-    country = loc["country"]
-    pincode = loc["pincode"]
-    accuracy = loc["accuracy"]
-    loc_source = loc["location_source"]
-    formatted_addr = loc["formatted_address"]
+    parts = [p for p in [area or village, taluk, city, district, state] if p]
+    formatted_addr = req.formatted_address or req.full_address or (", ".join(parts) if parts else f"{req.latitude:.6f}, {req.longitude:.6f}")
+    if pincode and pincode not in formatted_addr:
+        formatted_addr += f" - {pincode}"
 
     selfie_url = req.selfie_url or (save_base64_image(req.selfie_data) if req.selfie_data else "")
     now = datetime.now(ZoneInfo("Asia/Kolkata")).replace(tzinfo=None)
 
-    print(f"[Attendance Punch Out] Exec {exec_id} at {now} | Lat: {req.latitude}, Lng: {req.longitude}, Acc: {accuracy}m, Source: {loc_source} | Area: {area}, Street: {street}, City: {city}, District: {district}, PIN: {pincode}")
+    print(f"[Attendance Punch Out] Exec {exec_id} at {now} | Lat: {req.latitude}, Lng: {req.longitude}, Acc: {accuracy}m, Source: {loc_source} | Area+Street: {area}, City: {city}, District: {district}, PIN: {pincode}")
 
     att.logout_time = now
     att.logout_latitude = req.latitude
