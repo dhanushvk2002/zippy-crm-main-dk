@@ -3,10 +3,14 @@ import random
 import re
 import requests
 import shutil
+from pathlib import Path
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
-load_dotenv()
+# Load environment variables from backend/.env and local .env file
+_backend_dir = Path(__file__).resolve().parent
+if (_backend_dir / ".env").exists():
+    load_dotenv(_backend_dir / ".env", override=True)
+load_dotenv(override=False)
 from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -3962,6 +3966,10 @@ def send_sms_otp(phone: str, otp_code: str, force_mock: bool = False):
         clean_digits = clean_digits[-10:]
 
     # Support APITXT_AUTHKEY, APITXT_API_KEY, SMS_API_KEY, or FAST2SMS_API_KEY
+    env_backend = Path(__file__).resolve().parent / ".env"
+    if not os.getenv("APITXT_AUTHKEY") and env_backend.exists():
+        load_dotenv(env_backend, override=True)
+
     api_key = (
         os.getenv("APITXT_AUTHKEY")
         or os.getenv("APITXT_API_KEY")
