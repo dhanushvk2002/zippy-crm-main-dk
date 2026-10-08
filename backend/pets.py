@@ -1,3 +1,4 @@
+from sqlalchemy.sql.schema import ScalarElementColumnDefault
 import os
 import random
 import re
@@ -6,10 +7,13 @@ import shutil
 from pathlib import Path
 from dotenv import load_dotenv
 
-# Load environment variables from backend/.env and local .env file
+# Load environment variables from backend/.env and root .env files
 _backend_dir = Path(__file__).resolve().parent
+_root_dir = _backend_dir.parent
 if (_backend_dir / ".env").exists():
     load_dotenv(_backend_dir / ".env", override=True)
+if (_root_dir / ".env").exists():
+    load_dotenv(_root_dir / ".env", override=True)
 load_dotenv(override=False)
 from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Response
 from fastapi.staticfiles import StaticFiles
@@ -20,7 +24,7 @@ from sqlalchemy.orm import declarative_base,sessionmaker,Session
 from typing import Optional, Any
 from datetime import datetime,date,time,timedelta,timezone
 from zoneinfo import ZoneInfo
-DATABASE_URL = "mysql+pymysql://root:Vasanth%40zenve@127.0.0.1:3306/pet_new"
+DATABASE_URL = os.getenv("DATABASE_URL", "mysql+pymysql://root:root@127.0.0.1:3306/pets-ms")
 engine = create_engine( DATABASE_URL,echo=True,pool_pre_ping=True)
 SessionLocal = sessionmaker(autocommit=False,autoflush=False,bind=engine)
 Base = declarative_base()
@@ -3967,22 +3971,43 @@ def send_sms_otp(phone: str, otp_code: str, force_mock: bool = False):
 
     # Support APITXT_AUTHKEY, APITXT_API_KEY, SMS_API_KEY, or FAST2SMS_API_KEY
     env_backend = Path(__file__).resolve().parent / ".env"
-    if not os.getenv("APITXT_AUTHKEY") and env_backend.exists():
+    env_root = Path(__file__).resolve().parent.parent / ".env"
+    if env_backend.exists():
         load_dotenv(env_backend, override=True)
+    if env_root.exists():
+        load_dotenv(env_root, override=True)
 
-    api_key = (
-        os.getenv("APITXT_AUTHKEY")
-        or os.getenv("APITXT_API_KEY")
-        or os.getenv("SMS_API_KEY")
-        or os.getenv("FAST2SMS_API_KEY")
-        or ""
-    ).strip()
+    fast2sms_key = os.getenv("FAST2SMS_API_KEY", "").strip()
+    apitxt_key = (os.getenv("APITXT_AUTHKEY") or os.getenv("APITXT_API_KEY", "")).strip()
+    twofactor_key = (os.getenv("TWOFACTOR_API_KEY") or os.getenv("2FACTOR_API_KEY", "")).strip()
+    sms_api_key = os.getenv("SMS_API_KEY", "").strip()
+    custom_url = os.getenv("SMS_API_URL", "").strip()
 
-    provider = (os.getenv("SMS_PROVIDER") or "apitxt").strip().lower()
+    provider = (os.getenv("SMS_PROVIDER") or "").strip().lower()
+    if not provider:
+        if fast2sms_key:
+            provider = "fast2sms"
+        elif twofactor_key:
+            provider = "2factor"
+        elif apitxt_key:
+            provider = "apitxt"
+        elif custom_url:
+            provider = "custom"
+        else:
+            provider = "apitxt"
+
+    if provider in ("fast2sms", "fast_2_sms"):
+        api_key = fast2sms_key or sms_api_key
+    elif provider in ("2factor", "twofactor", "two_factor"):
+        api_key = twofactor_key or sms_api_key
+    elif provider in ("apitxt", "api_txt"):
+        api_key = apitxt_key or sms_api_key
+    else:
+        api_key = sms_api_key or apitxt_key or fast2sms_key or twofactor_key
 
     if force_mock or not api_key:
-        print(f"[APITxT OTP Service] (Notice: Set APITXT_AUTHKEY in .env for live SMS) OTP for {clean_digits}: {otp_code}")
-        return "mock", f"OTP sent to +91 {clean_digits}", otp_code
+        print(f"[OTP Service] (Notice: Set APITXT_AUTHKEY, FAST2SMS_API_KEY, or TWOFACTOR_API_KEY in .env for live SMS) OTP for {clean_digits}: {otp_code}")
+        return "mock", f"Test Mode: SMS Gateway key not configured. Your OTP is {otp_code} (or master 123456)", otp_code
 
     try:
         if provider in ("apitxt", "api_txt"):
@@ -4011,11 +4036,11 @@ def send_sms_otp(phone: str, otp_code: str, force_mock: bool = False):
             msg = str(resp_data.get("message", "")).lower()
             if resp.status_code == 200 and (status == "success" or "sent" in msg or "success" in msg or resp_data.get("return") is True):
                 print(f"[APITxT SMS] Successfully sent OTP via SMS to +91 {clean_digits}")
-                return "real_sms", f"OTP sent to +91 {clean_digits}", None
+                return "real_sms", f"Live SMS sent to +91 {clean_digits}", None
             else:
                 err_msg = resp_data.get("message") or resp.text or f"HTTP {resp.status_code}"
-                print(f"[APITxT SMS] Gateway response ({resp.status_code}): {err_msg}. OTP for {clean_digits}: {otp_code}")
-                return "mock", f"OTP sent to +91 {clean_digits}", otp_code
+                print(f"[APITxT SMS] Gateway response ({resp.status_code}): {err_msg}. Fallback OTP for {clean_digits}: {otp_code}")
+                return "mock", f"Gateway response ({err_msg}). Fallback OTP: {otp_code}", otp_code
 
         elif provider in ("fast2sms", "fast_2_sms"):
             url = "https://www.fast2sms.com/dev/bulkV2"
@@ -4032,11 +4057,26 @@ def send_sms_otp(phone: str, otp_code: str, force_mock: bool = False):
             resp_data = resp.json() if resp.status_code == 200 else {}
             if resp.status_code == 200 and resp_data.get("return") is True:
                 print(f"[Fast2SMS] Successfully sent OTP via SMS to {clean_digits}")
-                return "real_sms", f"OTP sent to +91 {clean_digits}", None
+                return "real_sms", f"Live SMS sent to +91 {clean_digits}", None
             else:
                 err_msg = resp_data.get("message") or resp.text
                 print(f"[Fast2SMS] Gateway note ({err_msg}). OTP for {clean_digits}: {otp_code}")
-                return "mock", f"OTP sent to +91 {clean_digits}", otp_code
+                return "mock", f"Fast2SMS error: {err_msg}. Fallback OTP: {otp_code}", otp_code
+
+        elif provider in ("2factor", "twofactor", "two_factor"):
+            url = f"https://2factor.in/API/V1/{api_key}/SMS/{clean_digits}/{otp_code}/OTP1"
+            resp = requests.get(url, timeout=8)
+            try:
+                resp_data = resp.json()
+            except Exception:
+                resp_data = {}
+            if resp.status_code == 200 and str(resp_data.get("Status", "")).lower() == "success":
+                print(f"[2Factor SMS] Successfully sent OTP via SMS to +91 {clean_digits}")
+                return "real_sms", f"Live SMS sent to +91 {clean_digits}", None
+            else:
+                err_msg = resp_data.get("Details") or resp.text
+                print(f"[2Factor SMS] Gateway response: {err_msg}. Fallback OTP for {clean_digits}: {otp_code}")
+                return "mock", f"2Factor error: {err_msg}. Fallback OTP: {otp_code}", otp_code
 
         else:
             custom_url = os.getenv("SMS_API_URL", "")
@@ -4938,7 +4978,60 @@ def reverse_geocode(lat: Optional[float], lon: Optional[float]) -> dict:
     if lat is None or lon is None:
         return result
 
-    # 1. Try BigDataCloud Client API (fast, structured administrative subdivisions)
+    # 1. Primary: OpenStreetMap Nominatim (rich neighborhood, quarter, suburb, village, street details)
+    try:
+        url = f"https://nominatim.openstreetmap.org/reverse?lat={lat}&lon={lon}&format=jsonv2&zoom=18&addressdetails=1&accept-language=en"
+        headers = {"User-Agent": "ZenveZippyCRM/1.0"}
+        r = requests.get(url, headers=headers, timeout=5)
+        if r.status_code == 200:
+            data = r.json()
+            addr = data.get("address", {})
+            village = addr.get("village") or addr.get("hamlet") or addr.get("isolated_dwelling") or ""
+            taluk = addr.get("subdistrict") or addr.get("tehsil") or addr.get("taluk") or addr.get("mandal") or addr.get("county") or ""
+            route = addr.get("road") or addr.get("street") or addr.get("pedestrian") or ""
+            house_number = addr.get("house_number") or ""
+            street = f"{house_number} {route}".strip() if house_number and route else route
+            quarter = addr.get("quarter") or ""
+            suburb = addr.get("suburb") or ""
+            neighbourhood = addr.get("neighbourhood") or ""
+            residential = addr.get("residential") or ""
+            commercial = addr.get("commercial") or ""
+            city = addr.get("city") or addr.get("town") or addr.get("municipality") or addr.get("city_district") or ""
+            district = addr.get("state_district") or addr.get("district") or addr.get("county") or ""
+            state = addr.get("state") or ""
+            pincode = addr.get("postcode") or ""
+            country = addr.get("country") or "India"
+
+            district = district.replace(" District", "").replace(" district", "").strip()
+            if taluk:
+                taluk = taluk.replace(" District", "").strip()
+
+            # Area hierarchy: quarter -> neighbourhood -> suburb -> residential -> commercial -> village -> street
+            area = quarter or neighbourhood or suburb or residential or commercial or village or street or addr.get("locality") or ""
+            if area and city and area.lower() == city.lower() and not village:
+                area = ""
+
+            area_street = f"{area}, {street}" if area and street and area.lower() != street.lower() else (area or street or village)
+
+            result["street"] = street
+            result["route"] = route
+            result["village"] = village
+            result["taluk"] = taluk
+            result["area"] = area
+            result["area_street"] = area_street
+            result["city"] = city
+            result["district"] = district or city
+            result["state"] = state
+            result["pincode"] = pincode
+            result["country"] = country
+
+            if result["area"] or result["village"] or result["taluk"] or result["city"]:
+                print(f"[Backend Geocode] OSM resolved: {lat},{lon} -> Area: {result['area']}, Street: {result['street']}, Taluk: {result['taluk']}, City: {result['city']}, District: {result['district']}")
+                return result
+    except Exception as e:
+        print("[Backend Geocode] OSM notice:", e)
+
+    # 2. Fallback to BigDataCloud Client API
     try:
         url = f"https://api.bigdatacloud.net/data/reverse-geocode-client?latitude={lat}&longitude={lon}&localityLanguage=en"
         r = requests.get(url, timeout=5)
@@ -4957,7 +5050,7 @@ def reverse_geocode(lat: Optional[float], lon: Optional[float]) -> dict:
             route = ""
 
             for item in data.get("localityInfo", {}).get("administrative", []):
-                name = item.get("name", "").strip
+                name = item.get("name", "").strip()
                 desc = item.get("description","").lower()
                 if not district and ("district" in desc or "county" in desc):
                     district = name.replace(" district", "").replace(" District", "").strip()
@@ -4969,18 +5062,22 @@ def reverse_geocode(lat: Optional[float], lon: Optional[float]) -> dict:
             for item in data.get("localityInfo", {}).get("informative", []):
                 name = item.get("name", "")
                 desc = item.get("description", "").lower()
-                if not village and any(w in desc for w in ["village", "hamlet", "neighbourhood", "suburb", "locality"]):
+                if not village and any(w in desc for w in ["village", "hamlet"]):
                     village = name.strip()
+                if not area and any(w in desc for w in ["neighbourhood", "suburb", "locality", "quarter"]):
+                    area = name.strip()
                 if not route and any(w in desc for w in ["road", "street", "route", "way", "lane", "avenue"]):
                     route = name.strip()
 
             village = village or locality or ""
             taluk = taluk or ""
-            district = district or city or ""
+            district = district or ""
             city = city or locality or district or ""
-            area = village or locality or city or ""
+            area = area or village or locality or route or ""
+            if area and city and area.lower() == city.lower() and not village:
+                area = ""
             street = route or ""
-            area_street = f"{area}, {street}" if area and street and area.lower() != street.lower() else (area or street)
+            area_street = f"{area}, {street}" if area and street and area.lower() != street.lower() else (area or street or village)
 
             result["street"] = street
             result["route"] = route
@@ -4999,46 +5096,6 @@ def reverse_geocode(lat: Optional[float], lon: Optional[float]) -> dict:
                 return result
     except Exception as e:
         print("[Backend Geocode] BDC fallback notice:", e)
-
-    # 2. Fallback to OpenStreetMap Nominatim
-    try:
-        url = f"https://nominatim.openstreetmap.org/reverse?lat={lat}&lon={lon}&format=jsonv2&zoom=18&addressdetails=1&accept-language=en"
-        headers = {"User-Agent": "ZenveZippyCRM/1.0"}
-        r = requests.get(url, headers=headers, timeout=5)
-        if r.status_code == 200:
-            data = r.json()
-            addr = data.get("address", {})
-            village = addr.get("village") or addr.get("hamlet") or addr.get("isolated_dwelling") or ""
-            taluk = addr.get("subdistrict") or addr.get("tehsil") or addr.get("taluk") or addr.get("mandal") or ""
-            route = addr.get("road") or addr.get("street") or addr.get("pedestrian") or ""
-            house_number = addr.get("house_number") or ""
-            street = f"{house_number} {route}".strip() if house_number and route else route
-            suburb = addr.get("suburb") or addr.get("neighbourhood") or addr.get("subdivision") or ""
-            area = suburb or village or addr.get("locality") or route or ""
-            city = addr.get("city") or addr.get("town") or addr.get("municipality") or addr.get("city_district") or ""
-            district = addr.get("state_district") or addr.get("district") or addr.get("county") or ""
-            state = addr.get("state") or ""
-            pincode = addr.get("postcode") or ""
-            country = addr.get("country") or "India"
-
-            district = district.replace(" District", "").replace(" district", "").strip()
-
-            area_street = f"{area}, {street}" if area and street and area.lower() != street.lower() else (area or street or village)
-
-            result["street"] = street
-            result["route"] = route
-            result["village"] = village or area
-            result["taluk"] = taluk
-            result["area"] = area or village or city
-            result["area_street"] = area_street
-            result["city"] = city or village or district
-            result["district"] = district or city
-            result["state"] = state
-            result["pincode"] = pincode
-            result["country"] = country
-            print(f"[Backend Geocode] OSM resolved: {lat},{lon} -> Area+Street: {result['area_street']}, City: {result['city']}, District: {result['district']}")
-    except Exception as e:
-        print("[Backend Geocode] Nominatim fallback notice:", e)
 
     return result
 
@@ -5093,11 +5150,11 @@ def api_search_location(q: str):
             "q": q.strip(),
             "format": "jsonv2",
             "addressdetails": 1,
-            "limit": 6,
+            "limit": 8,
             "countrycodes": "in"
         }
-        headers = {"User-Agent": "ZenveZippyCRM/1.0"}
-        r = requests.get(url, params=params, headers=headers, timeout=5)
+        headers = {"User-Agent": "ZippyCRM-AttendanceApp/1.0 (contact@zippy.in)"}
+        r = requests.get(url, params=params, headers=headers, timeout=6)
         if r.status_code == 200:
             items = r.json()
             results = []
@@ -5105,25 +5162,38 @@ def api_search_location(q: str):
                 lat_val = float(it["lat"])
                 lng_val = float(it["lon"])
                 addr = it.get("address", {})
-                village = addr.get("village") or addr.get("hamlet") or addr.get("suburb") or addr.get("locality") or ""
-                taluk = addr.get("subdistrict") or addr.get("tehsil") or addr.get("taluk") or addr.get("mandal") or ""
-                city = addr.get("city") or addr.get("town") or addr.get("municipality") or ""
+                village = addr.get("village") or addr.get("hamlet") or addr.get("isolated_dwelling") or ""
+                taluk = addr.get("subdistrict") or addr.get("tehsil") or addr.get("taluk") or addr.get("mandal") or addr.get("county") or ""
+                route = addr.get("road") or addr.get("street") or addr.get("pedestrian") or ""
+                quarter = addr.get("quarter") or ""
+                suburb = addr.get("suburb") or ""
+                neighbourhood = addr.get("neighbourhood") or ""
+                residential = addr.get("residential") or ""
+                city = addr.get("city") or addr.get("town") or addr.get("municipality") or addr.get("city_district") or ""
                 district = (addr.get("state_district") or addr.get("district") or addr.get("county") or "").replace(" District", "").strip()
                 state = addr.get("state") or ""
                 pincode = addr.get("postcode") or ""
+                
+                area = quarter or neighbourhood or suburb or residential or village or it.get("name") or route or addr.get("locality") or ""
+                if area and city and area.lower() == city.lower() and not village:
+                    area = ""
 
-                parts = [p for p in [village, taluk, city, district, state] if p]
+                parts = [p for p in [area or village, route, taluk, city, district, state] if p]
                 disp = ", ".join(parts) if parts else it.get("display_name", "")
-                if pincode:
+                if pincode and pincode not in disp:
                     disp += f" - {pincode}"
 
                 results.append({
                     "display_name": disp,
                     "latitude": lat_val,
                     "longitude": lng_val,
+                    "street": route,
+                    "route": route,
                     "village": village,
                     "taluk": taluk,
-                    "area": village or city,
+                    "area": area or village,
+                    "area_street": f"{area}, {route}" if area and route and area.lower() != route.lower() else (area or route or village),
+                    "areaStreet": f"{area}, {route}" if area and route and area.lower() != route.lower() else (area or route or village),
                     "city": city,
                     "district": district,
                     "state": state,
@@ -5558,15 +5628,72 @@ def check_face_route(req: CheckFaceRequest):
         return {"face_count": 1, "status": "fallback"}
 
 @app.get("/attendance/today/{executive_id}")
+@app.get("/api/attendance/today/{executive_id}")
 @app.get("/api/attendance/today")
-def get_today_attendance_route(executive_id: Optional[int] = None, db: Session = Depends(get_db)):
+def get_today_attendance_route(
+    executive_id: Optional[int] = None,
+    attendance_date: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
     if not executive_id:
         return None
-    today = datetime.now(ZoneInfo("Asia/Kolkata")).date()
-    att = db.query(Attendance).filter(Attendance.executive_id == executive_id, Attendance.attendance_date == today).first()
+    if attendance_date:
+        try:
+            target_date = datetime.strptime(attendance_date, "%Y-%m-%d").date()
+        except Exception:
+            target_date = datetime.now(ZoneInfo("Asia/Kolkata")).date()
+    else:
+        target_date = datetime.now(ZoneInfo("Asia/Kolkata")).date()
+
+    att = db.query(Attendance).filter(
+        Attendance.executive_id == executive_id,
+        Attendance.attendance_date == target_date
+    ).first()
     if not att:
         return None
-    return plan_response(att)
+    d = plan_response(att)
+    exec_obj = db.query(SalesExecutive).filter(SalesExecutive.id == executive_id).first()
+    if exec_obj:
+        d["executive_name"] = exec_obj.name
+    return d
+
+@app.get("/attendance")
+@app.get("/api/attendance")
+def get_attendance_list(
+    executive_id: Optional[int] = None,
+    attendance_date: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    query = db.query(Attendance)
+    if executive_id is not None:
+        query = query.filter(Attendance.executive_id == executive_id)
+    if attendance_date:
+        try:
+            dt = datetime.strptime(attendance_date, "%Y-%m-%d").date()
+            query = query.filter(Attendance.attendance_date == dt)
+        except Exception:
+            pass
+    recs = query.order_by(Attendance.attendance_date.desc(), Attendance.id.desc()).all()
+    
+    execs = db.query(SalesExecutive).all()
+    exec_map = {e.id: e.name for e in execs}
+    
+    result = []
+    for r in recs:
+        d = plan_response(r)
+        d["executive_name"] = exec_map.get(r.executive_id, f"Executive {r.executive_id}")
+        result.append(d)
+    return result
+
+@app.delete("/attendance/{attendance_id}")
+@app.delete("/api/attendance/{attendance_id}")
+def delete_attendance_record(attendance_id: int, db: Session = Depends(get_db)):
+    att = db.query(Attendance).filter(Attendance.id == attendance_id).first()
+    if not att:
+        raise HTTPException(status_code=404, detail="Attendance record not found")
+    db.delete(att)
+    db.commit()
+    return {"message": "Attendance record deleted successfully"}
 
 @app.get("/api/attendance/executive/{executive_id}")
 def get_executive_attendance(executive_id: int, db: Session = Depends(get_db)):
@@ -5613,4 +5740,3 @@ def search_executive_attendance(name: str, days: int = 45, db: Session = Depends
         d["executive_name"] = exec_map.get(r.executive_id, f"Executive {r.executive_id}")
         result.append(d)
     return result
-
