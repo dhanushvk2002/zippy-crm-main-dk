@@ -588,6 +588,22 @@
   color: #475569;
 }
 
+.more-option-tag.tag-on {
+  background: #10b981;
+  color: #ffffff;
+}
+
+.more-popup-divider {
+  height: 1px;
+  background: #e2e8f0;
+  margin: 3px 0;
+}
+
+.more-popup-reset {
+  color: #dc2626;
+  font-weight: 700;
+}
+
 /* ============================================================
    GOOGLE MAPS FLOATING CONTROLS (Target, Zoom Pill +/-, Pegman)
    ============================================================ */

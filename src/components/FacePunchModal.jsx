@@ -646,9 +646,11 @@ export default function FacePunchModal({
         zoomControl: false,
       });
 
-      const baseLayer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-        maxZoom: 19,
+      // Authentic Google Maps base layer
+      const baseLayer = L.tileLayer("https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}", {
+        attribution: '&copy; Google Maps',
+        subdomains: ['0', '1', '2', '3'],
+        maxZoom: 21,
       }).addTo(map);
       leafletBaseLayerRef.current = baseLayer;
 
@@ -656,6 +658,7 @@ export default function FacePunchModal({
         icon: createLeafletPinIcon(),
         draggable: false,
         title: "Current attendance location (Fixed)",
+        zIndexOffset: 1000,
       }).addTo(map);
 
       leafletMapRef.current = map;
@@ -860,7 +863,7 @@ export default function FacePunchModal({
       googleMapRef.current.setMapTypeId(nextType);
     }
 
-    // 2. Leaflet Fallback
+    // 2. Leaflet Fallback (High-Resolution Google Satellite Hybrid)
     if (leafletMapRef.current) {
       if (leafletBaseLayerRef.current) {
         try { leafletBaseLayerRef.current.remove(); } catch {}
@@ -871,23 +874,29 @@ export default function FacePunchModal({
       }
 
       if (nextType === "hybrid") {
-        // High-resolution Esri World Imagery Satellite
+        // Authentic Google Satellite Hybrid (Ultra-crisp aerial photography + road and place labels)
         leafletBaseLayerRef.current = L.tileLayer(
-          "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-          { maxZoom: 19, attribution: "Esri Satellite Imagery" }
-        ).addTo(leafletMapRef.current);
-
-        // Place names, road boundaries and labels overlay
-        leafletLabelsLayerRef.current = L.tileLayer(
-          "https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}",
-          { maxZoom: 19, zIndex: 500 }
+          "https://mt{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}",
+          {
+            maxZoom: 21,
+            subdomains: ["0", "1", "2", "3"],
+            attribution: "&copy; Google Satellite",
+          }
         ).addTo(leafletMapRef.current);
       } else {
-        // Standard OpenStreetMap
+        // Standard Google Maps Roadmap
         leafletBaseLayerRef.current = L.tileLayer(
-          "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-          { maxZoom: 19, attribution: "OpenStreetMap" }
+          "https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}",
+          {
+            maxZoom: 21,
+            subdomains: ["0", "1", "2", "3"],
+            attribution: "&copy; Google Maps",
+          }
         ).addTo(leafletMapRef.current);
+      }
+
+      if (leafletMarkerRef.current) {
+        leafletMarkerRef.current.setZIndexOffset(1000);
       }
     }
 
@@ -904,7 +913,7 @@ export default function FacePunchModal({
       googleMapRef.current.setMapTypeId(nextType);
     }
 
-    // 2. Leaflet Fallback
+    // 2. Leaflet Fallback (Google Terrain)
     if (leafletMapRef.current) {
       if (leafletBaseLayerRef.current) {
         try { leafletBaseLayerRef.current.remove(); } catch {}
@@ -915,16 +924,27 @@ export default function FacePunchModal({
       }
 
       if (nextType === "terrain") {
-        // Topography and terrain contours
         leafletBaseLayerRef.current = L.tileLayer(
-          "https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",
-          { maxZoom: 17, attribution: "OpenTopoMap & SRTM Contours" }
+          "https://mt{s}.google.com/vt/lyrs=p&x={x}&y={y}&z={z}",
+          {
+            maxZoom: 20,
+            subdomains: ["0", "1", "2", "3"],
+            attribution: "&copy; Google Terrain",
+          }
         ).addTo(leafletMapRef.current);
       } else {
         leafletBaseLayerRef.current = L.tileLayer(
-          "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-          { maxZoom: 19, attribution: "OpenStreetMap" }
+          "https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}",
+          {
+            maxZoom: 21,
+            subdomains: ["0", "1", "2", "3"],
+            attribution: "&copy; Google Maps",
+          }
         ).addTo(leafletMapRef.current);
+      }
+
+      if (leafletMarkerRef.current) {
+        leafletMarkerRef.current.setZIndexOffset(1000);
       }
     }
 
@@ -948,13 +968,18 @@ export default function FacePunchModal({
       }
     }
 
-    // 2. Leaflet Fallback
+    // 2. Leaflet Fallback (Google Traffic Flow Overlay)
     if (leafletMapRef.current) {
       if (nextState) {
         if (!leafletTrafficLayerRef.current) {
           leafletTrafficLayerRef.current = L.tileLayer(
-            "https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png",
-            { maxZoom: 19, opacity: 0.88, zIndex: 450 }
+            "https://mt{s}.google.com/vt/lyrs=m,traffic&x={x}&y={y}&z={z}",
+            {
+              maxZoom: 21,
+              subdomains: ["0", "1", "2", "3"],
+              opacity: 0.95,
+              zIndex: 450,
+            }
           );
         }
         leafletTrafficLayerRef.current.addTo(leafletMapRef.current);
@@ -1080,9 +1105,13 @@ export default function FacePunchModal({
         try { leafletBaseLayerRef.current.remove(); } catch {}
       }
       leafletBaseLayerRef.current = L.tileLayer(
-        "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-        { maxZoom: 19, attribution: "OpenStreetMap" }
+        "https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}",
+        { maxZoom: 21, subdomains: ["0", "1", "2", "3"], attribution: "&copy; Google Maps" }
       ).addTo(leafletMapRef.current);
+
+      if (leafletMarkerRef.current) {
+        leafletMarkerRef.current.setZIndexOffset(1000);
+      }
     }
 
     setIsTrafficActive(false);
