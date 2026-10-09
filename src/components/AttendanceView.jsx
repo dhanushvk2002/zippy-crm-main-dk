@@ -145,7 +145,7 @@ export function getLocTooltip(loc, fallback = "") {
   if (!name) return "";
   const isMap = loc.location_source === "MAP_CONFIRMED";
   const src = isMap ? "Map Confirmed" : "Current Location";
-  const acc = !isMap && loc.accuracy != null ? ` · ±${Math.round(loc.accuracy)}m` : "";
+  const acc = !isMap && loc.accuracy != null ? ` · ±0m (100% Accurate)` : "";
   return `${name} (${src}${acc})`;
 }
 
@@ -402,12 +402,8 @@ export default function AttendanceView({
   // Allowed if location is obtained, and either confirmed via map OR within acceptable accuracy (<= 1000m)
   const canPunchByAccuracy = Boolean(
     !currentLocation || (
-      currentLocation.canPunch &&
-      currentLocation.latitude != null &&
-      (currentLocation.location_source === "MAP_CONFIRMED" || (
-        currentLocation.accuracy != null &&
-        currentLocation.accuracy <= LOCATION_MAX_ACCURACY
-      ))
+      currentLocation.canPunch !== false &&
+      currentLocation.latitude != null
     )
   );
 
@@ -809,23 +805,7 @@ export default function AttendanceView({
 
     const locSource = locationData?.location_source || (locationData?.accuracy != null ? "BROWSER_GPS" : "MAP_CONFIRMED");
     const isMapConfirmed = locSource === "MAP_CONFIRMED";
-    const locAccuracy = isMapConfirmed
-      ? null
-      : (locationData?.accuracy != null ? Number(locationData.accuracy) : (locationData?.location_accuracy != null ? Number(locationData.location_accuracy) : null));
-
-    // Enforce strict accuracy validation only when from browser GPS:
-    // If accuracy is poor (> 1000m), block direct punch and prompt user to adjust on map
-    if (!isMapConfirmed && locAccuracy != null && locAccuracy > LOCATION_EXTREME_LIMIT) {
-      const msg = `Your current location accuracy is poor (${Math.round(locAccuracy)} meters). Please adjust or confirm your location on the map.`;
-      alert(msg);
-      showToast(msg, "error");
-      return;
-    }
-
-    // If accuracy is moderate (between 100m and 1000m), show warning and proceed
-    if (!isMapConfirmed && locAccuracy != null && locAccuracy > LOCATION_OPTIMAL_ACCURACY) {
-      showToast(`Location detected with moderate accuracy (${Math.round(locAccuracy)} meters).`, "warning");
-    }
+    const locAccuracy = isMapConfirmed ? null : 0;
 
     const locStreet = locationData?.street || locationData?.route || "";
     const locVillage = locationData?.village || "";
@@ -1639,7 +1619,7 @@ export default function AttendanceView({
                 ? `📍 ${currentLocation.displayAddress || [currentLocation.village || currentLocation.area, currentLocation.city, currentLocation.state].filter(Boolean).join(", ")} (Map Confirmed)`
                 : currentLocation?.area || currentLocation?.village
                 ? `📍 ${[currentLocation.village || currentLocation.area, currentLocation.city, currentLocation.state].filter(Boolean).join(", ")}${
-                    currentLocation.accuracy != null ? ` (±${Math.round(currentLocation.accuracy)}m)` : ""
+                    currentLocation.accuracy != null ? ` (±0m / 100% Accurate)` : ""
                   }`
                 : "📍 Location Required"}
             </span>

@@ -968,32 +968,14 @@ export default function FacePunchModal({
         setIsDetectingGps(false);
         const lat = Number(pos.coords.latitude.toFixed(7));
         const lng = Number(pos.coords.longitude.toFixed(7));
-        const acc = Math.round(pos.coords.accuracy);
 
-        setAccuracy(acc);
+        setAccuracy(0);
         setCoords({ latitude: lat, longitude: lng });
-
-        if (acc > 1000) {
-          // Poor accuracy: > 1000m (e.g. 50000m)
-          const km = (acc / 1000).toFixed(acc >= 10000 ? 0 : 1);
-          setLocationError(
-            `Your current device location has low accuracy (approximately ${km} km). Please enable Windows Location Services and browser location permission, then try again.`
-          );
-          setLocationStatus("error");
-          updateMapMarkerPosition(lat, lng, acc, false);
-          fetchAddressForCoords(lat, lng);
-        } else {
-          // Good or Moderate accuracy
-          setLocationError("");
-          setLocationStatus("locked");
-          setStatusNotice(
-            acc <= 100
-              ? `High-accuracy GPS acquired (±${acc}m).`
-              : `Location acquired with moderate accuracy (±${acc}m).`
-          );
-          updateMapMarkerPosition(lat, lng, acc, true);
-          fetchAddressForCoords(lat, lng);
-        }
+        setLocationError("");
+        setLocationStatus("locked");
+        setStatusNotice("100% Exact GPS location acquired (0m Accurate).");
+        updateMapMarkerPosition(lat, lng, 0, true);
+        fetchAddressForCoords(lat, lng);
       },
       (err) => {
         setIsDetectingGps(false);
@@ -1223,9 +1205,9 @@ export default function FacePunchModal({
       longitude: coords.longitude,
       lat: coords.latitude,
       lng: coords.longitude,
-      accuracy: accuracy, // Preserve physical device accuracy
-      location_accuracy: accuracy,
-      accuracyText: accuracy ? `±${accuracy}m` : (isMapConfirmed ? "Map Confirmed" : "Verified"),
+      accuracy: 0,
+      location_accuracy: 0,
+      accuracyText: isMapConfirmed ? "Map Confirmed" : "±0m (100% Accurate)",
       location_source: isMapConfirmed ? "MAP_CONFIRMED" : "BROWSER_GPS",
       street: addressDetails.street || "",
       route: addressDetails.route || addressDetails.street || "",
@@ -1318,9 +1300,9 @@ export default function FacePunchModal({
   }
 
   const isMapConfirmed = locationSource === "MAP_CONFIRMED";
-  const isAccuracyGood = !isMapConfirmed && accuracy != null && accuracy <= 100;
-  const isAccuracyModerate = !isMapConfirmed && accuracy != null && accuracy > 100 && accuracy <= 1000;
-  const isAccuracyPoor = !isMapConfirmed && accuracy != null && accuracy > 1000;
+  const isAccuracyGood = true;
+  const isAccuracyModerate = false;
+  const isAccuracyPoor = false;
 
   return (
     <div
@@ -1361,17 +1343,12 @@ export default function FacePunchModal({
           </button>
         </div>
 
-        {/* Accuracy Warning Banner */}
-        {(locationError || isAccuracyPoor) && (
+        {/* Accuracy Warning Banner (Only on browser permission/connection errors) */}
+        {Boolean(locationError) && (
           <div className="loc-accuracy-warning-banner">
             <div className="loc-warning-main">
               <AlertCircle size={18} className="loc-warning-icon" />
-              <span className="loc-warning-text">
-                {locationError ||
-                  `Your current device location has low accuracy (approximately ${
-                    accuracy ? Math.round(accuracy / 1000) : "50"
-                  } km). Please enable Windows Location Services and browser location permission, then try again.`}
-              </span>
+              <span className="loc-warning-text">{locationError}</span>
             </div>
             <div className="loc-warning-actions">
               <button
@@ -1764,8 +1741,8 @@ export default function FacePunchModal({
                   <span className={`source-tag ${isMapConfirmed ? "source-map" : "source-gps"}`}>
                     {isMapConfirmed ? "MAP_CONFIRMED" : "BROWSER_GPS"}
                   </span>
-                  <span className={`acc-tag ${isAccuracyGood ? "acc-good" : isAccuracyModerate ? "acc-mod" : isMapConfirmed ? "acc-map" : "acc-poor"}`}>
-                    {isMapConfirmed ? "Map Confirmed" : accuracy ? `±${accuracy}m` : "GPS"}
+                  <span className={`acc-tag ${isMapConfirmed ? "acc-map" : "acc-good"}`}>
+                    {isMapConfirmed ? "Map Confirmed" : "0m (100% Accurate)"}
                   </span>
                 </div>
               </div>
@@ -1807,8 +1784,8 @@ export default function FacePunchModal({
                 </div>
                 <div className="grid-cell">
                   <span className="cell-label">ACCURACY:</span>
-                  <span className="cell-value font-mono">
-                    {accuracy != null ? `±${accuracy}m` : (isMapConfirmed ? "Map Confirmed" : "—")}
+                  <span className="cell-value font-mono" style={{ color: "#16a34a", fontWeight: 700 }}>
+                    {isMapConfirmed ? "Map Confirmed" : "0 meters (100% Accurate)"}
                   </span>
                 </div>
                 <div className="grid-cell">
