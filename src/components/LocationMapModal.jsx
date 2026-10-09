@@ -13,6 +13,7 @@ import {
   Compass,
   Plus,
   Minus,
+  ExternalLink,
 } from "lucide-react";
 import { loadGoogleMaps, getGoogleMapsApiKey, hasGoogleMapsAuthError } from "../utils/googleMapsLoader.js";
 import { reverseGeocodeCoordinates, searchLocationsWithGoogle } from "../utils/googleGeocoder.js";
@@ -630,59 +631,61 @@ export default function LocationMapModal({
 
   // Handle Pegman Street View Toggle
   const handleToggleStreetView = useCallback(() => {
-    if (!googleMapRef.current) {
-      if (leafletMapRef.current) {
-        setStatusNotice("Street View requires Google Maps. Google Maps API is currently loading or unconfigured.");
+    if (isStreetViewActive) {
+      if (googleMapRef.current) {
+        try {
+          const sv = googleMapRef.current.getStreetView?.();
+          if (sv && sv.getVisible?.()) {
+            sv.setVisible(false);
+          }
+        } catch {}
       }
+      setIsStreetViewActive(false);
+      setStatusNotice("Exited Street View.");
       return;
     }
 
-    try {
-      const sv = googleMapRef.current.getStreetView();
-      if (!sv) return;
+    // Activate Street View
+    setIsStreetViewActive(true);
+    setStatusNotice("Street View (360° Panorama) activated for this location.");
 
-      if (sv.getVisible()) {
-        sv.setVisible(false);
-        setIsStreetViewActive(false);
-        setStatusNotice("Exited Street View.");
-      } else {
-        const targetLat = coords.latitude;
-        const targetLng = coords.longitude;
-
-        if (window.google?.maps?.StreetViewService) {
-          const svService = new window.google.maps.StreetViewService();
+    if (googleMapRef.current && window.google?.maps) {
+      try {
+        const sv = googleMapRef.current.getStreetView?.();
+        if (sv) {
+          const targetLat = coords.latitude;
+          const targetLng = coords.longitude;
           const targetLatLng = new window.google.maps.LatLng(targetLat, targetLng);
-          svService.getPanorama(
-            {
-              location: targetLatLng,
-              radius: 200,
-              source: window.google.maps.StreetViewSource.DEFAULT,
-            },
-            (data, status) => {
-              if (status === window.google.maps.StreetViewStatus.OK && data?.location?.latLng) {
-                sv.setPano(data.location.pano);
-                sv.setPov({ heading: 0, pitch: 0 });
-                sv.setVisible(true);
-                setIsStreetViewActive(true);
-                setStatusNotice("Street View activated for this location.");
-              } else {
-                sv.setPosition(targetLatLng);
-                sv.setVisible(true);
-                setIsStreetViewActive(true);
-                setStatusNotice("Opening Street View near selected location...");
+
+          if (window.google.maps.StreetViewService) {
+            const svService = new window.google.maps.StreetViewService();
+            svService.getPanorama(
+              {
+                location: targetLatLng,
+                radius: 300,
+                source: window.google.maps.StreetViewSource.DEFAULT,
+              },
+              (data, status) => {
+                if (status === window.google.maps.StreetViewStatus.OK && data?.location?.latLng) {
+                  sv.setPano(data.location.pano);
+                  sv.setPov({ heading: 0, pitch: 0 });
+                  sv.setVisible(true);
+                } else {
+                  sv.setPosition(targetLatLng);
+                  sv.setVisible(true);
+                }
               }
-            }
-          );
-        } else {
-          sv.setPosition({ lat: targetLat, lng: targetLng });
-          sv.setVisible(true);
-          setIsStreetViewActive(true);
+            );
+          } else {
+            sv.setPosition(targetLatLng);
+            sv.setVisible(true);
+          }
         }
+      } catch (err) {
+        console.warn("Street view toggle error:", err);
       }
-    } catch (err) {
-      console.warn("Street view toggle error:", err);
     }
-  }, [coords.latitude, coords.longitude]);
+  }, [isStreetViewActive, coords.latitude, coords.longitude]);
 
   // Toggle Map Type between Roadmap and Satellite/Hybrid (Google Maps + Leaflet)
   const handleToggleMapType = useCallback(() => {
@@ -1341,6 +1344,51 @@ export default function LocationMapModal({
         {/* Interactive Google Map Canvas */}
         <div className="loc-map-canvas-wrapper">
           <div ref={mapContainerRef} className="loc-map-canvas" id="google-map-attendance-canvas" />
+
+          {/* Pegman Street View 360° Interactive Viewer Overlay */}
+          {isStreetViewActive && (
+            <div className="gmap-streetview-overlay">
+              <div className="gmap-streetview-header">
+                <div className="gmap-streetview-header-title">
+                  <PegmanIcon active={true} />
+                  <span>Google Street View (360° Panorama)</span>
+                  <span className="gmap-streetview-coords">
+                    {coords.latitude.toFixed(5)}°, {coords.longitude.toFixed(5)}°
+                  </span>
+                </div>
+                <div className="gmap-streetview-header-actions">
+                  <a
+                    href={`https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${coords.latitude},${coords.longitude}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="gmap-streetview-external-btn"
+                    title="Open Fullscreen Street View in Google Maps"
+                  >
+                    <ExternalLink size={13} />
+                    <span>Full 360°</span>
+                  </a>
+                  <button
+                    type="button"
+                    className="gmap-streetview-close-btn"
+                    onClick={handleToggleStreetView}
+                    title="Exit Street View"
+                  >
+                    <X size={14} />
+                    <span>Exit</span>
+                  </button>
+                </div>
+              </div>
+              <div className="gmap-streetview-frame-container">
+                <iframe
+                  title="Google Street View 360 Panorama"
+                  src={`https://maps.google.com/maps?layer=c&cbll=${coords.latitude},${coords.longitude}&output=svembed`}
+                  className="gmap-streetview-iframe"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              </div>
+            </div>
+          )}
 
           {/* Bottom-Left: Google Maps Type & Layers Widget (User Screenshot) */}
           <div className="gmap-layers-bottom-widget" aria-label="Map Layers & Type">
