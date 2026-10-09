@@ -264,6 +264,11 @@ export default function FacePunchModal({
   const trafficLayerRef = useRef(null);
   const transitLayerRef = useRef(null);
   const bikingLayerRef = useRef(null);
+  const leafletBaseLayerRef = useRef(null);
+  const leafletLabelsLayerRef = useRef(null);
+  const leafletTrafficLayerRef = useRef(null);
+  const leafletTransitLayerRef = useRef(null);
+  const leafletBikingLayerRef = useRef(null);
 
   const [locationStatus, setLocationStatus] = useState("detecting"); // "detecting" | "locked" | "error"
   const [locationError, setLocationError] = useState("");
@@ -352,6 +357,28 @@ export default function FacePunchModal({
     setIsBikingActive(false);
     setIsMoreMenuOpen(false);
     setMapType("roadmap");
+
+    // Clean up Leaflet layers
+    if (leafletTrafficLayerRef.current) {
+      try { leafletTrafficLayerRef.current.remove(); } catch {}
+      leafletTrafficLayerRef.current = null;
+    }
+    if (leafletTransitLayerRef.current) {
+      try { leafletTransitLayerRef.current.remove(); } catch {}
+      leafletTransitLayerRef.current = null;
+    }
+    if (leafletBikingLayerRef.current) {
+      try { leafletBikingLayerRef.current.remove(); } catch {}
+      leafletBikingLayerRef.current = null;
+    }
+    if (leafletLabelsLayerRef.current) {
+      try { leafletLabelsLayerRef.current.remove(); } catch {}
+      leafletLabelsLayerRef.current = null;
+    }
+    if (leafletBaseLayerRef.current) {
+      try { leafletBaseLayerRef.current.remove(); } catch {}
+      leafletBaseLayerRef.current = null;
+    }
 
     if (leafletMapRef.current) {
       try {
@@ -619,10 +646,11 @@ export default function FacePunchModal({
         zoomControl: false,
       });
 
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      const baseLayer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
         maxZoom: 19,
       }).addTo(map);
+      leafletBaseLayerRef.current = baseLayer;
 
       const marker = L.marker([startLat, startLng], {
         icon: createLeafletPinIcon(),
@@ -821,95 +849,197 @@ export default function FacePunchModal({
     }
   }, [coords.latitude, coords.longitude]);
 
-  // Toggle Map Type between Roadmap and Satellite/Hybrid
+  // Toggle Map Type between Roadmap and Satellite/Hybrid (Google Maps + Leaflet)
   const handleToggleMapType = useCallback(() => {
     const isSat = mapType === "hybrid" || mapType === "satellite";
     const nextType = isSat ? "roadmap" : "hybrid";
     setMapType(nextType);
 
+    // 1. Google Maps
     if (googleMapRef.current) {
       googleMapRef.current.setMapTypeId(nextType);
-      setStatusNotice(nextType === "hybrid" ? "Switched to Satellite view." : "Switched to standard Map view.");
-    } else {
-      setStatusNotice(nextType === "hybrid" ? "Satellite mode active." : "Standard map active.");
     }
+
+    // 2. Leaflet Fallback
+    if (leafletMapRef.current) {
+      if (leafletBaseLayerRef.current) {
+        try { leafletBaseLayerRef.current.remove(); } catch {}
+      }
+      if (leafletLabelsLayerRef.current) {
+        try { leafletLabelsLayerRef.current.remove(); } catch {}
+        leafletLabelsLayerRef.current = null;
+      }
+
+      if (nextType === "hybrid") {
+        // High-resolution Esri World Imagery Satellite
+        leafletBaseLayerRef.current = L.tileLayer(
+          "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+          { maxZoom: 19, attribution: "Esri Satellite Imagery" }
+        ).addTo(leafletMapRef.current);
+
+        // Place names, road boundaries and labels overlay
+        leafletLabelsLayerRef.current = L.tileLayer(
+          "https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}",
+          { maxZoom: 19, zIndex: 500 }
+        ).addTo(leafletMapRef.current);
+      } else {
+        // Standard OpenStreetMap
+        leafletBaseLayerRef.current = L.tileLayer(
+          "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+          { maxZoom: 19, attribution: "OpenStreetMap" }
+        ).addTo(leafletMapRef.current);
+      }
+    }
+
+    setStatusNotice(nextType === "hybrid" ? "Satellite view activated." : "Standard Map view activated.");
   }, [mapType]);
 
-  // Toggle Terrain Mode
+  // Toggle Terrain Mode (Google Maps + Leaflet)
   const handleToggleTerrain = useCallback(() => {
     const nextType = mapType === "terrain" ? "roadmap" : "terrain";
     setMapType(nextType);
 
+    // 1. Google Maps
     if (googleMapRef.current) {
       googleMapRef.current.setMapTypeId(nextType);
-      setStatusNotice(nextType === "terrain" ? "Terrain contours layer enabled." : "Terrain disabled.");
     }
+
+    // 2. Leaflet Fallback
+    if (leafletMapRef.current) {
+      if (leafletBaseLayerRef.current) {
+        try { leafletBaseLayerRef.current.remove(); } catch {}
+      }
+      if (leafletLabelsLayerRef.current) {
+        try { leafletLabelsLayerRef.current.remove(); } catch {}
+        leafletLabelsLayerRef.current = null;
+      }
+
+      if (nextType === "terrain") {
+        // Topography and terrain contours
+        leafletBaseLayerRef.current = L.tileLayer(
+          "https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",
+          { maxZoom: 17, attribution: "OpenTopoMap & SRTM Contours" }
+        ).addTo(leafletMapRef.current);
+      } else {
+        leafletBaseLayerRef.current = L.tileLayer(
+          "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+          { maxZoom: 19, attribution: "OpenStreetMap" }
+        ).addTo(leafletMapRef.current);
+      }
+    }
+
+    setStatusNotice(nextType === "terrain" ? "Terrain contours layer enabled." : "Terrain layer disabled.");
   }, [mapType]);
 
-  // Toggle Real-Time Traffic Layer
+  // Toggle Real-Time Traffic Layer (Google Maps + Leaflet)
   const handleToggleTraffic = useCallback(() => {
-    if (!googleMapRef.current || !window.google?.maps) {
-      setStatusNotice("Live traffic requires active Google Maps service.");
-      return;
+    const nextState = !isTrafficActive;
+    setIsTrafficActive(nextState);
+
+    // 1. Google Maps
+    if (googleMapRef.current && window.google?.maps) {
+      if (!trafficLayerRef.current) {
+        trafficLayerRef.current = new window.google.maps.TrafficLayer();
+      }
+      if (nextState) {
+        trafficLayerRef.current.setMap(googleMapRef.current);
+      } else {
+        trafficLayerRef.current.setMap(null);
+      }
     }
 
-    if (!trafficLayerRef.current) {
-      trafficLayerRef.current = new window.google.maps.TrafficLayer();
+    // 2. Leaflet Fallback
+    if (leafletMapRef.current) {
+      if (nextState) {
+        if (!leafletTrafficLayerRef.current) {
+          leafletTrafficLayerRef.current = L.tileLayer(
+            "https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png",
+            { maxZoom: 19, opacity: 0.88, zIndex: 450 }
+          );
+        }
+        leafletTrafficLayerRef.current.addTo(leafletMapRef.current);
+      } else {
+        if (leafletTrafficLayerRef.current) {
+          try { leafletTrafficLayerRef.current.remove(); } catch {}
+        }
+      }
     }
 
-    if (isTrafficActive) {
-      trafficLayerRef.current.setMap(null);
-      setIsTrafficActive(false);
-      setStatusNotice("Traffic layer disabled.");
-    } else {
-      trafficLayerRef.current.setMap(googleMapRef.current);
-      setIsTrafficActive(true);
-      setStatusNotice("Live traffic layer activated (green/yellow/red road congestion).");
-    }
+    setStatusNotice(nextState ? "Live traffic & arterial road layer activated." : "Traffic layer disabled.");
   }, [isTrafficActive]);
 
-  // Toggle Public Transit Layer
+  // Toggle Public Transit Layer (Google Maps + Leaflet)
   const handleToggleTransit = useCallback(() => {
-    if (!googleMapRef.current || !window.google?.maps) {
-      setStatusNotice("Public transit routes require active Google Maps service.");
-      return;
+    const nextState = !isTransitActive;
+    setIsTransitActive(nextState);
+
+    // 1. Google Maps
+    if (googleMapRef.current && window.google?.maps) {
+      if (!transitLayerRef.current) {
+        transitLayerRef.current = new window.google.maps.TransitLayer();
+      }
+      if (nextState) {
+        transitLayerRef.current.setMap(googleMapRef.current);
+      } else {
+        transitLayerRef.current.setMap(null);
+      }
     }
 
-    if (!transitLayerRef.current) {
-      transitLayerRef.current = new window.google.maps.TransitLayer();
+    // 2. Leaflet Fallback
+    if (leafletMapRef.current) {
+      if (nextState) {
+        if (!leafletTransitLayerRef.current) {
+          leafletTransitLayerRef.current = L.tileLayer(
+            "https://{s}.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png",
+            { maxZoom: 19, opacity: 0.92, zIndex: 510 }
+          );
+        }
+        leafletTransitLayerRef.current.addTo(leafletMapRef.current);
+      } else {
+        if (leafletTransitLayerRef.current) {
+          try { leafletTransitLayerRef.current.remove(); } catch {}
+        }
+      }
     }
 
-    if (isTransitActive) {
-      transitLayerRef.current.setMap(null);
-      setIsTransitActive(false);
-      setStatusNotice("Transit layer disabled.");
-    } else {
-      transitLayerRef.current.setMap(googleMapRef.current);
-      setIsTransitActive(true);
-      setStatusNotice("Public transit lines & stations layer activated.");
-    }
+    setStatusNotice(nextState ? "Public transit lines, stations & metro routes activated." : "Transit layer disabled.");
   }, [isTransitActive]);
 
-  // Toggle Bicycling Routes Layer
+  // Toggle Bicycling Routes Layer (Google Maps + Leaflet)
   const handleToggleBiking = useCallback(() => {
-    if (!googleMapRef.current || !window.google?.maps) {
-      setStatusNotice("Biking routes require active Google Maps service.");
-      return;
+    const nextState = !isBikingActive;
+    setIsBikingActive(nextState);
+
+    // 1. Google Maps
+    if (googleMapRef.current && window.google?.maps) {
+      if (!bikingLayerRef.current) {
+        bikingLayerRef.current = new window.google.maps.BicyclingLayer();
+      }
+      if (nextState) {
+        bikingLayerRef.current.setMap(googleMapRef.current);
+      } else {
+        bikingLayerRef.current.setMap(null);
+      }
     }
 
-    if (!bikingLayerRef.current) {
-      bikingLayerRef.current = new window.google.maps.BicyclingLayer();
+    // 2. Leaflet Fallback
+    if (leafletMapRef.current) {
+      if (nextState) {
+        if (!leafletBikingLayerRef.current) {
+          leafletBikingLayerRef.current = L.tileLayer(
+            "https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png",
+            { maxZoom: 18, opacity: 0.88, zIndex: 515 }
+          );
+        }
+        leafletBikingLayerRef.current.addTo(leafletMapRef.current);
+      } else {
+        if (leafletBikingLayerRef.current) {
+          try { leafletBikingLayerRef.current.remove(); } catch {}
+        }
+      }
     }
 
-    if (isBikingActive) {
-      bikingLayerRef.current.setMap(null);
-      setIsBikingActive(false);
-      setStatusNotice("Biking routes layer disabled.");
-    } else {
-      bikingLayerRef.current.setMap(googleMapRef.current);
-      setIsBikingActive(true);
-      setStatusNotice("Bicycling routes & bike paths layer activated.");
-    }
+    setStatusNotice(nextState ? "Bicycling routes & dedicated bike paths layer activated." : "Biking routes disabled.");
   }, [isBikingActive]);
 
   // Toggle More Layers Menu
@@ -917,20 +1047,44 @@ export default function FacePunchModal({
     setIsMoreMenuOpen((prev) => !prev);
   }, []);
 
-  // Reset All Layers
+  // Reset All Layers (Google Maps + Leaflet)
   const handleResetAllLayers = useCallback(() => {
     if (trafficLayerRef.current) {
-      trafficLayerRef.current.setMap(null);
+      try { trafficLayerRef.current.setMap(null); } catch {}
     }
     if (transitLayerRef.current) {
-      transitLayerRef.current.setMap(null);
+      try { transitLayerRef.current.setMap(null); } catch {}
     }
     if (bikingLayerRef.current) {
-      bikingLayerRef.current.setMap(null);
+      try { bikingLayerRef.current.setMap(null); } catch {}
     }
     if (googleMapRef.current) {
       googleMapRef.current.setMapTypeId("roadmap");
     }
+
+    if (leafletMapRef.current) {
+      if (leafletTrafficLayerRef.current) {
+        try { leafletTrafficLayerRef.current.remove(); } catch {}
+      }
+      if (leafletTransitLayerRef.current) {
+        try { leafletTransitLayerRef.current.remove(); } catch {}
+      }
+      if (leafletBikingLayerRef.current) {
+        try { leafletBikingLayerRef.current.remove(); } catch {}
+      }
+      if (leafletLabelsLayerRef.current) {
+        try { leafletLabelsLayerRef.current.remove(); } catch {}
+        leafletLabelsLayerRef.current = null;
+      }
+      if (leafletBaseLayerRef.current) {
+        try { leafletBaseLayerRef.current.remove(); } catch {}
+      }
+      leafletBaseLayerRef.current = L.tileLayer(
+        "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+        { maxZoom: 19, attribution: "OpenStreetMap" }
+      ).addTo(leafletMapRef.current);
+    }
+
     setIsTrafficActive(false);
     setIsTransitActive(false);
     setIsBikingActive(false);
@@ -1637,7 +1791,7 @@ export default function FacePunchModal({
                 {/* More Layers Popup Menu */}
                 {isMoreMenuOpen && (
                   <div className="gmap-more-layers-popup">
-                    <div className="more-popup-title">Map Options</div>
+                    <div className="more-popup-title">Map Layers & Details</div>
                     <button
                       type="button"
                       className="more-popup-option"
@@ -1646,8 +1800,10 @@ export default function FacePunchModal({
                         setIsMoreMenuOpen(false);
                       }}
                     >
-                      <span>Satellite View</span>
-                      <span className="more-option-tag">{mapType === "hybrid" || mapType === "satellite" ? "ON" : "OFF"}</span>
+                      <span>Satellite Aerial</span>
+                      <span className={`more-option-tag ${mapType === "hybrid" || mapType === "satellite" ? "tag-on" : ""}`}>
+                        {mapType === "hybrid" || mapType === "satellite" ? "ON" : "OFF"}
+                      </span>
                     </button>
                     <button
                       type="button"
@@ -1658,11 +1814,53 @@ export default function FacePunchModal({
                       }}
                     >
                       <span>Terrain Contours</span>
-                      <span className="more-option-tag">{mapType === "terrain" ? "ON" : "OFF"}</span>
+                      <span className={`more-option-tag ${mapType === "terrain" ? "tag-on" : ""}`}>
+                        {mapType === "terrain" ? "ON" : "OFF"}
+                      </span>
                     </button>
                     <button
                       type="button"
                       className="more-popup-option"
+                      onClick={() => {
+                        handleToggleTraffic();
+                        setIsMoreMenuOpen(false);
+                      }}
+                    >
+                      <span>Live Traffic</span>
+                      <span className={`more-option-tag ${isTrafficActive ? "tag-on" : ""}`}>
+                        {isTrafficActive ? "ON" : "OFF"}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      className="more-popup-option"
+                      onClick={() => {
+                        handleToggleTransit();
+                        setIsMoreMenuOpen(false);
+                      }}
+                    >
+                      <span>Public Transit</span>
+                      <span className={`more-option-tag ${isTransitActive ? "tag-on" : ""}`}>
+                        {isTransitActive ? "ON" : "OFF"}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      className="more-popup-option"
+                      onClick={() => {
+                        handleToggleBiking();
+                        setIsMoreMenuOpen(false);
+                      }}
+                    >
+                      <span>Biking Routes</span>
+                      <span className={`more-option-tag ${isBikingActive ? "tag-on" : ""}`}>
+                        {isBikingActive ? "ON" : "OFF"}
+                      </span>
+                    </button>
+                    <div className="more-popup-divider" />
+                    <button
+                      type="button"
+                      className="more-popup-option more-popup-reset"
                       onClick={handleResetAllLayers}
                     >
                       <span>Reset All Layers</span>
