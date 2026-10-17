@@ -2947,8 +2947,8 @@
 .theme-purple .zenve-card-submit-btn {
   height: 44px !important;
   border-radius: 10px !important;
-  background: linear-gradient(90deg, #4c1d95 0%, #581c87 46%, #ea580c 54%, #c2410c 100%) !important;
-  box-shadow: 0 4px 16px rgba(76, 29, 149, 0.35), 0 4px 16px rgba(194, 65, 12, 0.35) !important;
+  background: linear-gradient(90deg, #7026f9 0%, #8222e8 25%, #a827c1 45%, #c6319d 60%, #ed4c5b 78%, #fd7431 92%, #ff8d29 100%) !important;
+  box-shadow: 0 4px 18px rgba(118, 38, 249, 0.38), 0 4px 18px rgba(253, 116, 49, 0.38) !important;
   color: #ffffff !important;
   font-weight: 800 !important;
   font-size: 0.96rem !important;
@@ -2962,9 +2962,9 @@
 }
 
 .theme-purple .zenve-card-submit-btn:hover {
-  background: linear-gradient(90deg, #3b0764 0%, #4c1d95 46%, #c2410c 54%, #9a3412 100%) !important;
+  background: linear-gradient(90deg, #601ee0 0%, #721bd4 25%, #941faf 45%, #b2278b 60%, #d83d4c 78%, #e86221 92%, #f27c1a 100%) !important;
   transform: translateY(-1px) !important;
-  box-shadow: 0 6px 20px rgba(76, 29, 149, 0.45), 0 6px 20px rgba(194, 65, 12, 0.45) !important;
+  box-shadow: 0 6px 22px rgba(118, 38, 249, 0.48), 0 6px 22px rgba(253, 116, 49, 0.48) !important;
 }
 
 /* Regional Manager Switch Button & Divider */
