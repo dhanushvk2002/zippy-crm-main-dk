@@ -15,6 +15,14 @@
   margin-bottom: 6px;
 }
 
+.dash-hero-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+
 .dash-export-btn {
   height: 32px;
   padding: 0 16px;

@@ -1,0 +1,1057 @@
+/* ==========================================================================
+   Zenve Zippy - Veterinary CRM Authentication Interface
+   Matching Reference Layout, Hero Cards, Accents & Doodles
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+.zzc-split-auth-container {
+  display: flex;
+  width: 100vw;
+  min-height: 100vh;
+  background-color: #f4f8f6;
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  overflow-x: hidden;
+  position: relative;
+}
+
+/* --------------------------------------------------------------------------
+   LEFT HERO PANEL (DEEP TEAL / VETERINARY SHOWCASE)
+   -------------------------------------------------------------------------- */
+.zzc-auth-hero-panel {
+  position: relative;
+  flex: 1.35;
+  min-height: 100vh;
+  background: linear-gradient(140deg, #05261f 0%, #08382f 50%, #052720 100%);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 38px 44px;
+  overflow: hidden;
+  border-right: none;
+}
+
+/* Background Image: Vet Doctor with Golden Retriever & Kitten - Right-Aligned against Line */
+.zzc-hero-bg-image {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: right center;
+  z-index: 1;
+  opacity: 1;
+  filter: contrast(1.02) saturate(1.05);
+  image-rendering: -webkit-optimize-contrast;
+  pointer-events: none;
+}
+
+.zzc-hero-bg-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background:
+    linear-gradient(to right,
+      #05261f 0%,
+      rgba(5, 38, 31, 0.98) 26%,
+      rgba(5, 38, 31, 0.90) 38%,
+      rgba(5, 38, 31, 0.35) 52%,
+      rgba(5, 38, 31, 0) 65%,
+      transparent 100%),
+    linear-gradient(to top,
+      rgba(5, 38, 31, 0.35) 0%,
+      transparent 25%);
+  pointer-events: none;
+}
+
+.zzc-hero-content-wrapper {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 100%;
+  width: 100%;
+  max-width: 410px;
+}
+
+/* Brand Header */
+.zzc-hero-brand-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.zzc-brand-logo-container {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  filter: drop-shadow(0 4px 14px rgba(0, 0, 0, 0.45));
+}
+
+.zzc-brand-logo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.zzc-hero-brand-text h2 {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #ffffff;
+  margin: 0;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+.zzc-hero-brand-text span {
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: #7ddbc7;
+  letter-spacing: 0.02em;
+}
+
+/* Hero Body */
+.zzc-hero-body {
+  margin: 30px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.zzc-hero-headline {
+  font-size: 2.25rem;
+  font-weight: 800;
+  line-height: 1.18;
+  color: #ffffff;
+  letter-spacing: -0.035em;
+  margin: 0;
+  max-width: 390px;
+}
+
+.zzc-highlight-keyword {
+  color: #00c49f;
+  display: inline-block;
+  position: relative;
+}
+
+.zzc-hero-description {
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: #b0d2cb;
+  margin: 0;
+  max-width: 380px;
+}
+
+/* 3 Featured Pill Cards */
+.zzc-hero-features-list {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  margin-top: 10px;
+}
+
+.zzc-hero-feature-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  max-width: 380px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.zzc-hero-feature-card:hover {
+  transform: translateY(-2px) translateX(3px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+}
+
+/* Card Themes */
+.zzc-card-mint {
+  background: #ebf7f4;
+  border: 1px solid #c9ede2;
+}
+
+.zzc-card-mint .zzc-feature-text strong {
+  color: #0b352c;
+}
+
+.zzc-card-mint .zzc-feature-text span {
+  color: #3b665c;
+}
+
+.zzc-card-mint .zzc-card-arrow-circle {
+  background: #d5efe7;
+  color: #007a63;
+}
+
+.zzc-card-lavender {
+  background: #f4f3fb;
+  border: 1px solid #e1def8;
+}
+
+.zzc-card-lavender .zzc-feature-text strong {
+  color: #1e183a;
+}
+
+.zzc-card-lavender .zzc-feature-text span {
+  color: #554f73;
+}
+
+.zzc-card-lavender .zzc-card-arrow-circle {
+  background: #e3dff6;
+  color: #6d28d9;
+}
+
+.zzc-card-amber {
+  background: #fff9ed;
+  border: 1px solid #fae8c8;
+}
+
+.zzc-card-amber .zzc-feature-text strong {
+  color: #38290a;
+}
+
+.zzc-card-amber .zzc-feature-text span {
+  color: #6e5828;
+}
+
+.zzc-card-amber .zzc-card-arrow-circle {
+  background: #fde8bc;
+  color: #b45309;
+}
+
+.zzc-feature-icon-box {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.zzc-icon-teal {
+  background: #008e75;
+}
+
+.zzc-icon-purple {
+  background: #7c3aed;
+}
+
+.zzc-icon-amber {
+  background: #f59e0b;
+}
+
+.zzc-feature-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.zzc-feature-text strong {
+  font-size: 0.90rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.zzc-feature-text span {
+  font-size: 0.77rem;
+  font-weight: 500;
+}
+
+.zzc-card-arrow-circle {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.zzc-hero-feature-card:hover .zzc-card-arrow-circle {
+  transform: translateX(2px);
+}
+
+/* Hero Footer */
+.zzc-hero-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.78rem;
+  color: #88aea5;
+  padding-top: 14px;
+}
+
+.zzc-footer-trust {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.zzc-shield-icon {
+  color: #00c49f;
+}
+
+
+
+/* --------------------------------------------------------------------------
+   RIGHT FORM PANEL (LIGHT THEME & PLAYFUL DOODLES)
+   -------------------------------------------------------------------------- */
+.zzc-auth-form-panel {
+  flex: 0.88;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 28px;
+  background-color: #f4f8f6;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Floating Top-Right Doodles */
+.zzc-doodle-top-right {
+  position: absolute;
+  top: 32px;
+  right: 40px;
+  text-align: right;
+  font-family: 'Caveat', cursive;
+  color: #00876c;
+  transform: rotate(-6deg);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.zzc-doodle-handwriting {
+  font-size: 1.45rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.zzc-doodle-handwriting-sub {
+  font-size: 1.45rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.zzc-doodle-heart {
+  color: #00876c;
+  display: inline-block;
+  margin-left: 2px;
+}
+
+.zzc-doodle-curve {
+  width: 90px;
+  height: 16px;
+  margin-top: -2px;
+}
+
+/* Background floating faint paws */
+.zzc-bg-floating-paw {
+  position: absolute;
+  color: #cde6de;
+  opacity: 0.65;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.zzc-paw-1 {
+  top: 180px;
+  right: 64px;
+  transform: rotate(25deg);
+}
+
+.zzc-paw-2 {
+  bottom: 220px;
+  right: 64px;
+  transform: rotate(-15deg);
+}
+
+/* Bottom Right Puppy/Kitten Doodle Mascot */
+.zzc-doodle-bottom-right {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.zzc-mascot-circle {
+  width: 130px;
+  height: 130px;
+  border-radius: 90px 0 0 0;
+  background: #d8eee7;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  padding: 8px 8px 0 0;
+}
+
+.zzc-mascot-svg {
+  width: 95px;
+  height: 95px;
+}
+
+/* Centered Form Card - Beautiful & Comfortable Size */
+.zzc-form-center-box {
+  width: 100%;
+  max-width: 410px;
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  padding: 34px 32px 28px 32px;
+  border-radius: 20px;
+  border: 1px solid #e2ece7;
+  box-shadow: 0 14px 40px -10px rgba(10, 45, 38, 0.09);
+  position: relative;
+  z-index: 2;
+  animation: zzcFormSlideUp 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes zzcFormSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Brand Header Inside Card */
+.zzc-card-brand-top {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.zzc-card-paw-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.zzc-card-brand-title {
+  text-align: center;
+}
+
+.zzc-card-brand-title h3 {
+  font-size: 1.42rem;
+  font-weight: 800;
+  color: #0e2a24;
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+
+.zzc-zippy-accent {
+  color: #00b08b;
+}
+
+.zzc-card-brand-title p {
+  font-size: 0.80rem;
+  color: #55756d;
+  font-weight: 500;
+  margin: 4px 0 0 0;
+}
+
+/* Form Header */
+.zzc-form-header {
+  text-align: center;
+  margin-bottom: 22px;
+}
+
+.zzc-welcome-title {
+  font-size: 1.7rem;
+  font-weight: 800;
+  color: #0e2a24;
+  letter-spacing: -0.025em;
+  margin: 0;
+}
+
+.zzc-welcome-subtitle {
+  font-size: 0.82rem;
+  color: #5e7c75;
+  margin: 4px 0 0 0;
+}
+
+/* Login Mode Switcher Tabs */
+.zzc-login-mode-tabs {
+  display: flex;
+  background: #edf5f1;
+  padding: 4px;
+  border-radius: 12px;
+  margin-bottom: 18px;
+  border: 1px solid #d9ebe2;
+  gap: 4px;
+}
+
+.zzc-mode-tab-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 9px 12px;
+  border: none;
+  background: transparent;
+  border-radius: 9px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: #55756d;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.zzc-mode-tab-btn:hover {
+  color: #0b2e26;
+}
+
+.zzc-mode-tab-btn.active {
+  background: #ffffff;
+  color: #00876c;
+  box-shadow: 0 2px 8px rgba(0, 135, 108, 0.12);
+  font-weight: 700;
+}
+
+/* Info Alert */
+.zzc-auth-alert-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background-color: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  color: #047857;
+  padding: 10px 14px;
+  border-radius: 11px;
+  font-size: 0.84rem;
+  font-weight: 500;
+  margin-bottom: 16px;
+  animation: zzcAlertSlide 0.25s ease-out;
+}
+
+.zzc-info-icon {
+  flex-shrink: 0;
+  color: #059669;
+}
+
+@keyframes zzcAlertSlide {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Error Alert */
+.zzc-auth-alert-error {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  padding: 11px 15px;
+  border-radius: 11px;
+  font-size: 0.86rem;
+  font-weight: 500;
+  margin-bottom: 16px;
+  animation: zzcShake 0.3s ease-in-out;
+}
+
+
+@keyframes zzcShake {
+
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  25% {
+    transform: translateX(-4px);
+  }
+
+  75% {
+    transform: translateX(4px);
+  }
+}
+
+.zzc-alert-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  background-color: #ef4444;
+  color: #ffffff;
+  border-radius: 50%;
+  font-weight: 700;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+/* Form Fields */
+.zzc-login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.zzc-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.zzc-field-group label {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #17362f;
+}
+
+.zzc-required-asterisk {
+  color: #ef4444;
+}
+
+.zzc-field-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.zzc-capslock-warning {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #d97706;
+  background: #fef3c7;
+  padding: 2px 7px;
+  border-radius: 5px;
+}
+
+.zzc-input-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.zzc-input-left-icon {
+  position: absolute;
+  left: 14px;
+  color: #8da49c;
+  pointer-events: none;
+  transition: color 0.2s ease;
+}
+
+.zzc-input-container input {
+  width: 100%;
+  height: 46px;
+  padding: 0 42px 0 42px;
+  background: #ffffff;
+  border: 1.5px solid #d4e3dc;
+  border-radius: 11px;
+  font-size: 0.94rem;
+  color: #0e2a24;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.zzc-input-container input::placeholder {
+  color: #a0b8b0;
+  font-size: 0.90rem;
+}
+
+.zzc-input-container input:hover:not(:disabled) {
+  border-color: #00967a;
+}
+
+.zzc-input-container input:focus {
+  border-color: #00967a;
+  box-shadow: 0 0 0 3.5px rgba(0, 150, 122, 0.16);
+}
+
+.zzc-input-container:focus-within .zzc-input-left-icon {
+  color: #00967a;
+}
+
+.zzc-password-eye-btn {
+  position: absolute;
+  right: 12px;
+  background: transparent;
+  border: none;
+  color: #8da49c;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px;
+  border-radius: 6px;
+  transition: color 0.2s ease;
+}
+
+.zzc-password-eye-btn:hover {
+  color: #0e2a24;
+}
+
+/* Primary Sign In Button */
+.zzc-signin-btn {
+  height: 48px;
+  width: 100%;
+  margin-top: 4px;
+  background: linear-gradient(135deg, #00876c 0%, #009c7d 100%);
+  color: #ffffff;
+  border: none;
+  border-radius: 11px;
+  font-size: 0.98rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 14px -2px rgba(0, 135, 108, 0.35);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.zzc-signin-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #00705a 0%, #00876c 100%);
+  box-shadow: 0 6px 20px -2px rgba(0, 135, 108, 0.5);
+  transform: translateY(-1.5px);
+}
+
+.zzc-signin-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.zzc-signin-btn:disabled {
+  opacity: 0.75;
+  cursor: not-allowed;
+}
+
+.zzc-btn-success {
+  background: linear-gradient(135deg, #059669 0%, #10b981 100%) !important;
+  box-shadow: 0 4px 14px -2px rgba(16, 185, 129, 0.45) !important;
+}
+
+.zzc-btn-text-content {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.zzc-btn-loading-content {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 500;
+}
+
+.zzc-spinner-circle {
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: zzcSpin 0.75s linear infinite;
+}
+
+@keyframes zzcSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Social Buttons & Divider */
+.zzc-social-divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  margin: 20px 0 16px 0;
+  color: #7b9991;
+  font-size: 0.78rem;
+}
+
+.zzc-social-divider::before,
+.zzc-social-divider::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px solid #e2ebe6;
+}
+
+.zzc-social-divider span {
+  padding: 0 12px;
+}
+
+.zzc-social-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.zzc-social-btn {
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: #ffffff;
+  border: 1px solid #d8e6df;
+  border-radius: 10px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: #233f38;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.zzc-social-btn:hover {
+  background: #f7fbf9;
+  border-color: #00967a;
+  transform: translateY(-1px);
+}
+
+/* --------------------------------------------------------------------------
+   MOBILE LOGIN & OTP VERIFICATION STYLES
+   -------------------------------------------------------------------------- */
+.zzc-mobile-step-form,
+.zzc-otp-verify-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.zzc-phone-input-container {
+  padding-left: 0 !important;
+}
+
+.zzc-phone-prefix {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px 0 14px;
+  height: 100%;
+  border-right: 1.5px solid #d4e3dc;
+  background: #f7faf9;
+  border-top-left-radius: 10px;
+  border-bottom-left-radius: 10px;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.zzc-flag-icon {
+  font-size: 1.05rem;
+  line-height: 1;
+}
+
+.zzc-code-text {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #17362f;
+  letter-spacing: -0.01em;
+}
+
+.zzc-phone-input-container input {
+  padding-left: 14px !important;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.zzc-field-hint {
+  font-size: 0.77rem;
+  color: #64817a;
+  margin-top: 3px;
+  line-height: 1.35;
+}
+
+/* Phone Target Badge in OTP Step */
+.zzc-phone-badge-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #f0fdf9;
+  border: 1px solid #cceee4;
+  padding: 9px 13px;
+  border-radius: 10px;
+}
+
+.zzc-phone-target {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.83rem;
+  color: #164e43;
+}
+
+.zzc-phone-target strong {
+  color: #064e3b;
+  font-weight: 700;
+}
+
+.zzc-change-phone-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  border: none;
+  color: #00876c;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: all 0.15s ease;
+}
+
+.zzc-change-phone-btn:hover {
+  background: #def7ee;
+  color: #006853;
+}
+
+/* 6-Digit OTP Boxes */
+.zzc-otp-boxes-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.zzc-otp-box {
+  width: 100%;
+  height: 52px;
+  text-align: center;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #0e2a24;
+  background: #ffffff;
+  border: 1.5px solid #d4e3dc;
+  border-radius: 11px;
+  outline: none;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.zzc-otp-box:hover:not(:disabled) {
+  border-color: #00967a;
+}
+
+.zzc-otp-box:focus {
+  border-color: #00967a;
+  box-shadow: 0 0 0 3.5px rgba(0, 150, 122, 0.18);
+  transform: translateY(-2px);
+}
+
+.zzc-otp-box.filled {
+  border-color: #00967a;
+  background: #f8fdfb;
+  color: #007a63;
+}
+
+/* Resend Row */
+.zzc-otp-resend-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 24px;
+  margin: 2px 0;
+}
+
+.zzc-otp-timer-text {
+  font-size: 0.82rem;
+  color: #64817a;
+}
+
+.zzc-otp-timer-text strong {
+  color: #00876c;
+  font-weight: 700;
+}
+
+.zzc-resend-otp-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  color: #00876c;
+  font-size: 0.83rem;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 4px 10px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.zzc-resend-otp-btn:hover {
+  background: #e6f6f1;
+  color: #006853;
+}
+
+/* Demo Helper Banner */
+.zzc-demo-otp-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fefce8;
+  border: 1px dashed #eab308;
+  color: #854d0e;
+  padding: 7px 12px;
+  border-radius: 8px;
+  font-size: 0.79rem;
+  text-align: center;
+}
+
+.zzc-demo-otp-banner strong {
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #713f12;
+  margin-left: 4px;
+}
+
+
+
+
+/* --------------------------------------------------------------------------
+   RESPONSIVE LAYOUT
+   -------------------------------------------------------------------------- */
+@media (max-width: 1024px) {
+  .zzc-split-auth-container {
+    flex-direction: column;
+  }
+
+  .zzc-auth-hero-panel {
+    min-height: auto;
+    padding: 32px 24px;
+  }
+
+  .zzc-hero-bg-image {
+    width: 100%;
+    opacity: 0.35;
+  }
+
+  .zzc-auth-form-panel {
+    min-height: 100vh;
+    padding: 32px 20px;
+  }
+
+  .zzc-doodle-top-right,
+  .zzc-doodle-bottom-right {
+    display: none;
+  }
+}

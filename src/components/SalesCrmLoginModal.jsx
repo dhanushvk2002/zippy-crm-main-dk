@@ -8,70 +8,198 @@ import {
   loginWithMobileOtp,
 } from "../api.js";
 import { getFreshExecutiveLocation } from "../geoUtils.js";
-import logo from "../assets/zenve-zippy-logo.png";
+import execHeroImg from "../assets/sales-exec-perfect.jpg";
+import managerHeroImg from "../assets/manager-hero-clear.png";
+import regionalHeroImg from "../assets/regional-hero.jpg";
+import managerMascotImg from "../assets/manager-mascot-perfect.png";
+import salesManagerLeftFullImg from "../assets/sales-manager-left-full.png";
+import regionalLeftFullImg from "../assets/regional-left-full.jpg";
+import zenveZippyLogoImg from "../assets/zenve-zippy-logo.png";
 import {
-  Briefcase,
-  UserCheck,
-  Globe,
-  User,
+  Users,
+  TrendingUp,
+  Target,
+  FileText,
+  MapPin,
+  ArrowRight,
+  ChevronRight,
+  Smartphone,
+  Mail,
   Lock,
   Eye,
   EyeOff,
-  ArrowRight,
-  X,
   ShieldCheck,
+  ChevronDown,
   Check,
-  Smartphone,
   KeyRound,
-  Phone,
+  Briefcase,
+  UserCheck,
+  Globe,
+  ArrowLeft,
+  AlertCircle,
 } from "lucide-react";
 import "./SalesCrmLoginModal.css";
+
+function PawIcon({ size = 26, color = "#0077e6", className = "" }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill={color}
+      className={className}
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path d="M12 11c-2.2 0-4.3 1.6-4.3 4.1 0 2.1 1.7 3.5 4.3 3.5s4.3-1.4 4.3-3.5c0-2.5-2.1-4.1-4.3-4.1z" />
+      <circle cx="5.6" cy="10.2" r="1.9" />
+      <circle cx="9.3" cy="6.2" r="1.9" />
+      <circle cx="14.7" cy="6.2" r="1.9" />
+      <circle cx="18.4" cy="10.2" r="1.9" />
+    </svg>
+  );
+}
+
+function ExecTeamIcon({ size = 24, color = "#0077e6" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      {/* Central user */}
+      <circle cx="12" cy="7" r="3.2" fill={color} />
+      <path d="M6.5 18c0-3 2.5-5.2 5.5-5.2s5.5 2.2 5.5 5.2" fill={color} />
+      {/* Left user */}
+      <circle cx="5.5" cy="9.5" r="2.2" fill={color} opacity="0.9" />
+      <path d="M1.5 17.5c0-2.2 1.8-3.8 4-3.8.7 0 1.4.2 2 .5-.5 1-.8 2.2-.8 3.3H1.5z" fill={color} opacity="0.9" />
+      {/* Right user */}
+      <circle cx="18.5" cy="9.5" r="2.2" fill={color} opacity="0.9" />
+      <path d="M22.5 17.5c0-2.2-1.8-3.8-4-3.8-.7 0-1.4.2-2 .5.5 1 .8 2.2.8 3.3h5.2z" fill={color} opacity="0.9" />
+    </svg>
+  );
+}
+
+function ExecChartIcon({ size = 24, color = "#0077e6" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      {/* 3 Growth Bar Columns */}
+      <rect x="3.5" y="14" width="3.8" height="6.5" rx="1" fill={color} />
+      <rect x="10" y="10" width="3.8" height="10.5" rx="1" fill={color} />
+      <rect x="16.5" y="6" width="3.8" height="14.5" rx="1" fill={color} />
+      {/* Trend Arrow Up Right */}
+      <path d="M4 10.5L10 6L14 9L20 3.5" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M16.5 3.5H20V7" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function ExecTargetIcon({ size = 24, color = "#0077e6" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      {/* Outer target ring */}
+      <circle cx="12" cy="12" r="8.5" stroke={color} strokeWidth="2.4" />
+      {/* Middle ring */}
+      <circle cx="12" cy="12" r="4.8" stroke={color} strokeWidth="2.2" />
+      {/* Center bullseye dot */}
+      <circle cx="12" cy="12" r="2.2" fill={color} />
+      {/* Diagonal Dart hitting bullseye */}
+      <path d="M13.5 10.5L19.5 4.5" stroke={color} strokeWidth="2.4" strokeLinecap="round" />
+      <path d="M17 4H20V7" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function ExecDocIcon({ size = 24, color = "#0077e6" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      {/* Document page with folded/notched bottom corner */}
+      <path
+        d="M6 3.5h12a2 2 0 012 2v11l-4 4H6a2 2 0 01-2-2v-13a2 2 0 012-2z"
+        fill={color}
+      />
+      {/* 3 Text lines */}
+      <rect x="7.5" y="7.5" width="9" height="1.8" rx="0.9" fill="#ffffff" />
+      <rect x="7.5" y="11" width="9" height="1.8" rx="0.9" fill="#ffffff" />
+      <rect x="7.5" y="14.5" width="5.5" height="1.8" rx="0.9" fill="#ffffff" />
+    </svg>
+  );
+}
 
 const ROLES_INFO = {
   executive: {
     key: "executive",
+    theme: "theme-blue",
     title: "Sales Executive",
-    shortTitle: "Executive",
-    badge: "Field Operations",
-    icon: Briefcase,
+    portalTitle: "Sales Executive Portal",
+    subBadge: "Field Sales & Territory OS",
+    welcomeTitle: "Welcome Sales Executive",
+    welcomeBack: "Welcome Back!",
+    subtitle: "",
+    rightSubtitle: "Choose your preferred login method to access your dashboard.",
+    headlinePart1: "Drive Sales.",
+    headlinePart2: "Build Relationships.",
+    headlineAccent: "For a Healthier\nTomorrow.",
+    pillars: [
+      { icon: ExecTeamIcon, title: "Track Leads", desc: "", colorTheme: "mint" },
+      { icon: ExecChartIcon, title: "Stay Productive", desc: "", colorTheme: "lavender" },
+      { icon: ExecTargetIcon, title: "Achieve More", desc: "", colorTheme: "amber" },
+    ],
+    chips: [],
+    quote: "“Together for\nHappier, Healthier Pets.”",
+    footerText: "Secure Field Operations Management",
     tableKey: "sales_executives",
-    themeClass: "role-executive",
-    accentColor: "#0284c7",
-    accentBg: "rgba(2, 132, 199, 0.08)",
-    accentBorder: "rgba(2, 132, 199, 0.22)",
-    accentRing: "rgba(2, 132, 199, 0.18)",
-    accentGradient: "linear-gradient(135deg, #0284c7 0%, #0369a1 100%)",
-    desc: "Manage doctor visits, pre/post call reports & monthly targets.",
+    accentColor: "#0077e6",
+    heroImg: execHeroImg,
+    icon: Briefcase,
   },
   manager: {
     key: "manager",
+    theme: "theme-green",
     title: "Sales Manager",
-    shortTitle: "Manager",
-    badge: "Team Management",
-    icon: UserCheck,
+    portalTitle: "Sales Manager Portal",
+    subBadge: "Team Leadership & Approvals OS",
+    welcomeTitle: "Sales Manager Portal",
+    welcomeBack: "Welcome Back!",
+    subtitle: "",
+    rightSubtitle: "Choose your preferred login method to access your dashboard.",
+    headlinePart1: "Lead Teams.",
+    headlinePart2: "Drive Growth.",
+    headlineAccent: "Make a Bigger\nImpact.",
+    accentColor: "#059669",
+    pillars: [
+      { icon: ExecTeamIcon, title: "Team Leadership", desc: "" },
+      { icon: ExecChartIcon, title: "Performance & Growth", desc: "" },
+      { icon: ExecTargetIcon, title: "Target & Opportunities", desc: "" },
+      { icon: ExecDocIcon, title: "Reports & Approvals", desc: "" },
+    ],
+    chips: [],
+    quote: "“Empowering Teams for\nHealthier Pets Nationwide.”",
+    footerText: "Secure and convenient login with OTP.",
     tableKey: "sales_managers",
-    themeClass: "role-manager",
-    accentColor: "#2563eb",
-    accentBg: "rgba(37, 99, 235, 0.08)",
-    accentBorder: "rgba(37, 99, 235, 0.22)",
-    accentRing: "rgba(37, 99, 235, 0.18)",
-    accentGradient: "linear-gradient(135deg, #2563eb 0%, #3b82f6 100%)",
-    desc: "Review executive performance, approve daily reports & monitor teams.",
+    heroImg: managerHeroImg,
+    icon: UserCheck,
   },
   regional: {
     key: "regional",
+    theme: "theme-purple",
     title: "Regional Manager",
-    shortTitle: "Regional",
-    badge: "Regional Command",
-    icon: Globe,
+    portalTitle: "Regional Manager Portal",
+    subBadge: "Strategic Command & Territory OS",
+    welcomeTitle: "Regional Manager Portal",
+    welcomeBack: "Welcome Back!",
+    subtitle: "",
+    rightSubtitle: "Choose your preferred login method to access your dashboard.",
+    headlinePart1: "Manage Regions.",
+    headlinePart2: "Empower",
+    headlineAccent: "Pet Care.",
+    pillars: [
+      { icon: ExecChartIcon, title: "Regional Performance", desc: "" },
+      { icon: ExecTeamIcon, title: "Team Management", desc: "" },
+      { icon: MapPin, title: "Growth Opportunities", desc: "" },
+    ],
+    chips: [],
+    quote: "",
+    footerText: "Secure Access for Regional Managers",
     tableKey: "regional_managers",
-    themeClass: "role-regional",
-    accentColor: "#7c3aed",
-    accentBg: "rgba(124, 58, 237, 0.08)",
-    accentBorder: "rgba(124, 58, 237, 0.22)",
-    accentRing: "rgba(124, 58, 237, 0.18)",
-    accentGradient: "linear-gradient(135deg, #7c3aed 0%, #8b5cf6 100%)",
-    desc: "High-level overview, target setting, regional analytics & plan approvals.",
+    accentColor: "#a855f7",
+    heroImg: regionalHeroImg,
+    icon: Globe,
   },
 };
 
@@ -81,59 +209,97 @@ export default function SalesCrmLoginModal({
   onClose,
   onLoginSuccess,
 }) {
-  const [currentRole, setCurrentRole] = useState(initialRole || "executive");
-  const [loginMethod, setLoginMethod] = useState("mobile"); // "mobile" | "password"
+  const [activeRole, setActiveRole] = useState(
+    initialRole && ROLES_INFO[initialRole] ? initialRole : "executive"
+  );
 
-  // Mobile OTP States
+  // Sync if initialRole changes and always reset inputs so no old credentials persist
+  useEffect(() => {
+    if (initialRole && ROLES_INFO[initialRole]) {
+      setActiveRole(initialRole);
+    }
+    setUsername("");
+    setPassword("");
+    setPhone("");
+    setOtp("");
+    setOtpSent(false);
+    setError("");
+    setSuccessMsg("");
+  }, [initialRole, isOpen]);
+
+  // Reset inputs when active role tab is switched
+  useEffect(() => {
+    setUsername("");
+    setPassword("");
+    setPhone("");
+    setOtp("");
+    setOtpSent(false);
+    setError("");
+    setSuccessMsg("");
+  }, [activeRole]);
+
+  const currentRole = activeRole;
+
+  // Auth Mode: "email" (Email / Password) or "mobile" (Mobile OTP)
+  const [authMode, setAuthMode] = useState("email");
+  const [rememberMe, setRememberMe] = useState(false);
+
+  // Mobile OTP states
   const [phone, setPhone] = useState("");
+  const countryCode = "+91";
   const [otp, setOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   const [otpLoading, setOtpLoading] = useState(false);
   const [otpCountdown, setOtpCountdown] = useState(0);
 
-  // Password States
+  // Email / Password states
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(true);
-  const [loading, setLoading] = useState(false);
+
+  // General feedback & loading
+  const [mobileLoading, setMobileLoading] = useState(false);
+  const [passwordLoading, setPasswordLoading] = useState(false);
   const [error, setError] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
   const [usersList, setUsersList] = useState([]);
-  const [selectedUser, setSelectedUser] = useState(null);
 
-  const [prevInitialRole, setPrevInitialRole] = useState(initialRole);
-  const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
-
-  if (initialRole !== prevInitialRole) {
-    setPrevInitialRole(initialRole);
-    if (initialRole && ROLES_INFO[initialRole]) {
-      setCurrentRole(initialRole);
-    }
-  }
-
-  if (isOpen !== prevIsOpen) {
-    setPrevIsOpen(isOpen);
-    if (isOpen) {
-      setUsername("");
-      setPassword("");
-      setPhone("");
-      setOtp("");
-      setOtpSent(false);
-      setOtpCountdown(0);
-      setError("");
-      setSelectedUser(null);
-    }
-  }
-
-  const usernameInputRef = useRef(null);
   const phoneInputRef = useRef(null);
-  const roleConfig = ROLES_INFO[currentRole] || ROLES_INFO.executive;
-  const RoleIcon = roleConfig.icon;
+  const emailInputRef = useRef(null);
+  const leftPanelRef = useRef(null);
 
-  // Load available users for authentication
+  // Interactive Parallax, Dynamic Light Spotlight & Paw Ripples
+  const [mouseCoords, setMouseCoords] = useState({ x: 0, y: 0, px: 50, py: 50 });
+  const [activeBadge, setActiveBadge] = useState(null);
+  const [pawsRipples, setPawsRipples] = useState([]);
+
+  function handleLeftMouseMove(e) {
+    // Parallax disabled to keep image perfectly still and stable without shaking
+  }
+
+  function handleLeftMouseLeave() {
+    // Keep still
+  }
+
+  function handleLeftClick(e) {
+    if (!leftPanelRef.current) return;
+    const rect = leftPanelRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const ripple = { id: Date.now() + Math.random(), x, y };
+    setPawsRipples((prev) => [...prev.slice(-3), ripple]);
+    setTimeout(() => {
+      setPawsRipples((prev) => prev.filter((r) => r.id !== ripple.id));
+    }, 900);
+  }
+
+  const roleConfig = ROLES_INFO[currentRole] || ROLES_INFO.executive;
+  const isManagerRole = currentRole === "manager";
+  const isRegionalRole = currentRole === "regional";
+
+  // Load registered users for the active role
   useEffect(() => {
     if (!isOpen) return;
-
     let cancelled = false;
     async function loadRoleUsers() {
       try {
@@ -151,25 +317,12 @@ export default function SalesCrmLoginModal({
     };
   }, [isOpen, roleConfig.tableKey]);
 
-  // Focus input when opened or method changed
-  useEffect(() => {
-    if (isOpen) {
-      setTimeout(() => {
-        if (loginMethod === "mobile" && phoneInputRef.current) {
-          phoneInputRef.current.focus();
-        } else if (loginMethod === "password" && usernameInputRef.current) {
-          usernameInputRef.current.focus();
-        }
-      }, 120);
-    }
-  }, [isOpen, currentRole, loginMethod]);
-
-  // OTP Countdown Timer
+  // Countdown timer for OTP
   useEffect(() => {
     let timer;
     if (otpCountdown > 0) {
       timer = setInterval(() => {
-        setOtpCountdown((prev) => prev - 1);
+        setOtpCountdown((p) => p - 1);
       }, 1000);
     }
     return () => clearInterval(timer);
@@ -177,46 +330,10 @@ export default function SalesCrmLoginModal({
 
   if (!isOpen) return null;
 
-  function handleUsernameChange(val) {
-    setUsername(val);
-    setError("");
-    const clean = val.trim().toLowerCase();
-    if (!clean) {
-      setSelectedUser(null);
-      return;
-    }
-
-    const match = usersList.find((u) => {
-      const emailLower = (u.email || "").trim().toLowerCase();
-      const nameLower = (u.name || "").trim().toLowerCase();
-      const codeLower = (u.code || "").trim().toLowerCase();
-      const phoneStr = String(u.phone || "").trim();
-      return (
-        emailLower === clean ||
-        nameLower === clean ||
-        codeLower === clean ||
-        phoneStr === clean
-      );
-    });
-
-    if (match) {
-      setSelectedUser(match);
-    } else {
-      const partial = usersList.find((u) => {
-        const emailLower = (u.email || "").trim().toLowerCase();
-        const nameLower = (u.name || "").trim().toLowerCase();
-        return (
-          (nameLower && nameLower.startsWith(clean)) ||
-          (emailLower && (emailLower.startsWith(clean) || emailLower.split("@")[0] === clean))
-        );
-      });
-      setSelectedUser(partial || null);
-    }
-  }
-
-  // Send OTP
+  // ── OTP SEND HANDLER ──
   async function handleSendOtp() {
     setError("");
+    setSuccessMsg("");
     const cleanPhone = phone.replace(/\D/g, "");
     if (cleanPhone.length !== 10) {
       setError("Please enter a valid 10-digit mobile number.");
@@ -230,9 +347,9 @@ export default function SalesCrmLoginModal({
         purpose: "login",
         role: currentRole,
       });
-
       setOtpSent(true);
       setOtpCountdown(60);
+      setSuccessMsg("OTP sent to your registered mobile number.");
     } catch (err) {
       setError(err.message || "Failed to send OTP. Please check mobile number.");
     } finally {
@@ -240,21 +357,28 @@ export default function SalesCrmLoginModal({
     }
   }
 
-  // Handle Mobile Login Submit
-  async function handleMobileLoginSubmit(e) {
+  // ── MOBILE OTP LOGIN SUBMIT ──
+  async function handleMobileSubmit(e) {
     if (e) e.preventDefault();
     setError("");
+    setSuccessMsg("");
     const cleanPhone = phone.replace(/\D/g, "");
     if (cleanPhone.length !== 10) {
       setError("Please enter a valid 10-digit mobile number.");
       return;
     }
+
+    if (!otpSent) {
+      handleSendOtp();
+      return;
+    }
+
     if (!otp.trim()) {
       setError("Please enter the 6-digit OTP.");
       return;
     }
 
-    setLoading(true);
+    setMobileLoading(true);
     try {
       const res = await loginWithMobileOtp({
         phone: cleanPhone,
@@ -274,54 +398,32 @@ export default function SalesCrmLoginModal({
             userObj.lastGpsLocation = freshLoc;
           }
         } catch {
-          /* ignore location failure */
+          /* ignore */
         }
       }
 
-      try {
-        const onlineKey = "zippy_crm_online_users";
-        const saved = localStorage.getItem(onlineKey);
-        const map = saved ? JSON.parse(saved) : {};
-        map[`${currentRole}_${userObj.id}`] = true;
-        localStorage.setItem(onlineKey, JSON.stringify(map));
-        localStorage.setItem(
-          "zippy_crm_active_auth",
-          JSON.stringify({
-            role: currentRole,
-            user: userObj,
-            loggedInAt: Date.now(),
-          })
-        );
-        if (currentRole === "executive" && userObj.id) {
-          localStorage.setItem("zippy_crm_preferred_exec_id", String(userObj.id));
-        }
-      } catch {
-        /* ignore localStorage error */
-      }
-
-      setLoading(false);
+      saveAuthSession(userObj);
+      setMobileLoading(false);
       if (onLoginSuccess) {
-        onLoginSuccess({
-          role: currentRole,
-          user: userObj,
-        });
+        onLoginSuccess({ role: currentRole, user: userObj });
       }
     } catch (err) {
-      setLoading(false);
+      setMobileLoading(false);
       setError(err.message || "Invalid OTP or mobile number. Please try again.");
     }
   }
 
-  // Handle Password Submit
+  // ── EMAIL & PASSWORD LOGIN SUBMIT ──
   async function handlePasswordSubmit(e) {
     if (e) e.preventDefault();
     setError("");
+    setSuccessMsg("");
 
     const cleanUser = username.trim();
     const cleanPass = password.trim();
 
     if (!cleanUser) {
-      setError("Please enter your email, username, or employee code.");
+      setError("Please enter your email address or username.");
       return;
     }
     if (!cleanPass) {
@@ -329,7 +431,7 @@ export default function SalesCrmLoginModal({
       return;
     }
 
-    setLoading(true);
+    setPasswordLoading(true);
 
     try {
       let loggedUser = null;
@@ -340,7 +442,6 @@ export default function SalesCrmLoginModal({
         try {
           loggedUser = await loginSalesManager(cleanUser, cleanPass);
         } catch (mErr) {
-          // fallback to client list match if offline/dev
           const matched = usersList.find(
             (u) =>
               (u.email && u.email.toLowerCase() === cleanUser.toLowerCase()) ||
@@ -385,387 +486,597 @@ export default function SalesCrmLoginModal({
             loggedUser.lastGpsLocation = freshLoc;
           }
         } catch {
-          /* ignore location error */
+          /* ignore */
         }
       }
 
-      try {
-        const onlineKey = "zippy_crm_online_users";
-        const saved = localStorage.getItem(onlineKey);
-        const map = saved ? JSON.parse(saved) : {};
-        map[`${currentRole}_${loggedUser.id}`] = true;
-        localStorage.setItem(onlineKey, JSON.stringify(map));
-        localStorage.setItem(
-          "zippy_crm_active_auth",
-          JSON.stringify({ role: currentRole, user: loggedUser, loggedInAt: Date.now() })
-        );
-        if (currentRole === "executive" && loggedUser.id) {
-          localStorage.setItem("zippy_crm_preferred_exec_id", String(loggedUser.id));
-        }
-      } catch {
-        /* ignore storage error */
-      }
-
-      setLoading(false);
+      saveAuthSession(loggedUser);
+      setPasswordLoading(false);
       if (onLoginSuccess) {
         onLoginSuccess({ role: currentRole, user: loggedUser });
       }
     } catch (err) {
-      setError(err.message || "Login failed. Please check your credentials.");
-      setLoading(false);
+      setError(err.message || "Invalid credentials. Please verify your email and password.");
+      setPasswordLoading(false);
     }
   }
 
-  function handleFinalSubmit(e) {
-    if (loginMethod === "mobile") {
-      handleMobileLoginSubmit(e);
-    } else {
-      handlePasswordSubmit(e);
+  function saveAuthSession(user) {
+    try {
+      const onlineKey = "zippy_crm_online_users";
+      const saved = localStorage.getItem(onlineKey);
+      const map = saved ? JSON.parse(saved) : {};
+      map[`${currentRole}_${user.id}`] = true;
+      localStorage.setItem(onlineKey, JSON.stringify(map));
+      localStorage.setItem(
+        "zippy_crm_active_auth",
+        JSON.stringify({ role: currentRole, user, loggedInAt: Date.now() })
+      );
+      if (currentRole === "executive" && user.id) {
+        localStorage.setItem("zippy_crm_preferred_exec_id", String(user.id));
+      }
+    } catch {
+      /* ignore */
     }
   }
+
+
 
   return (
-    <div
-      className="crm-login-overlay"
-      onClick={(e) => {
-        if (e.target === e.currentTarget && onClose) onClose();
-      }}
-    >
-      <div
-        className={`crm-login-modal ${roleConfig.themeClass}`}
-        style={{
-          "--role-accent": roleConfig.accentColor,
-          "--role-bg": roleConfig.accentBg,
-          "--role-border": roleConfig.accentBorder,
-          "--role-ring": roleConfig.accentRing,
-          "--role-gradient": roleConfig.accentGradient,
-        }}
-      >
-        {/* Top Gradient Highlight Bar */}
-        <div className="crm-login-top-accent" />
+    <div className={`zenve-portal-page ${roleConfig.theme}`}>
+      {/* Return to Admin Button */}
+      {onClose && (
+        <button
+          type="button"
+          className="zenve-portal-back-btn"
+          onClick={onClose}
+          title="Return to Admin CRM"
+        >
+          <ArrowLeft size={15} />
+          <span>Back to Admin CRM</span>
+        </button>
+      )}
 
-        {/* Close Button */}
-        {onClose && (
-          <button
-            type="button"
-            className="crm-login-close-btn"
-            onClick={onClose}
-            title="Cancel & Return"
-            aria-label="Close"
-          >
-            <X size={16} />
-          </button>
+      {/* ══════════════════════════════════════════════════════
+          LEFT PANEL: BRANDING, VALUE PILLARS & HERO IMAGE
+         ══════════════════════════════════════════════════════ */}
+      <div
+        ref={leftPanelRef}
+        className="zenve-portal-left"
+        onMouseMove={handleLeftMouseMove}
+        onMouseLeave={handleLeftMouseLeave}
+        onClick={handleLeftClick}
+      >
+        {/* Dynamic Interactive Spotlight Glow Following Cursor */}
+        {!isRegionalRole && !isManagerRole && (
+          <div
+            className="zenve-interactive-spotlight"
+            style={{
+              background: `radial-gradient(circle 420px at ${mouseCoords.px}% ${mouseCoords.py}%, rgba(56, 189, 248, 0.24) 0%, rgba(0, 119, 230, 0.08) 50%, transparent 75%)`,
+            }}
+          />
         )}
 
-        {/* Header Section */}
-        <div className="crm-login-header">
-          <div className="crm-login-brand-row">
-            <div className="crm-login-logo-box">
-              <img src={logo} alt="Zenve Zippy" className="crm-login-logo-img" />
-            </div>
-            <div>
-              <div className="crm-login-brand-title">
-                Zenve Zippy CRM
-                <span className="crm-login-brand-badge">SALES CRM</span>
+        {/* Hero Image as Integrated Left-Panel Background (Executive role only) */}
+        {!isRegionalRole && !isManagerRole && (
+              <div className="zenve-portal-bg-img-wrap">
+                <img
+                  src={roleConfig.heroImg}
+                  alt={roleConfig.portalTitle}
+                  className="zenve-portal-bg-img"
+                />
+                <div className="zenve-bg-img-overlay-blend" />
+
+                {/* Interactive Floating Live Zenve Feature Chips */}
+                {roleConfig.chips && roleConfig.chips[0] && (
+                  <div
+                    className={`zenve-interactive-chip chip-top ${activeBadge === "top" ? "active" : ""}`}
+                    onMouseEnter={() => setActiveBadge("top")}
+                    onMouseLeave={() => setActiveBadge(null)}
+                  >
+                    <div className="zenve-chip-dot pulse" />
+                    <span className="zenve-chip-icon">{roleConfig.chips[0].icon}</span>
+                    <div className="zenve-chip-text">
+                      <strong>{roleConfig.chips[0].title}</strong>
+                      <small>{roleConfig.chips[0].sub}</small>
+                    </div>
+                  </div>
+                )}
+
+                {roleConfig.chips && roleConfig.chips[1] && (
+                  <div
+                    className={`zenve-interactive-chip chip-bottom ${activeBadge === "bottom" ? "active" : ""}`}
+                    onMouseEnter={() => setActiveBadge("bottom")}
+                    onMouseLeave={() => setActiveBadge(null)}
+                  >
+                    <div className="zenve-chip-dot pulse-blue" />
+                    <span className="zenve-chip-icon">{roleConfig.chips[1].icon}</span>
+                    <div className="zenve-chip-text">
+                      <strong>{roleConfig.chips[1].title}</strong>
+                      <small>{roleConfig.chips[1].sub}</small>
+                    </div>
+                  </div>
+                )}
               </div>
-              <p className="crm-login-brand-sub">Secure Field & Team Operations Portal</p>
-            </div>
-          </div>
+            )}
 
-          {/* Segmented Role Tabs */}
-          <div className="crm-login-role-tabs" role="tablist">
-            {Object.values(ROLES_INFO).map((r) => {
-              const TabIcon = r.icon;
-              const isActive = currentRole === r.key;
-              return (
-                <button
-                  key={r.key}
-                  type="button"
-                  role="tab"
-                  aria-selected={isActive}
-                  className={`crm-role-tab-btn ${isActive ? "active" : ""}`}
-                  onClick={() => {
-                    setCurrentRole(r.key);
-                    setUsername("");
-                    setPassword("");
-                    setPhone("");
-                    setOtp("");
-                    setOtpSent(false);
-                    setError("");
-                    setSelectedUser(null);
-                  }}
+            {/* Ambient Fluid Wave Swooshes */}
+            {isRegionalRole ? (
+              <>
+                <div className="zenve-ambient-wave wave-1" />
+                <div className="zenve-ambient-wave wave-2" />
+                <div className="zenve-floating-paw paw-1">
+                  <PawIcon size={72} color={roleConfig.accentColor} />
+                </div>
+                <div className="zenve-floating-paw paw-2">
+                  <PawIcon size={48} color={roleConfig.accentColor} />
+                </div>
+              </>
+            ) : !isManagerRole ? (
+              <div className="zenve-exec-ambient-curves" aria-hidden="true">
+                {/* Top right light blue curve accent */}
+                <svg
+                  className="zenve-exec-top-curve"
+                  viewBox="0 0 500 350"
+                  preserveAspectRatio="none"
                 >
-                  <TabIcon size={14} className="crm-role-tab-icon" />
-                  <span>{r.title}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
+                  <path
+                    d="M 120 0 C 260 120 400 180 500 140 L 500 0 Z"
+                    fill="url(#execTopGrad)"
+                    opacity="0.8"
+                  />
+                  <path
+                    d="M 220 0 C 320 80 430 110 500 80 L 500 0 Z"
+                    fill="#38bdf8"
+                    opacity="0.35"
+                  />
+                  <defs>
+                    <linearGradient id="execTopGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor="#0077e6" stopOpacity="0.45" />
+                      <stop offset="100%" stopColor="#38bdf8" stopOpacity="0.8" />
+                    </linearGradient>
+                  </defs>
+                </svg>
 
-        {/* Active Role Banner */}
-        <div className="crm-role-banner">
-          <div className="crm-role-icon-box">
-            <RoleIcon size={18} />
-          </div>
-          <div className="crm-role-banner-content">
-            <div className="crm-role-banner-title">{roleConfig.title} Login</div>
-            <div className="crm-role-banner-desc">{roleConfig.desc}</div>
-          </div>
-          <span className="crm-role-pill-badge">{roleConfig.badge}</span>
-        </div>
+                {/* Bottom prominent curved deep blue swoop */}
+                <svg
+                  className="zenve-exec-bottom-swoop"
+                  viewBox="0 0 800 400"
+                  preserveAspectRatio="none"
+                >
+                  {/* Soft cyan/sky back wave */}
+                  <path
+                    d="M 0 260 C 220 220 540 280 800 380 L 800 400 L 0 400 Z"
+                    fill="#38bdf8"
+                    opacity="0.5"
+                  />
+                  {/* Middle royal blue wave */}
+                  <path
+                    d="M 0 200 C 200 170 480 250 800 395 L 800 400 L 0 400 Z"
+                    fill="url(#execMidGrad)"
+                  />
+                  {/* Deep solid royal/navy blue front ribbon */}
+                  <path
+                    d="M 0 240 C 180 230 380 310 650 400 L 0 400 Z"
+                    fill="url(#execFrontGrad)"
+                  />
+                  <defs>
+                    <linearGradient id="execMidGrad" x1="0%" y1="0%" x2="100%" y2="80%">
+                      <stop offset="0%" stopColor="#0284c7" />
+                      <stop offset="60%" stopColor="#0066cc" />
+                      <stop offset="100%" stopColor="#0052a3" />
+                    </linearGradient>
+                    <linearGradient id="execFrontGrad" x1="0%" y1="0%" x2="80%" y2="100%">
+                      <stop offset="0%" stopColor="#0056b3" />
+                      <stop offset="50%" stopColor="#00479e" />
+                      <stop offset="100%" stopColor="#00387a" />
+                    </linearGradient>
+                  </defs>
+                </svg>
 
-        {/* Form Body */}
-        <form className="crm-login-body" onSubmit={handleFinalSubmit}>
-          {/* Method Switcher: Mobile OTP vs Password */}
-          <div className="crm-method-toggle">
-            <button
-              type="button"
-              className={`crm-method-btn ${loginMethod === "mobile" ? "active" : ""}`}
-              onClick={() => {
-                setLoginMethod("mobile");
-                setError("");
-              }}
-            >
-              <Smartphone size={15} />
-              <span>Mobile OTP Login</span>
-            </button>
-            <button
-              type="button"
-              className={`crm-method-btn ${loginMethod === "password" ? "active" : ""}`}
-              onClick={() => {
-                setLoginMethod("password");
-                setError("");
-              }}
-            >
-              <KeyRound size={15} />
-              <span>Password Login</span>
-            </button>
-          </div>
+                {/* Decorative Paw Prints */}
+                <div className="zenve-exec-paw-accent paw-top">
+                  <PawIcon size={58} color="#60a5fa" />
+                </div>
+                <div className="zenve-exec-paw-accent paw-bottom-right">
+                  <PawIcon size={64} color="#0077e6" />
+                </div>
+              </div>
+            ) : null}
 
-          {error && (
-            <div className="crm-login-error" role="alert">
-              <ShieldCheck size={16} style={{ flexShrink: 0 }} />
-              <span>{error}</span>
-            </div>
-          )}
+            <div className="zenve-left-content">
+              {/* Top Brand Header */}
+              <div className="zenve-brand-badge-row">
+                <img
+                  src={zenveZippyLogoImg}
+                  alt="Zenve Zippy"
+                  className="zenve-brand-left-mascot-logo"
+                />
+                <div>
+                  <h1 className="zenve-brand-logo-text">Zenve</h1>
+                  <span className="zenve-brand-sub-badge">{roleConfig.portalTitle}</span>
+                  {isManagerRole && (
+                    <div className="zenve-manager-dot-dash" aria-hidden="true">
+                      <span className="zenve-dash" />
+                      <span className="zenve-dot" />
+                      <span className="zenve-dot" />
+                    </div>
+                  )}
+                </div>
+              </div>
 
-          {/* ───────────────── MOBILE OTP LOGIN ───────────────── */}
-          {loginMethod === "mobile" ? (
-            <>
-              {/* Phone Input with Prefix and Send Button */}
-              <div className="crm-login-form-group">
-                <label className="crm-login-label">Registered Mobile Number</label>
-                <div className="crm-phone-row">
-                  <div className="crm-phone-prefix">+91</div>
-                  <div className="crm-login-input-wrap" style={{ flex: 1 }}>
-                    <span className="crm-login-field-icon">
-                      <Phone size={16} />
+              {/* Hero Main Headline */}
+              <div className="zenve-hero-headlines">
+                <h2 className="zenve-hero-title-dark">{roleConfig.headlinePart1}</h2>
+                <h2
+                  className={
+                    isRegionalRole
+                      ? "zenve-hero-title-purple"
+                      : isManagerRole
+                      ? "zenve-hero-title-green"
+                      : "zenve-hero-title-dark"
+                  }
+                >
+                  {roleConfig.headlinePart2}
+                </h2>
+                <h2
+                  className={
+                    isRegionalRole
+                      ? "zenve-hero-title-orange"
+                      : isManagerRole
+                      ? "zenve-hero-title-dark"
+                      : "zenve-hero-title-accent"
+                  }
+                >
+                  {roleConfig.headlineAccent.split("\n").map((line, idx) => (
+                    <span key={idx}>
+                      {line}
+                      {idx === 0 && <br />}
                     </span>
+                  ))}
+                </h2>
+                {roleConfig.subtitle && (
+                  <p className="zenve-hero-sub-description">
+                    {roleConfig.subtitle}
+                  </p>
+                )}
+                {!isManagerRole && <div className="zenve-headline-accent-line" />}
+              </div>
+
+              {/* Value Pillars List / Circular Icons Stack */}
+              {roleConfig.pillars && (
+                <div className={`zenve-value-pillars-stack ${isRegionalRole ? "regional-pillars" : isManagerRole ? "manager-pillars" : ""}`}>
+                  {roleConfig.pillars.map((pillar, pIdx) => {
+                    const PillarIcon = pillar.icon;
+                    const cardThemeClass = pillar.colorTheme ? `zenve-card-${pillar.colorTheme}` : (pIdx === 0 ? "zenve-card-mint" : pIdx === 1 ? "zenve-card-lavender" : "zenve-card-amber");
+                    const iconThemeClass = pIdx === 0 ? "zenve-icon-teal" : pIdx === 1 ? "zenve-icon-purple" : "zenve-icon-amber";
+                    return (
+                      <div key={pIdx} className={`zenve-pillar-item ${cardThemeClass}`}>
+                        <div className={`zenve-pillar-icon-wrap ${iconThemeClass}`}>
+                          <PillarIcon
+                            size={24}
+                            color={
+                              currentRole === "executive"
+                                ? "#0062d2"
+                                : currentRole === "regional"
+                                ? "#581c87"
+                                : "#ffffff"
+                            }
+                            fill={
+                              currentRole === "regional" && pillar.title === "Growth Opportunities"
+                                ? "#581c87"
+                                : "none"
+                            }
+                          />
+                        </div>
+                        <div className="zenve-pillar-content">
+                          <h4 className="zenve-pillar-title">{pillar.title}</h4>
+                          {pillar.desc && (
+                            <p className="zenve-pillar-sub">
+                              {pillar.desc.split("\n").map((line, lIdx) => (
+                                <span key={lIdx}>
+                                  {line}
+                                  {lIdx < pillar.desc.split("\n").length - 1 && <br />}
+                                </span>
+                              ))}
+                            </p>
+                          )}
+                        </div>
+                        <div className="zenve-pillar-arrow-circle">
+                          <ArrowRight size={17} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Bottom Quote Banner */}
+              {!isRegionalRole && !isManagerRole && roleConfig.quote && (
+                <div className="zenve-bottom-quote-banner">
+                  <span className="zenve-quote-text">
+                    {roleConfig.quote.split("\n").map((line, qIdx) => (
+                      <span key={qIdx}>
+                        {line}
+                        {qIdx === 0 && <br />}
+                      </span>
+                    ))}
+                  </span>
+                  <div className="zenve-quote-accent-bar" />
+                </div>
+              )}
+            </div>
+      </div>
+
+      {/* ══════════════════════════════════════════════════════
+          RIGHT PANEL: AUTHENTICATION SECTION (SIDE-BY-SIDE CARDS)
+         ══════════════════════════════════════════════════════ */}
+      <div className="zenve-portal-right">
+        <div className="zenve-auth-card-box">
+
+          {/* AUTHENTICATION SECTION: UNIFIED TABBED CARD for ALL ROLES (Executive, Manager, Regional) */}
+          <div className="zenve-unified-auth-card">
+
+            {/* Welcome Avatar & Header (Inside Card) */}
+            <div className="zenve-welcome-header">
+              <div className="zenve-brand-right-row">
+                <img
+                  src={zenveZippyLogoImg}
+                  alt="Zenve Zippy"
+                  className="zenve-welcome-full-logo"
+                />
+                <div className="zenve-brand-right-col">
+                  <span className="zenve-brand-subtitle-right">{roleConfig.portalTitle}</span>
+                </div>
+              </div>
+              <h2 className="zenve-welcome-title">{roleConfig.welcomeBack || "Welcome Back!"}</h2>
+              <p className="zenve-welcome-subtitle">
+                {roleConfig.rightSubtitle || "Choose your preferred login method to access your dashboard."}
+              </p>
+              <div className="zenve-welcome-accent-line" />
+            </div>
+
+            {/* Feedback Alerts */}
+            {error && (
+              <div className="zenve-auth-alert alert-error">
+                <AlertCircle size={16} />
+                <span>{error}</span>
+              </div>
+            )}
+
+            {successMsg && (
+              <div className="zenve-auth-alert alert-success">
+                <Check size={16} />
+                <span>{successMsg}</span>
+              </div>
+            )}
+
+            <div className="zenve-unified-mode-tabs" role="tablist">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={authMode === "email"}
+                className={`zenve-unified-tab-btn ${authMode === "email" ? "active" : ""}`}
+                onClick={() => {
+                  setAuthMode("email");
+                  setError("");
+                }}
+              >
+                <Mail size={16} />
+                <span>Email &amp; Password</span>
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={authMode === "mobile"}
+                className={`zenve-unified-tab-btn ${authMode === "mobile" ? "active" : ""}`}
+                onClick={() => {
+                  setAuthMode("mobile");
+                  setError("");
+                }}
+              >
+                <Smartphone size={16} />
+                <span>Phone &amp; OTP</span>
+              </button>
+            </div>
+
+            {authMode === "email" && (
+              <form onSubmit={handlePasswordSubmit} className="zenve-card-form" noValidate autoComplete="off">
+                <input type="text" style={{ display: "none" }} tabIndex={-1} autoComplete="off" />
+                <input type="password" style={{ display: "none" }} tabIndex={-1} autoComplete="off" />
+
+                <div className="zenve-field-group">
+                  <label className="zenve-card-field-label">
+                    Email address <span className="zenve-required-asterisk">*</span>
+                  </label>
+                  <div className="zenve-input-wrap">
+                    <Mail size={17} className="zenve-field-left-icon" />
+                    <input
+                      ref={emailInputRef}
+                      type="text"
+                      name="zenve_auth_user_field"
+                      id="zenve-auth-user"
+                      className="zenve-input-text zenve-input-with-icon"
+                      placeholder="Enter your email address"
+                      value={username}
+                      onChange={(e) => {
+                        setUsername(e.target.value);
+                        setError("");
+                      }}
+                      autoComplete="off"
+                      spellCheck="false"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="zenve-field-group">
+                  <label className="zenve-card-field-label">
+                    Password <span className="zenve-required-asterisk">*</span>
+                  </label>
+                  <div className="zenve-input-wrap">
+                    <Lock size={17} className="zenve-field-left-icon" />
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      name="zenve_auth_pass_field"
+                      id="zenve-auth-pass"
+                      className="zenve-input-text zenve-input-with-icon zenve-input-with-eye"
+                      placeholder="Enter your password"
+                      value={password}
+                      onChange={(e) => {
+                        setPassword(e.target.value);
+                        setError("");
+                      }}
+                      autoComplete="new-password"
+                      required
+                    />
+                    <button
+                      type="button"
+                      className="zenve-eye-toggle-btn"
+                      onClick={() => setShowPassword((p) => !p)}
+                      title={showPassword ? "Hide password" : "Show password"}
+                      aria-label="Toggle password visibility"
+                    >
+                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+
+                  <div className="zenve-forgot-row">
+                    <button
+                      type="button"
+                      className="zenve-forgot-link"
+                      onClick={() => {
+                        setError("To reset your password, contact your Zenve Portal Administrator.");
+                      }}
+                    >
+                      Forgot Password?
+                    </button>
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  className="zenve-card-submit-btn"
+                  disabled={passwordLoading || !username.trim() || !password.trim()}
+                >
+                  {passwordLoading ? (
+                    <span>Logging in...</span>
+                  ) : (
+                    <>
+                      <span>Login</span>
+                      <ChevronRight size={18} strokeWidth={2.4} />
+                    </>
+                  )}
+                </button>
+              </form>
+            )}
+
+            {authMode === "mobile" && (
+              <form onSubmit={handleMobileSubmit} className="zenve-card-form" noValidate>
+                <div className="zenve-field-group">
+                  <label className="zenve-card-field-label">
+                    Mobile Number <span className="zenve-required-asterisk">*</span>
+                  </label>
+                  <div className="zenve-phone-input-row">
+                    <div className="zenve-country-prefix">
+                      <Smartphone size={15} className="zenve-phone-prefix-icon" />
+                      <span>{countryCode}</span>
+                      <ChevronDown size={12} className="zenve-prefix-chevron" />
+                    </div>
                     <input
                       ref={phoneInputRef}
                       type="tel"
                       inputMode="numeric"
                       maxLength={10}
-                      className="crm-login-input"
-                      placeholder="10-digit mobile number"
+                      className="zenve-phone-input"
+                      placeholder="Enter 10-digit mobile number"
                       value={phone}
                       onChange={(e) => {
                         const digits = e.target.value.replace(/\D/g, "");
                         if (digits.length <= 10) setPhone(digits);
                         setError("");
                       }}
-                      autoComplete="tel-national"
+                      required
                     />
                   </div>
-                  <button
-                    type="button"
-                    className="crm-send-otp-btn"
-                    onClick={handleSendOtp}
-                    disabled={otpLoading || phone.replace(/\D/g, "").length !== 10 || (otpSent && otpCountdown > 0)}
-                  >
-                    {otpLoading ? (
-                      <span>Sending...</span>
-                    ) : otpSent && otpCountdown > 0 ? (
-                      <span>{otpCountdown}s</span>
-                    ) : otpSent ? (
-                      <span>Resend</span>
-                    ) : (
-                      <span>Get OTP</span>
-                    )}
-                  </button>
                 </div>
-              </div>
 
-              {/* OTP Input */}
-              {otpSent && (
-                <div className="crm-login-form-group">
-                  <div className="crm-login-label-row">
-                    <label className="crm-login-label">Enter 6-Digit OTP</label>
-                  </div>
-                  <div className="crm-login-input-wrap">
-                    <span className="crm-login-field-icon">
-                      <KeyRound size={16} />
-                    </span>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      maxLength={6}
-                      className="crm-login-input crm-otp-input-field"
-                      placeholder="••••••"
-                      value={otp}
-                      onChange={(e) => {
-                        const digits = e.target.value.replace(/\D/g, "");
-                        if (digits.length <= 6) setOtp(digits);
-                        setError("");
-                      }}
-                      autoFocus
-                    />
-                  </div>
-                  <div className="crm-resend-row">
-                    <span>Didn't receive code?</span>
-                    <button
-                      type="button"
-                      className="crm-resend-link"
-                      disabled={otpCountdown > 0 || otpLoading}
-                      onClick={handleSendOtp}
-                    >
-                      {otpCountdown > 0 ? `Resend in ${otpCountdown}s` : "Resend OTP"}
-                    </button>
-                  </div>
-                </div>
-              )}
-            </>
-          ) : (
-            /* ───────────────── PASSWORD LOGIN ───────────────── */
-            <>
-              {/* Username / Employee Code / Email */}
-              <div className="crm-login-form-group">
-                <label className="crm-login-label">Email, Username, or Employee Code</label>
-                <div className="crm-login-input-wrap">
-                  <span className="crm-login-field-icon">
-                    <User size={16} />
-                  </span>
-                  <input
-                    ref={usernameInputRef}
-                    type="text"
-                    className="crm-login-input"
-                    placeholder="Enter email, username, or code"
-                    value={username}
-                    onChange={(e) => handleUsernameChange(e.target.value)}
-                    autoComplete="username"
-                  />
-                </div>
-                {usersList.length > 0 && (
-                  <div className="crm-quick-users-wrap">
-                    <span className="crm-quick-user-label">Quick select:</span>
-                    <div className="crm-quick-users-scroll">
-                      {usersList.slice(0, 5).map((u) => {
-                        const isSel = selectedUser?.id === u.id;
-                        return (
-                          <button
-                            key={u.id || u.code || u.email}
-                            type="button"
-                            className={`crm-quick-user-pill ${isSel ? "selected" : ""}`}
-                            onClick={() => {
-                              setSelectedUser(u);
-                              setUsername(u.email || u.code || u.name || "");
-                              setError("");
-                            }}
-                          >
-                            <span>{u.name}</span>
-                            {u.code && <span className="crm-quick-user-code">({u.code})</span>}
-                          </button>
-                        );
-                      })}
+                {otpSent && (
+                  <div className="zenve-field-group zenve-otp-reveal-box">
+                    <div className="zenve-otp-label-row">
+                      <label className="zenve-card-field-label">
+                        Enter OTP <span className="zenve-required-asterisk">*</span>
+                      </label>
+                      <button
+                        type="button"
+                        className="zenve-resend-btn"
+                        onClick={handleSendOtp}
+                        disabled={otpCountdown > 0 || otpLoading}
+                      >
+                        {otpCountdown > 0 ? `Resend in ${otpCountdown}s` : "Resend OTP"}
+                      </button>
+                    </div>
+                    <div className="zenve-input-wrap">
+                      <KeyRound size={17} className="zenve-field-left-icon" />
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        maxLength={6}
+                        className="zenve-input-text zenve-input-with-icon zenve-otp-digits"
+                        placeholder="Enter 6-digit OTP"
+                        value={otp}
+                        onChange={(e) => {
+                          const digits = e.target.value.replace(/\D/g, "");
+                          if (digits.length <= 6) setOtp(digits);
+                          setError("");
+                        }}
+                        autoFocus
+                      />
                     </div>
                   </div>
                 )}
-              </div>
 
-              {/* Password Field */}
-              <div className="crm-login-form-group">
-                <div className="crm-login-label-row">
-                  <label className="crm-login-label">Password</label>
-                </div>
-                <div className="crm-login-input-wrap">
-                  <span className="crm-login-field-icon">
-                    <Lock size={16} />
-                  </span>
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    className="crm-login-input"
-                    placeholder="Enter your security password"
-                    value={password}
-                    onChange={(e) => {
-                      setPassword(e.target.value);
-                      setError("");
-                    }}
-                    autoComplete="current-password"
-                  />
-                  <button
-                    type="button"
-                    className="crm-login-toggle-pw"
-                    onClick={() => setShowPassword((prev) => !prev)}
-                    title={showPassword ? "Hide password" : "Show password"}
-                    aria-label={showPassword ? "Hide password" : "Show password"}
-                  >
-                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </button>
-                </div>
-              </div>
-            </>
-          )}
-
-          {/* Keep Signed In Checkbox */}
-          <label className="crm-remember-row">
-            <input
-              type="checkbox"
-              className="crm-remember-input"
-              checked={rememberMe}
-              onChange={(e) => setRememberMe(e.target.checked)}
-            />
-            <span className="crm-custom-checkbox">
-              {rememberMe && <Check size={12} strokeWidth={3.5} />}
-            </span>
-            <span className="crm-remember-label">Keep me signed in for this role</span>
-          </label>
-
-          {/* Action Buttons */}
-          <div className="crm-login-actions">
-            <button
-              type="submit"
-              className="crm-login-submit-btn"
-              disabled={loading || (loginMethod === "mobile" && (!otpSent || otp.length < 4))}
-            >
-              {loading ? (
-                <>
-                  <span className="crm-login-spinner" />
-                  <span>Authenticating...</span>
-                </>
-              ) : (
-                <>
-                  <span>
-                    {loginMethod === "mobile"
-                      ? `Verify & Log In (${roleConfig.shortTitle})`
-                      : `Log In to ${roleConfig.title} CRM`}
-                  </span>
-                  <ArrowRight size={17} className="crm-submit-arrow" />
-                </>
-              )}
-            </button>
-
-            {onClose && (
-              <button
-                type="button"
-                className="crm-login-cancel-btn"
-                onClick={onClose}
-              >
-                Cancel &amp; Return to Admin CRM
-              </button>
+                <button
+                  type="submit"
+                  className="zenve-card-submit-btn"
+                  disabled={
+                    mobileLoading ||
+                    otpLoading ||
+                    phone.replace(/\D/g, "").length !== 10 ||
+                    (otpSent && otp.length < 4)
+                  }
+                >
+                  {mobileLoading ? (
+                    <span>Verifying OTP...</span>
+                  ) : otpLoading ? (
+                    <span>Sending OTP...</span>
+                  ) : otpSent ? (
+                    <>
+                      <span>Verify &amp; Sign in</span>
+                      <ChevronRight size={18} strokeWidth={2.4} />
+                    </>
+                  ) : (
+                    <>
+                      <span>Send OTP</span>
+                      <ChevronRight size={18} strokeWidth={2.4} />
+                    </>
+                  )}
+                </button>
+              </form>
             )}
+
+            <div className="zenve-method-card-footer">
+              <div className="zenve-card-security-note">
+                <ShieldCheck size={18} className="zenve-card-shield-icon" />
+                <span>
+                  <strong>Secure CRM Access</strong>
+                  <br />
+                  <small>Your credentials &amp; operations data are safe with Zenve.</small>
+                </span>
+              </div>
+            </div>
           </div>
-        </form>
+        </div>
       </div>
     </div>
   );

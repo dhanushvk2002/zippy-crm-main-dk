@@ -112,17 +112,16 @@ export const TABLE_CONFIG = {
     path: "/doctors",
     fields: [
       { key: "name", type: "text", required: true },
+      { key: "email", type: "text" },
       { key: "qualification", type: "text" },
       { key: "specializations", type: "text" },
       { key: "pincode", type: "text" },
       { key: "city", type: "text" },
-      { key: "phone", type: "text"},
+      { key: "phone", type: "text" },
       { key: "experience_years", type: "number" },
       { key: "consultation_fee", type: "number" },
-      { key: "verification_status", type: "text", default: "pending" },
+      { key: "verification_status", type: "select", options: ["pending", "verified", "rejected"], default: "pending" },
       { key: "is_active", type: "yesno", default: "Yes" },
-      { key: "digital_signature", type: "text" },
-      { key: "clinic_images", type: "text" },
     ],
   },
   clinics: {
@@ -154,14 +153,14 @@ export const TABLE_CONFIG = {
       { key: "doctor_id", type: "number", required: true },
       { key: "document_type", type: "text", required: true },
       { key: "status", type: "text", default: "pending" },
-      { key: "created_at", type: "datetime", readOnly: true},
+      { key: "created_at", type: "datetime", readOnly: true },
 
     ],
   },
   appointments: {
     path: "/appointments",
     fields: [
-    
+
       { key: "pet_id", type: "number", required: true },
       { key: "doctor_id", type: "number", required: true },
       { key: "appointment_date", type: "date", required: true },
@@ -175,7 +174,7 @@ export const TABLE_CONFIG = {
   consultations: {
     path: "/consultations",
     fields: [
-      
+
       { key: "appointment_id", type: "number", required: true },
       { key: "consultation_mode", type: "text" },
       { key: "diagnosis", type: "text" },
@@ -189,9 +188,11 @@ export const TABLE_CONFIG = {
     fields: [
       { key: "doctor_id", type: "number", required: true },
       { key: "pet_id", type: "number", required: true },
+      { key: "doc_name", type: "text" },
+      { key: "pet_name", type: "text" },
+      { key: "owner_name", type: "text" },
       { key: "valid_until", type: "date" },
       { key: "created_at", type: "datetime", readOnly: true },
-
     ],
   },
   service_providers: {
@@ -219,7 +220,7 @@ export const TABLE_CONFIG = {
   service_bookings: {
     path: "/service-bookings",
     fields: [
-    
+
       { key: "service_id", type: "number", required: true },
       { key: "provider_id", type: "number", required: true },
       { key: "pet_id", type: "number", required: true },
@@ -326,7 +327,7 @@ export const TABLE_CONFIG = {
   order_items: {
     path: "/order-items",
     fields: [
-      { key: "order_id", type: "number", required: true },        
+      { key: "order_id", type: "number", required: true },
       { key: "product_name", type: "text", required: true },
       { key: "quantity", type: "number", default: 1 },
       { key: "unit_price", type: "number" },
@@ -347,12 +348,12 @@ export const TABLE_CONFIG = {
   payments: {
     path: "/payments",
     fields: [
-      { key: "order_id", type: "number", required: true },  
+      { key: "order_id", type: "number", required: true },
       { key: "amount", type: "number" },
       { key: "gateway", type: "text" },
       { key: "status", type: "text", default: "pending" },
       { key: "webhook_verified", type: "bool", default: false },
-      {key: "created_at", type: "datetime", readOnly: true },
+      { key: "created_at", type: "datetime", readOnly: true },
 
     ],
   },
@@ -363,7 +364,7 @@ export const TABLE_CONFIG = {
       { key: "amount", type: "number" },
       { key: "reason", type: "text" },
       { key: "status", type: "text", default: "pending" },
-      {key: "created_at", type: "datetime", readOnly: true },
+      { key: "created_at", type: "datetime", readOnly: true },
 
     ],
   },
@@ -406,7 +407,7 @@ export const TABLE_CONFIG = {
       { key: "rating", type: "number" },
       { key: "review_text", type: "text" },
       { key: "status", type: "text", default: "pending" },
-      {key: "created_at", type: "datetime", readOnly: true },
+      { key: "created_at", type: "datetime", readOnly: true },
 
     ],
   },
@@ -417,7 +418,7 @@ export const TABLE_CONFIG = {
       { key: "title", type: "text", required: true },
       { key: "channel", type: "text" },
       { key: "is_read", type: "bool", default: false },
-      {key: "created_at", type: "datetime", readOnly: true },
+      { key: "created_at", type: "datetime", readOnly: true },
 
     ],
   },
@@ -456,7 +457,7 @@ export const TABLE_CONFIG = {
       { key: "subject", type: "text", required: true },
       { key: "category", type: "text" },
       { key: "status", type: "text", default: "open" },
-      {key: "created_at", type: "datetime", readOnly: true },
+      { key: "created_at", type: "datetime", readOnly: true },
 
     ],
   },
@@ -475,7 +476,7 @@ export const TABLE_CONFIG = {
       { key: "action", type: "text", required: true },
       { key: "entity_type", type: "text" },
       { key: "entity_id", type: "number" },
-      {key: "created_at", type: "datetime", readOnly: true },
+      { key: "created_at", type: "datetime", readOnly: true },
 
     ],
   },
@@ -531,8 +532,8 @@ export const TABLE_CONFIG = {
       { key: "pincode", type: "text", required: true },
       { key: "city", type: "text" },
       { key: "state", type: "text" },
-      {key: "created_at", type: "datetime", readOnly: true },
-     
+      { key: "created_at", type: "datetime", readOnly: true },
+
     ],
   },
   executive_tasks: {
@@ -551,12 +552,6 @@ export const TABLE_CONFIG = {
     path: "/executive-alerts",
     fields: [
       { key: "title", type: "text", required: true },
-      { key: "executive_name", type: "text" },
-      { key: "executive_code", type: "text" },
-      { key: "punch_type", type: "text" },
-      { key: "punch_time", type: "text" },
-      { key: "location", type: "text" },
-      { key: "message", type: "text" },
       { key: "severity", type: "text" },
       { key: "entity_type", type: "text" },
       { key: "pincode", type: "text" },

@@ -1,1001 +1,3422 @@
 /* ==========================================================================
-   SalesCrmLoginModal.css — Ultra-Professional Enterprise Login Modal
+   SalesCrmLoginModal.css — Zenve Sales CRM Authentication Interface
+   Full-page layout fitted to 100vh with zero overflow / zero scrollbars
    ========================================================================== */
 
-.crm-login-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(15, 23, 42, 0.68);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+/* ── Full-Page Root Container (Fitted to exact viewport) ── */
+.zenve-portal-page {
+  width: 100vw;
+  height: 100vh;
+  max-height: 100vh;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1.5rem;
-  z-index: 99999;
-  animation: crmLoginFadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-@keyframes crmLoginFadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-.crm-login-modal {
-  width: 100%;
-  max-width: 480px;
   background: #ffffff;
-  border-radius: 22px;
-  border: 1px solid rgba(226, 232, 240, 0.9);
-  box-shadow:
-    0 25px 60px -15px rgba(15, 23, 42, 0.28),
-    0 0 0 1px rgba(0, 0, 0, 0.04),
-    0 10px 30px -5px var(--role-ring, rgba(2, 132, 199, 0.12));
-  overflow: hidden;
   position: relative;
-  animation: crmLoginScaleIn 0.26s cubic-bezier(0.16, 1, 0.3, 1);
-  transition: box-shadow 0.25s ease, border-color 0.25s ease;
+  overflow: hidden;
+  /* Guarantees clean fit on desktop */
+  box-sizing: border-box;
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  /* Blue / Navy theme for Sales Executive */
+  --portal-accent: #0077e6;
+  --portal-accent-hover: #0062cc;
+  --portal-gradient: linear-gradient(135deg, #0077e6 0%, #0056b3 100%);
+  --portal-left-bg: linear-gradient(140deg, #071a2e 0%, #0d2847 50%, #06182c 100%);
+  --portal-shadow: rgba(0, 119, 230, 0.25);
+  --portal-badge-bg: rgba(0, 119, 230, 0.2);
 }
 
-@keyframes crmLoginScaleIn {
-  from {
-    opacity: 0;
-    transform: scale(0.95) translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
+/* Deep Dark Forest Green theme for Sales Manager (matching the Reference Image) */
+.zenve-portal-page.theme-green {
+  --portal-accent: #00c49f;
+  --portal-accent-hover: #00a887;
+  --portal-gradient: linear-gradient(135deg, #00c49f 0%, #0b663b 100%);
+  --portal-left-bg: linear-gradient(140deg, #05261f 0%, #08382f 50%, #052720 100%);
+  --portal-shadow: rgba(0, 196, 159, 0.28);
+  --portal-badge-bg: rgba(0, 196, 159, 0.18);
 }
 
-/* ── Top Color Accent Line ── */
-.crm-login-top-accent {
-  height: 4px;
-  width: 100%;
-  background: var(--role-gradient, linear-gradient(90deg, #0284c7, #2563eb, #7c3aed));
-  transition: background 0.3s ease;
+/* Deep Night Purple & Sunset theme for Regional Manager */
+.zenve-portal-page.theme-purple {
+  --portal-accent: #a855f7;
+  --portal-accent-hover: #9333ea;
+  --portal-gradient: linear-gradient(135deg, #a855f7 0%, #7c3aed 50%, #f97316 100%);
+  --portal-left-bg: linear-gradient(140deg, #130a24 0%, #20103c 50%, #110820 100%);
+  --portal-shadow: rgba(168, 85, 247, 0.28);
+  --portal-badge-bg: rgba(168, 85, 247, 0.18);
 }
 
-/* ── Close Button ── */
-.crm-login-close-btn {
+/* ── Top Bar with Role Switcher & Back to Admin ── */
+.zenve-portal-top-bar {
   position: absolute;
-  top: 16px;
-  right: 16px;
-  width: 32px;
-  height: 32px;
+  top: 14px;
+  left: 24px;
+  right: 24px;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  pointer-events: none;
+}
+
+.zenve-portal-role-tabs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  padding: 4px;
+  border-radius: 999px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
+  pointer-events: auto;
+}
+
+.zenve-role-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: none;
+  background: transparent;
+  color: #475569;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.zenve-role-tab-btn:hover {
+  color: #0b2239;
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.zenve-role-tab-btn.active {
+  background: var(--portal-accent);
+  color: #ffffff;
+  box-shadow: 0 2px 10px var(--portal-shadow);
+}
+
+/* ── Top Back to Admin Navigation Button ── */
+.zenve-portal-back-btn {
+  position: absolute;
+  top: 18px;
+  right: 24px;
+  z-index: 60;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 15px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid #cbd5e1;
+  color: #334155;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+  transition: all 0.2s ease;
+  pointer-events: auto;
+}
+
+.zenve-portal-back-btn:hover {
+  background: var(--portal-accent);
+  color: #ffffff;
+  border-color: var(--portal-accent);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px var(--portal-shadow);
+}
+
+/* ══════════════════════════════════════════════════════════
+   LEFT PANEL (Brand, Pillars & Hero Imagery) - ENLARGED
+   ══════════════════════════════════════════════════════════ */
+.zenve-portal-left {
+  flex: 0 0 56%;
+  width: 56%;
+  height: 100vh;
+  max-height: 100vh;
+  position: relative;
+  background: var(--portal-left-bg);
+  padding: 3.25rem 2.25rem 2rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  overflow: hidden;
+  border-right: 1px solid rgba(225, 239, 252, 0.85);
+  box-sizing: border-box;
+}
+
+/* Ambient Blue Wave Overlays matching the fluid ribbons in the design */
+.zenve-ambient-wave {
+  position: absolute;
   border-radius: 50%;
-  background: rgba(148, 163, 184, 0.1);
-  border: 1px solid rgba(148, 163, 184, 0.18);
+  pointer-events: none;
+}
+
+.zenve-ambient-wave.wave-1 {
+  width: 840px;
+  height: 600px;
+  top: -190px;
+  right: -210px;
+  background: radial-gradient(ellipse at 70% 30%, rgba(56, 189, 248, 0.45) 0%, rgba(0, 119, 230, 0.35) 45%, rgba(0, 102, 230, 0.08) 70%, transparent 85%);
+  border-radius: 46% 54% 63% 37% / 41% 44% 56% 59%;
+}
+
+.theme-green .zenve-ambient-wave.wave-1 {
+  background: radial-gradient(ellipse at 70% 30%, rgba(52, 211, 153, 0.55) 0%, rgba(11, 102, 59, 0.45) 45%, rgba(6, 78, 43, 0.12) 70%, transparent 85%);
+}
+
+.theme-purple .zenve-ambient-wave.wave-1 {
+  background: radial-gradient(ellipse at 70% 30%, rgba(168, 85, 247, 0.55) 0%, rgba(109, 40, 217, 0.45) 45%, rgba(249, 115, 22, 0.25) 100%, transparent 88%);
+}
+
+.zenve-ambient-wave.wave-2 {
+  width: 920px;
+  height: 660px;
+  bottom: -260px;
+  left: -230px;
+  background: radial-gradient(ellipse at 30% 70%, rgba(0, 78, 184, 0.5) 0%, rgba(0, 102, 230, 0.35) 45%, rgba(56, 189, 248, 0.12) 75%, transparent 88%);
+  border-radius: 63% 37% 54% 46% / 55% 48% 52% 45%;
+}
+
+.theme-green .zenve-ambient-wave.wave-2 {
+  background: radial-gradient(ellipse at 30% 70%, rgba(6, 78, 43, 0.7) 0%, rgba(11, 102, 59, 0.55) 45%, rgba(52, 211, 153, 0.2) 75%, transparent 88%);
+}
+
+.theme-purple .zenve-ambient-wave.wave-2 {
+  background: radial-gradient(ellipse at 30% 70%, rgba(88, 28, 135, 0.85) 0%, rgba(109, 40, 217, 0.65) 45%, rgba(249, 115, 22, 0.5) 75%, transparent 92%);
+}
+
+.zenve-floating-paw {
+  position: absolute;
+  pointer-events: none;
+  opacity: 0.85;
+}
+
+.zenve-floating-paw.paw-1 {
+  top: 13%;
+  right: 10%;
+  transform: rotate(15deg);
+}
+
+.zenve-floating-paw.paw-2 {
+  bottom: 22%;
+  left: 6%;
+  transform: rotate(-18deg);
+}
+
+.zenve-left-content {
+  position: relative;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 100%;
+}
+
+/* Brand Badge Header */
+.zenve-brand-badge-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 0.85rem;
+}
+
+.zenve-brand-left-mascot-logo {
+  width: auto;
+  height: 56px;
+  max-width: 100px;
+  object-fit: contain;
+  display: block;
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.12));
+  flex-shrink: 0;
+}
+
+.zenve-brand-icon-box {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 8px 22px -2px rgba(0, 119, 230, 0.2);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #64748b;
-  cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  flex-shrink: 0;
+}
+
+.zenve-brand-logo-text {
+  margin: 0;
+  font-size: 1.75rem;
+  font-weight: 900;
+  color: #ffffff;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+.zenve-brand-sub-badge {
+  display: block;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--portal-accent);
+  letter-spacing: 0.02em;
+}
+
+/* Hero Headlines */
+.zenve-hero-headlines {
+  margin-bottom: 0.6rem;
+}
+
+.zenve-hero-title-dark {
+  margin: 0;
+  font-size: clamp(2.1rem, 2.55vw, 2.75rem);
+  font-weight: 900;
+  color: #ffffff;
+  line-height: 1.15;
+  letter-spacing: -0.025em;
+}
+
+.zenve-hero-title-accent {
+  margin: 0;
+  font-size: clamp(2.1rem, 2.55vw, 2.75rem);
+  font-weight: 900;
+  color: var(--portal-accent);
+  line-height: 1.15;
+  letter-spacing: -0.025em;
+}
+
+.zenve-hero-title-purple {
+  margin: 0;
+  font-size: clamp(2.1rem, 2.55vw, 2.75rem);
+  font-weight: 900;
+  color: #c084fc;
+  line-height: 1.15;
+  letter-spacing: -0.025em;
+}
+
+.zenve-hero-title-orange {
+  margin: 0;
+  font-size: clamp(2.1rem, 2.55vw, 2.75rem);
+  font-weight: 900;
+  color: #fb923c;
+  line-height: 1.15;
+  letter-spacing: -0.025em;
+}
+
+.zenve-hero-sub-description {
+  margin: 10px 0 0 0;
+  font-size: 0.86rem;
+  line-height: 1.48;
+  color: rgba(255, 255, 255, 0.78);
+  font-weight: 500;
+  max-width: 360px;
+}
+
+.zenve-hero-sub-description.regional-desc {
+  max-width: 360px;
+  font-size: 0.84rem;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.78);
+  margin-top: 10px;
+}
+
+/* ── Left Panel Theme Customizations ── */
+.theme-blue .zenve-portal-left {
+  padding: 3.7rem 2rem 1.8rem 2.75rem !important;
+  background: transparent !important;
+  border-right: none !important;
+  flex: 0 0 46% !important;
+  width: 70% !important;
+}
+
+.theme-blue .zenve-brand-badge-row {
+  margin-bottom: 1.25rem;
+  gap: 12px;
+}
+
+.theme-blue .zenve-brand-icon-box {
+  width: auto;
+  height: auto;
+  background: transparent !important;
+  box-shadow: none !important;
+  border-radius: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.theme-blue .zenve-brand-icon-box svg {
+  width: 42px;
+  height: 42px;
+}
+
+.theme-blue .zenve-brand-logo-text {
+  color: #0b1f35;
+  font-size: 2.1rem;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.theme-blue .zenve-brand-sub-badge {
+  color: #0b1f35;
+  font-size: 0.88rem;
+  font-weight: 600;
+  margin-top: 2px;
+  letter-spacing: 0;
+}
+
+.theme-blue .zenve-hero-headlines {
+  margin-bottom: 0.5rem;
+}
+
+.theme-blue .zenve-hero-title-dark {
+  color: #0b1f35;
+  font-size: clamp(2rem, 2.5vw, 2.7rem);
+  font-weight: 900;
+  line-height: 1.12;
+  letter-spacing: -0.025em;
+}
+
+.theme-blue .zenve-hero-title-accent {
+  color: #0077e6;
+  font-size: clamp(2rem, 2.5vw, 2.7rem);
+  font-weight: 900;
+  line-height: 1.12;
+  letter-spacing: -0.025em;
+}
+
+.theme-blue .zenve-hero-sub-description {
+  color: #4b647d;
+  max-width: 320px;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  font-weight: 500;
+  margin-top: 10px;
+}
+
+.theme-blue .zenve-headline-accent-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  width: auto;
+  height: 6px;
+  margin-top: 14px;
+}
+
+.theme-blue .zenve-headline-accent-line::before {
+  content: "";
+  display: block;
+  width: 58px;
+  height: 2.8px;
+  background: linear-gradient(90deg, #0077e6 0%, rgba(0, 119, 230, 0.45) 70%, rgba(0, 119, 230, 0.05) 100%);
+  border-radius: 999px;
+}
+
+.theme-blue .zenve-headline-accent-line::after {
+  content: "";
+  display: block;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #0077e6;
+  flex-shrink: 0;
+}
+
+.theme-blue .zenve-portal-bg-img-wrap {
+  position: absolute !important;
+  top: 0 !important;
+  bottom: 0 !important;
+  left: 18% !important;
+  right: -50px !important;
+  width: auto !important;
+  height: 100% !important;
+  pointer-events: none;
+  overflow: visible !important;
+  z-index: 2 !important;
+}
+
+.theme-blue .zenve-portal-bg-img {
+  width: 100% !important;
+  height: 100% !important;
+  opacity: 1 !important;
+  object-fit: cover !important;
+  object-position: center bottom !important;
+  filter: contrast(1.02) saturate(1.05) !important;
+  /* Seamless feathered fade on ALL 4 sides so zero hard column or line appears */
+  mask-image: radial-gradient(ellipse 70% 65% at 55% 58%, #000 40%, rgba(0, 0, 0, 0.7) 60%, rgba(0, 0, 0, 0.2) 78%, transparent 100%);
+  -webkit-mask-image: radial-gradient(ellipse 70% 65% at 55% 58%, #000 40%, rgba(0, 0, 0, 0.7) 60%, rgba(0, 0, 0, 0.2) 78%, transparent 100%);
+}
+
+.theme-blue .zenve-bg-img-overlay-blend {
+  display: none !important;
+}
+
+.theme-blue .zenve-floating-paw {
+  display: none !important;
+}
+
+/* ── Executive SVG Curved Wave Ribbons - superseded by authentic background image ── */
+.zenve-exec-ambient-curves {
+  display: none !important;
+}
+
+.zenve-exec-top-curve {
+  position: absolute;
+  top: -20px;
+  right: -40px;
+  width: 480px;
+  height: 280px;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.zenve-exec-bottom-swoop {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 250px;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.zenve-exec-paw-accent {
+  position: absolute;
+  pointer-events: none;
+  opacity: 0.22;
+  z-index: 4;
+}
+
+.zenve-exec-paw-accent.paw-top {
+  top: 60px;
+  right: 180px;
+  transform: rotate(22deg);
+}
+
+.zenve-exec-paw-accent.paw-bottom-right {
+  bottom: 40px;
+  left: 280px;
+  transform: rotate(-15deg);
+  opacity: 0.16;
+}
+
+.theme-blue .zenve-bottom-quote-banner {
+  background: transparent;
+  padding: 0 0 8px 4px;
+  box-shadow: none;
+  border-radius: 0;
+  position: relative;
   z-index: 10;
 }
 
-.crm-login-close-btn:hover {
-  background: rgba(239, 68, 68, 0.12);
-  border-color: rgba(239, 68, 68, 0.3);
-  color: #ef4444;
-  transform: rotate(90deg);
+.theme-blue .zenve-quote-text {
+  color: #ffffff !important;
+  font-size: 1.05rem;
+  font-weight: 700;
+  font-style: italic;
+  text-shadow: 0 2px 8px rgba(0, 34, 85, 0.4);
 }
 
-/* ── Modal Header ── */
-.crm-login-header {
-  padding: 1.5rem 1.75rem 1rem;
-  border-bottom: 1px solid rgba(241, 245, 249, 1);
-  background: linear-gradient(180deg, var(--role-bg, rgba(2, 132, 199, 0.04)) 0%, transparent 100%);
-  transition: background 0.3s ease;
+.theme-blue .zenve-quote-accent-bar {
+  background: #ffffff !important;
+  width: 36px;
+  height: 3px;
+  border-radius: 999px;
+  margin-top: 8px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
 }
 
-.crm-login-brand-row {
+/* ── Interactive Spotlight Dynamic Cursor Ambient Glow ── */
+.zenve-interactive-spotlight {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 3;
+  transition: background 0.08s ease-out;
+}
+
+/* ── Zenve Integrated Hero Background Image in Left Panel (Completely Stable & Sharp) ── */
+.zenve-portal-bg-img-wrap {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 2;
+  overflow: hidden;
+  transform: none !important;
+  pointer-events: none;
+}
+
+.zenve-portal-bg-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: right center;
+  display: block;
+  opacity: 0.95;
+  filter: contrast(1.04) saturate(1.08);
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+  pointer-events: none;
+}
+
+.zenve-bg-img-overlay-blend {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to right,
+      #071a2e 0%,
+      rgba(7, 26, 46, 0.96) 24%,
+      rgba(7, 26, 46, 0.75) 45%,
+      rgba(7, 26, 46, 0.2) 65%,
+      transparent 100%);
+  pointer-events: none;
+}
+
+.theme-green .zenve-bg-img-overlay-blend {
+  background: linear-gradient(to right,
+      #05261f 0%,
+      rgba(5, 38, 31, 0.98) 26%,
+      rgba(5, 38, 31, 0.85) 45%,
+      rgba(5, 38, 31, 0.25) 65%,
+      transparent 100%);
+}
+
+.theme-purple .zenve-portal-bg-img {
+  object-position: center center !important;
+  opacity: 1 !important;
+  filter: contrast(1.06) saturate(1.15) brightness(1.08) !important;
+}
+
+.theme-purple .zenve-bg-img-overlay-blend {
+  background: linear-gradient(to right,
+      rgba(19, 10, 36, 0.72) 0%,
+      rgba(19, 10, 36, 0.48) 28%,
+      rgba(19, 10, 36, 0.15) 55%,
+      transparent 85%) !important;
+}
+
+/* ── Interactive Floating Live Zenve Feature Chips ── */
+.zenve-interactive-chip {
+  position: absolute;
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 14px;
+  gap: 9px;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(225, 239, 252, 0.95);
+  padding: 8px 14px;
+  border-radius: 999px;
+  box-shadow: 0 8px 22px -4px rgba(0, 119, 230, 0.18);
+  pointer-events: auto;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 10;
+  user-select: none;
 }
 
-.crm-login-logo-box {
-  width: 42px;
-  height: 42px;
-  border-radius: 12px;
+.zenve-interactive-chip:hover,
+.zenve-interactive-chip.active {
   background: #ffffff;
-  padding: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.04);
+  border-color: #0077e6;
+  transform: translateY(-4px) scale(1.06);
+  box-shadow: 0 14px 28px -4px rgba(0, 119, 230, 0.32);
+}
+
+.zenve-interactive-chip.chip-top {
+  top: 14%;
+  right: 8%;
+  animation: zenveFloatBadge1 4.5s ease-in-out infinite;
+}
+
+.zenve-interactive-chip.chip-bottom {
+  bottom: 12%;
+  right: 16%;
+  animation: zenveFloatBadge2 5s ease-in-out infinite 0.8s;
+}
+
+@keyframes zenveFloatBadge1 {
+
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-7px);
+  }
+}
+
+@keyframes zenveFloatBadge2 {
+
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(7px);
+  }
+}
+
+.zenve-chip-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #10b981;
   flex-shrink: 0;
 }
 
-.crm-login-logo-img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  border-radius: 8px;
+.zenve-chip-dot.pulse {
+  box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+  animation: zenveDotPulse 2s infinite;
 }
 
-.crm-login-brand-title {
-  font-family: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  font-size: 1.12rem;
-  font-weight: 700;
-  color: #0f172a;
-  letter-spacing: -0.015em;
+.zenve-chip-dot.pulse-blue {
+  background: #0077e6;
+  box-shadow: 0 0 0 0 rgba(0, 119, 230, 0.7);
+  animation: zenveDotPulseBlue 2s infinite;
+}
+
+@keyframes zenveDotPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+  }
+
+  70% {
+    box-shadow: 0 0 0 6px rgba(16, 185, 129, 0);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+  }
+}
+
+@keyframes zenveDotPulseBlue {
+  0% {
+    box-shadow: 0 0 0 0 rgba(0, 119, 230, 0.7);
+  }
+
+  70% {
+    box-shadow: 0 0 0 6px rgba(0, 119, 230, 0);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba(0, 119, 230, 0);
+  }
+}
+
+.zenve-chip-icon {
+  font-size: 1.05rem;
+  line-height: 1;
+}
+
+.zenve-chip-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.zenve-chip-text strong {
+  font-size: 0.78rem;
+  color: #0b2239;
+  font-weight: 800;
+}
+
+.zenve-chip-text small {
+  font-size: 0.68rem;
+  color: #64748b;
+  font-weight: 600;
+}
+
+/* ── Interactive Click Paw Ripples ── */
+.zenve-click-ripple {
+  position: absolute;
+  transform: translate(-50%, -50%) scale(0.6);
+  opacity: 1;
+  pointer-events: none;
+  z-index: 20;
+  animation: zenvePawRipple 0.85s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes zenvePawRipple {
+  0% {
+    transform: translate(-50%, -50%) scale(0.5);
+    opacity: 0.95;
+  }
+
+  60% {
+    transform: translate(-50%, -50%) scale(1.6);
+    opacity: 0.5;
+  }
+
+  100% {
+    transform: translate(-50%, -50%) scale(2.4);
+    opacity: 0;
+  }
+}
+
+/* Value Pillars List (Pill cards matching Second Reference Screenshot) */
+.zenve-value-pillars-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 440px;
+  width: 100%;
+  margin: 0.65rem 0 1rem 0;
+  z-index: 6;
+  position: relative;
+}
+
+.zenve-pillar-item {
   display: flex;
   align-items: center;
-  gap: 8px;
-  line-height: 1.25;
-}
-
-.crm-login-brand-badge {
-  font-size: 0.65rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  padding: 2px 7px;
-  border-radius: 9999px;
-  background: var(--role-bg, rgba(2, 132, 199, 0.1));
-  color: var(--role-accent, #0284c7);
-  border: 1px solid var(--role-border, rgba(2, 132, 199, 0.25));
-}
-
-.crm-login-brand-sub {
-  font-size: 0.74rem;
-  color: #64748b;
-  margin: 2px 0 0 0;
-  line-height: 1.3;
-}
-
-/* ── Segmented Role Tabs ── */
-.crm-login-role-tabs {
-  display: flex;
-  background: #f1f5f9;
-  padding: 3px;
-  border-radius: 12px;
-  gap: 3px;
-  border: 1px solid #e2e8f0;
-}
-
-.crm-role-tab-btn {
-  flex: 1;
-  padding: 7px 10px;
-  font-size: 0.76rem;
-  font-weight: 600;
-  border-radius: 9px;
-  border: none;
-  background: transparent;
-  color: #64748b;
+  gap: 16px;
+  padding: 10px 18px 10px 12px;
+  border-radius: 999px;
+  width: 100%;
+  max-width: 440px;
+  box-sizing: border-box;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
   cursor: pointer;
+  background: #ffffff;
+}
+
+.zenve-pillar-item:hover {
+  transform: translateY(-2px) translateX(4px);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.24);
+}
+
+/* Card Themes: Mint, Lavender, Amber (matching second screenshot) */
+.zenve-pillar-item.zenve-card-mint {
+  background: #ebf7f4;
+  border: 1px solid #c9ede2;
+}
+
+.zenve-pillar-item.zenve-card-mint .zenve-pillar-title {
+  color: #0b352c;
+}
+
+.zenve-pillar-item.zenve-card-mint .zenve-pillar-sub {
+  color: #3b665c;
+}
+
+.zenve-pillar-item.zenve-card-mint .zenve-pillar-arrow-circle {
+  background: #d5efe7;
+  color: #007a63;
+}
+
+/* ── Sales Executive (Image 1 Style): Circular Blue Icons Stack with Clear Typography ── */
+.theme-blue .zenve-value-pillars-stack {
+  gap: 16px;
+  max-width: 280px;
+  margin: 1.1rem 0 1.1rem 0;
+}
+
+.theme-blue .zenve-pillar-item {
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border: none !important;
+  border-radius: 0 !important;
+  padding: 4px 0 !important;
+  box-shadow: none !important;
+  gap: 14px;
+  cursor: default;
+  transform: none !important;
+}
+
+.theme-blue .zenve-pillar-item:hover {
+  background: transparent !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.theme-blue .zenve-pillar-icon-wrap {
+  width: 50px;
+  height: 50px;
+  border-radius: 50% !important;
+  background: #d6eaff !important;
+  border: 1px solid #b3d7ff !important;
+  box-shadow: 0 4px 14px rgba(0, 114, 235, 0.12) !important;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transform: none !important;
+  transition: none !important;
+  pointer-events: none;
+  flex-shrink: 0;
+}
+
+.theme-blue .zenve-pillar-item:hover .zenve-pillar-icon-wrap {
+  transform: none !important;
+}
+
+.theme-blue .zenve-pillar-icon-wrap svg {
+  width: 26px;
+  height: 26px;
+  filter: none !important;
+}
+
+.theme-blue .zenve-pillar-title {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #0b1f35 !important;
+  letter-spacing: -0.015em;
+  margin: 0;
+  line-height: 1.2;
+}
+
+.theme-blue .zenve-pillar-sub {
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: #1e3a5f !important;
+  margin-top: 3px;
+  line-height: 1.35;
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  max-width: 220px;
+}
+
+.theme-blue .zenve-pillar-arrow-circle {
+  display: none !important;
+}
+
+/* ── Sales Manager (Image 2 Style): Pill Cards with Green/Teal Circular Icon Badges ── */
+.theme-green .zenve-value-pillars-stack {
+  gap: 16px;
+  max-width: 320px;
+  margin: 1.25rem 0 1.25rem 0;
+}
+
+.theme-green .zenve-pillar-item {
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border: none !important;
+  border-radius: 0 !important;
+  padding: 4px 0 !important;
+  box-shadow: none !important;
+  gap: 14px;
+  cursor: default;
+  transform: none !important;
+}
+
+.theme-green .zenve-pillar-item:hover {
+  background: transparent !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.theme-green .zenve-pillar-icon-wrap {
+  width: 48px;
+  height: 48px;
+  border-radius: 50% !important;
+  background: #a7f3d0 !important;
+  border: 1px solid #6ee7b7 !important;
+  box-shadow: 0 4px 14px rgba(5, 150, 105, 0.15) !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* First circular icon has solid dark emerald green background matching user screenshot */
+.theme-green .zenve-pillar-item:first-child .zenve-pillar-icon-wrap {
+  background: #15803d !important;
+  border-color: #166534 !important;
+  box-shadow: 0 4px 14px rgba(21, 128, 61, 0.28) !important;
+}
+
+.theme-green .zenve-pillar-icon-wrap svg {
+  width: 25px;
+  height: 25px;
+}
+
+.theme-green .zenve-pillar-title {
+  font-size: 0.98rem;
+  font-weight: 800;
+  color: #064e3b !important;
+  letter-spacing: -0.01em;
   white-space: nowrap;
 }
 
-.crm-role-tab-btn:hover {
-  color: #1e293b;
-  background: rgba(255, 255, 255, 0.6);
+.theme-green .zenve-pillar-sub {
+  display: none !important;
 }
 
-.crm-role-tab-btn.active {
-  background: #ffffff;
-  color: var(--role-accent, #0284c7);
-  font-weight: 700;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+.theme-green .zenve-pillar-arrow-circle {
+  display: none !important;
 }
 
-.crm-role-tab-icon {
-  flex-shrink: 0;
-  color: currentColor;
+/* ── Regional Manager (Image 1 Style): Circular Purple Icons Stack with Single-line Titles ── */
+.theme-purple .zenve-value-pillars-stack {
+  gap: 16px;
+  max-width: 320px;
+  margin: 1.4rem 0 1rem 0;
+  display: flex !important;
+  flex-direction: column !important;
 }
 
-/* ── Active Role Banner ── */
-.crm-role-banner {
-  margin: 1rem 1.75rem 0.25rem;
-  padding: 10px 14px;
+.theme-purple .zenve-pillar-item {
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border: none !important;
+  border-radius: 0 !important;
+  padding: 2px 0 !important;
+  box-shadow: none !important;
+  gap: 16px !important;
+  cursor: default !important;
+  display: flex !important;
+  align-items: center !important;
+  transform: none !important;
+}
+
+.theme-purple .zenve-pillar-item:hover {
+  background: transparent !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.theme-purple .zenve-pillar-icon-wrap {
+  width: 50px !important;
+  height: 50px !important;
+  border-radius: 50% !important;
+  background: #f5e9fe !important;
+  border: 1.5px solid #ddd6fe !important;
+  box-shadow: 0 4px 14px rgba(109, 40, 217, 0.12) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+}
+
+.theme-purple .zenve-pillar-icon-wrap svg {
+  width: 24px !important;
+  height: 24px !important;
+}
+
+.theme-purple .zenve-pillar-title {
+  font-size: 1.05rem !important;
+  font-weight: 800 !important;
+  color: #0b1d3a !important;
+  letter-spacing: -0.01em !important;
+  white-space: nowrap !important;
+  text-shadow: 0 1px 4px rgba(255, 255, 255, 0.8) !important;
+}
+
+.theme-purple .zenve-pillar-sub {
+  display: none !important;
+}
+
+.theme-purple .zenve-pillar-arrow-circle {
+  display: none !important;
+}
+
+.zenve-pillar-item.zenve-card-lavender {
+  background: #f4f3fb;
+  border: 1px solid #e1def8;
+}
+
+.zenve-pillar-item.zenve-card-lavender .zenve-pillar-title {
+  color: #1e183a;
+}
+
+.zenve-pillar-item.zenve-card-lavender .zenve-pillar-sub {
+  color: #554f73;
+}
+
+.zenve-pillar-item.zenve-card-lavender .zenve-pillar-arrow-circle {
+  background: #e3dff6;
+  color: #6d28d9;
+}
+
+.zenve-pillar-item.zenve-card-amber {
+  background: #fff9ed;
+  border: 1px solid #fae8c8;
+}
+
+.zenve-pillar-item.zenve-card-amber .zenve-pillar-title {
+  color: #38290a;
+}
+
+.zenve-pillar-item.zenve-card-amber .zenve-pillar-sub {
+  color: #6e5828;
+}
+
+.zenve-pillar-item.zenve-card-amber .zenve-pillar-arrow-circle {
+  background: #fde8bc;
+  color: #b45309;
+}
+
+/* Squircle Icon Box matching second screenshot */
+.zenve-pillar-icon-wrap {
+  width: 48px;
+  height: 48px;
   border-radius: 14px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  background: var(--role-bg, rgba(2, 132, 199, 0.06));
-  border: 1px solid var(--role-border, rgba(2, 132, 199, 0.18));
-  transition: all 0.25s ease;
-}
-
-.crm-role-icon-box {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  background: var(--role-gradient, linear-gradient(135deg, #0284c7 0%, #0369a1 100%));
-  color: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  box-shadow: 0 3px 8px var(--role-ring, rgba(2, 132, 199, 0.25));
-  transition: background 0.3s ease;
 }
 
-.crm-role-banner-content {
+.zenve-icon-teal {
+  background: #008767;
+}
+
+.zenve-icon-purple {
+  background: #6d28d9;
+}
+
+.zenve-icon-amber {
+  background: #f59e0b;
+}
+
+.zenve-pillar-content {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
   min-width: 0;
 }
 
-.crm-role-banner-title {
-  font-size: 0.85rem;
-  font-weight: 700;
-  color: #0f172a;
-  line-height: 1.25;
-}
-
-.crm-role-banner-desc {
-  font-size: 0.71rem;
-  color: #64748b;
-  margin-top: 2px;
-  line-height: 1.35;
+.zenve-pillar-title {
+  margin: 0;
+  font-size: 0.94rem;
+  font-weight: 800;
+  letter-spacing: -0.015em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.crm-role-pill-badge {
-  font-size: 0.65rem;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  padding: 3px 8px;
-  border-radius: 9999px;
-  background: #ffffff;
-  color: var(--role-accent, #0284c7);
-  border: 1px solid var(--role-border, rgba(2, 132, 199, 0.25));
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+.zenve-pillar-sub {
+  margin: 3px 0 0 0;
+  font-size: 0.76rem;
+  font-weight: 400;
+  line-height: 1.25;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Right Arrow Circle Button matching second screenshot */
+.zenve-pillar-arrow-circle {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.zenve-pillar-item:hover .zenve-pillar-arrow-circle {
+  transform: translateX(3px);
+}
+
+/* Bottom Quote Banner */
+.zenve-bottom-quote-banner {
+  background: var(--portal-gradient);
+  padding: 12px 20px;
+  border-radius: 14px;
+  color: #ffffff;
+  box-shadow: 0 8px 24px -4px var(--portal-shadow);
+}
+
+.zenve-quote-text {
+  font-size: 0.94rem;
+  font-weight: 700;
+  font-style: italic;
+  line-height: 1.35;
+  display: block;
+}
+
+.zenve-quote-accent-bar {
+  width: 40px;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 2px;
+  margin-top: 5px;
+}
+
+/* ══════════════════════════════════════════════════════════
+   RIGHT PANEL: SIDE-BY-SIDE DUAL CARDS AUTHENTICATION
+   ══════════════════════════════════════════════════════════ */
+.zenve-portal-right {
+  flex: 0 0 53%;
+  width: 53%;
+  height: 100vh;
+  max-height: 100vh;
+  padding: 3rem 2.5rem 1.5rem;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  justify-content: safe center;
+  align-items: center;
+  box-sizing: border-box;
+  overflow-y: auto;
+  position: relative;
+}
+
+.theme-blue.zenve-portal-page {
+  background: #f0f7ff url("../assets/zenve-login-backdrop.png") no-repeat center center / cover !important;
+}
+
+.theme-blue .zenve-portal-left {
+  flex: 0 0 47% !important;
+  width: 47% !important;
+  background: transparent !important;
+  border-right: none !important;
+}
+
+.theme-blue .zenve-portal-right {
+  flex: 0 0 53% !important;
+  width: 53% !important;
+  height: 100% !important;
+  padding: 3rem 2rem 1.5rem !important;
+  background: transparent !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+  justify-content: safe center !important;
+  align-items: center !important;
+  position: relative !important;
+  overflow-y: auto !important;
+  box-sizing: border-box !important;
+}
+
+/* Background ambient light waves on right panel - hidden so the user backdrop image shines cleanly */
+.theme-blue .zenve-portal-right::before,
+.theme-blue .zenve-portal-right::after {
+  display: none !important;
+}
+
+.theme-blue .zenve-auth-card-box {
+  position: relative;
+  z-index: 5;
+  margin: auto 0 !important;
+}
+
+/* ── Sales Manager (theme-green): Elegant Soft Mint Tint & Clean Right Panel with Custom Backdrop ── */
+.theme-green.zenve-portal-page {
+  background: #f4fbf7 url("../assets/zenve-manager-backdrop.png") no-repeat center center / cover !important;
+}
+
+.theme-green .zenve-portal-left {
+  flex: 0 0 54% !important;
+  width: 54% !important;
+  height: 100% !important;
+  background: transparent !important;
+  border-right: none !important;
+  padding: 3rem 1.5rem 3rem 4.5rem !important;
+  position: relative !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+  align-items: flex-start !important;
+  box-sizing: border-box !important;
+  z-index: 5 !important;
+}
+
+.theme-green .zenve-left-content {
+  position: relative !important;
+  z-index: 6 !important;
+  max-width: 380px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+}
+
+.theme-green .zenve-portal-right {
+  flex: 0 0 45% !important;
+  width: 45% !important;
+  height: 100% !important;
+  padding: 3rem 2.2rem 1.5rem !important;
+  background: transparent !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+  justify-content: safe center !important;
+  align-items: center !important;
+  position: relative !important;
+  overflow-y: auto !important;
+  box-sizing: border-box !important;
+}
+
+/* ── Regional Manager (theme-purple): Clean, Ultra-Bright Mountain Sunset Composition ── */
+.theme-purple.zenve-portal-page {
+  background: #0f172a url("../assets/zenve-regional-backdrop.png") no-repeat left center / cover !important;
+}
+
+.theme-purple .zenve-portal-left {
+  flex: 0 0 54% !important;
+  width: 54% !important;
+  height: 100% !important;
+  background: transparent !important;
+  border-right: none !important;
+  padding: 3rem 1.5rem 3rem 4.5rem !important;
+  position: relative !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+  align-items: flex-start !important;
+  box-sizing: border-box !important;
+  z-index: 5 !important;
+}
+
+.theme-purple .zenve-left-content {
+  position: relative !important;
+  z-index: 6 !important;
+  max-width: 380px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+}
+
+.theme-purple .zenve-brand-badge-row {
+  display: flex !important;
+  align-items: center !important;
+  gap: 14px !important;
+  margin-bottom: 1.2rem !important;
+}
+
+.theme-purple .zenve-brand-logo-text {
+  font-size: 2.35rem !important;
+  font-weight: 900 !important;
+  color: #0b1d3a !important;
+  line-height: 1 !important;
+  letter-spacing: -0.025em !important;
+  margin: 0 !important;
+  text-shadow: 0 1px 4px rgba(255, 255, 255, 0.7) !important;
+}
+
+.theme-purple .zenve-brand-sub-badge {
+  font-size: 1.05rem !important;
+  font-weight: 700 !important;
+  color: #1e1b4b !important;
+  display: block !important;
+  margin-top: 4px !important;
+  letter-spacing: -0.01em !important;
+  text-shadow: 0 1px 4px rgba(255, 255, 255, 0.7) !important;
+}
+
+.theme-purple .zenve-hero-headlines {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  margin-bottom: 1rem !important;
+}
+
+.theme-purple .zenve-hero-title-dark {
+  font-size: clamp(2.3rem, 3.2vw, 3.1rem) !important;
+  font-weight: 900 !important;
+  color: #0b1d3a !important;
+  line-height: 1.1 !important;
+  letter-spacing: -0.025em !important;
+  margin: 0 !important;
+  text-shadow: 0 1px 4px rgba(255, 255, 255, 0.8) !important;
+}
+
+.theme-purple .zenve-hero-title-purple {
+  font-size: clamp(2.3rem, 3.2vw, 3.1rem) !important;
+  font-weight: 900 !important;
+  color: #6d28d9 !important;
+  line-height: 1.1 !important;
+  letter-spacing: -0.025em !important;
+  margin: 0 !important;
+  text-shadow: 0 1px 4px rgba(255, 255, 255, 0.8) !important;
+}
+
+.theme-purple .zenve-hero-title-orange {
+  font-size: clamp(2.3rem, 3.2vw, 3.1rem) !important;
+  font-weight: 900 !important;
+  color: #ea580c !important;
+  line-height: 1.1 !important;
+  letter-spacing: -0.025em !important;
+  margin: 0 !important;
+  text-shadow: 0 1px 4px rgba(255, 255, 255, 0.8) !important;
+}
+
+.theme-purple .zenve-headline-accent-line {
+  width: 54px !important;
+  height: 5px !important;
+  background: linear-gradient(90deg, #ea580c 0%, #f97316 65%, #c084fc 100%) !important;
+  border-radius: 999px !important;
+  margin: 12px 0 10px 0 !important;
+}
+
+.theme-purple .zenve-hero-sub-description {
+  font-size: 0.95rem !important;
+  font-weight: 600 !important;
+  color: #334155 !important;
+  line-height: 1.45 !important;
+  max-width: 340px !important;
+  margin: 0 !important;
+  text-shadow: 0 1px 4px rgba(255, 255, 255, 0.8) !important;
+}
+
+.theme-purple .zenve-bottom-quote-banner {
+  display: none !important;
+}
+
+.theme-purple .zenve-portal-right {
+  flex: 0 0 46% !important;
+  width: 46% !important;
+  height: 100% !important;
+  padding: 3rem 2.2rem 1.5rem !important;
+  background: transparent !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+  justify-content: safe center !important;
+  align-items: center !important;
+  position: relative !important;
+  overflow-y: auto !important;
+  box-sizing: border-box !important;
+}
+
+.theme-green .zenve-interactive-spotlight,
+.theme-green .zenve-manager-full-banner-wrap,
+.theme-green .zenve-manager-full-banner-img,
+.theme-purple .zenve-interactive-spotlight,
+.theme-purple .zenve-regional-full-banner-wrap,
+.theme-purple .zenve-regional-full-banner-img {
+  display: none !important;
+}
+
+/* ── Sales Manager Full Left Composition (matching Image 2) ── */
+.zenve-manager-full-banner-wrap {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  overflow: hidden;
+  user-select: none;
+  background: transparent;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+.zenve-manager-full-banner-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: left top;
+  display: block;
+  filter: contrast(1.05) saturate(1.09) brightness(1.06);
+}
+
+.theme-green .zenve-ambient-wave,
+.theme-green .zenve-floating-paw,
+.theme-purple .zenve-ambient-wave,
+.theme-purple .zenve-floating-paw {
+  display: none !important;
+}
+
+.theme-green .zenve-portal-bg-img-wrap,
+.theme-purple .zenve-portal-bg-img-wrap {
+  display: none !important;
+}
+
+.theme-green .zenve-bg-img-overlay-blend,
+.theme-purple .zenve-bg-img-overlay-blend {
+  display: none !important;
+}
+
+
+.theme-green .zenve-brand-badge-row {
+  display: flex !important;
+  align-items: center !important;
+  gap: 14px !important;
+  margin-bottom: 1.2rem !important;
+}
+
+.theme-green .zenve-brand-left-mascot-logo {
+  width: auto !important;
+  height: 62px !important;
+  max-width: 82px !important;
+  object-fit: contain !important;
+  display: block !important;
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.12)) !important;
+}
+
+.theme-green .zenve-brand-logo-text {
+  font-size: 2.35rem !important;
+  font-weight: 900 !important;
+  color: #0d281e !important;
+  line-height: 1 !important;
+  letter-spacing: -0.025em !important;
+  margin: 0 !important;
+  text-shadow: 0 1px 4px rgba(255, 255, 255, 0.7) !important;
+}
+
+.theme-green .zenve-brand-sub-badge {
+  font-size: 1.05rem !important;
+  font-weight: 700 !important;
+  color: #1e3a2f !important;
+  display: block !important;
+  margin-top: 4px !important;
+  letter-spacing: -0.01em !important;
+  text-shadow: 0 1px 4px rgba(255, 255, 255, 0.7) !important;
+}
+
+.theme-green .zenve-manager-dot-dash {
+  display: flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  margin-top: 8px !important;
+}
+
+.theme-green .zenve-dash {
+  width: 44px !important;
+  height: 4.5px !important;
+  background: #059669 !important;
+  border-radius: 999px !important;
+  display: inline-block !important;
+}
+
+.theme-green .zenve-dot {
+  width: 5px !important;
+  height: 5px !important;
+  background: #059669 !important;
+  border-radius: 50% !important;
+  display: inline-block !important;
+}
+
+.theme-green .zenve-hero-headlines {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  margin-bottom: 1.2rem !important;
+}
+
+.theme-green .zenve-hero-title-dark {
+  font-size: clamp(2.3rem, 3.2vw, 3.1rem) !important;
+  font-weight: 900 !important;
+  color: #0d281e !important;
+  line-height: 1.12 !important;
+  letter-spacing: -0.025em !important;
+  margin: 0 !important;
+  text-shadow: 0 1px 4px rgba(255, 255, 255, 0.8) !important;
+}
+
+.theme-green .zenve-hero-title-green {
+  font-size: clamp(2.3rem, 3.2vw, 3.1rem) !important;
+  font-weight: 900 !important;
+  color: #059669 !important;
+  line-height: 1.12 !important;
+  letter-spacing: -0.025em !important;
+  margin: 0 !important;
+  text-shadow: 0 1px 4px rgba(255, 255, 255, 0.8) !important;
+}
+
+/* ── Sales Manager (Image 1 Style): 4 Circular Green Badges Stack ── */
+.theme-green .zenve-value-pillars-stack {
+  gap: 16px !important;
+  max-width: 320px !important;
+  margin: 1.6rem 0 1rem 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+.theme-green .zenve-pillar-item {
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border: none !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+  gap: 16px !important;
+  cursor: default !important;
+  display: flex !important;
+  align-items: center !important;
+  transform: none !important;
+}
+
+.theme-green .zenve-pillar-item:hover {
+  background: transparent !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.theme-green .zenve-pillar-icon-wrap {
+  width: 52px !important;
+  height: 52px !important;
+  border-radius: 50% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+  transition: transform 0.2s ease, box-shadow 0.2s ease !important;
+}
+
+.theme-green .zenve-pillar-icon-wrap:hover {
+  transform: scale(1.08) !important;
+}
+
+/* Badge 1 (Team): Medium dark forest green circle with white icon */
+.theme-green .zenve-pillar-item:nth-child(1) .zenve-pillar-icon-wrap {
+  background: #2b8a64 !important;
+  border: 2px solid #227051 !important;
+  box-shadow: 0 4px 14px rgba(43, 138, 100, 0.25) !important;
+}
+
+/* Badges 2, 3, 4 (Chart, Target, Document): Mint green circle with dark green icon */
+.theme-green .zenve-pillar-item:nth-child(n+2) .zenve-pillar-icon-wrap {
+  background: #059669 !important;
+  border: 2px solid #86efac !important;
+  box-shadow: 0 4px 14px rgba(167, 243, 208, 0.35) !important;
+}
+
+.theme-green .zenve-pillar-icon-wrap svg {
+  width: 25px !important;
+  height: 25px !important;
+}
+
+.theme-green .zenve-pillar-content,
+.theme-green .zenve-pillar-sub,
+.theme-green .zenve-pillar-arrow-circle,
+.theme-green .zenve-bottom-quote-banner,
+.theme-green .zenve-headline-accent-line {
+  display: none !important;
+}
+
+.theme-green .zenve-auth-card-box {
+  position: relative;
+  z-index: 5;
+}
+
+/* Welcome Header (Applied universally for all roles: Executive, Manager, Regional) */
+.zenve-welcome-header {
+  margin-bottom: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  width: 100%;
+}
+
+.zenve-brand-right-row {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  margin-bottom: 2px;
+}
+
+.zenve-welcome-full-logo {
+  width: auto !important;
+  height: 70px !important;
+  max-height: 70px !important;
+  max-width: 150px !important;
+  object-fit: contain !important;
+  display: block !important;
+  filter: drop-shadow(0 3px 8px rgba(0, 0, 0, 0.08)) !important;
+  user-select: none !important;
+  pointer-events: none !important;
+  flex-shrink: 0 !important;
+  margin: 0 auto !important;
+}
+
+.zenve-brand-right-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.zenve-brand-title-right {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #07213d;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.theme-blue .zenve-brand-title-right {
+  color: #07213d;
+}
+
+.theme-green .zenve-brand-title-right {
+  color: #0d281e;
+}
+
+.theme-purple .zenve-brand-title-right {
+  color: #2e1065;
+}
+
+.zenve-brand-subtitle-right {
+  font-size: 0.78rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.015em !important;
+  padding: 3px 12px !important;
+  border-radius: 999px !important;
+  margin-top: 2px !important;
+  margin-bottom: 2px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.theme-blue .zenve-brand-subtitle-right {
+  color: #0066cc !important;
+  background: #edf5fe !important;
+  border: 1px solid #bfdbfe !important;
+}
+
+.theme-green .zenve-brand-subtitle-right {
+  color: #059669 !important;
+  background: #ecfdf5 !important;
+  border: 1px solid #a7f3d0 !important;
+}
+
+.theme-purple .zenve-brand-subtitle-right {
+  color: #7c3aed !important;
+  background: #f5f3ff !important;
+  border: 1px solid #ddd6fe !important;
+}
+
+.zenve-welcome-title {
+  font-size: 1.45rem !important;
+  font-weight: 800 !important;
+  font-family: inherit !important;
+  color: #07213d !important;
+  letter-spacing: -0.02em !important;
+  margin: 4px 0 2px 0 !important;
+  line-height: 1.2 !important;
+}
+
+.theme-blue .zenve-welcome-title {
+  color: #0b2239 !important;
+}
+
+.theme-green .zenve-welcome-title {
+  color: #064e3b !important;
+}
+
+.theme-purple .zenve-welcome-title {
+  color: #2e1065 !important;
+}
+
+.zenve-welcome-subtitle {
+  font-size: 0.82rem !important;
+  color: #64748b !important;
+  margin: 0 0 6px 0 !important;
+  font-weight: 500 !important;
+  line-height: 1.35 !important;
+}
+
+.zenve-welcome-accent-line {
+  display: block !important;
+  width: 32px !important;
+  height: 2.5px !important;
+  background: var(--portal-accent) !important;
+  border-radius: 999px !important;
+  margin: 0 auto 8px auto !important;
+}
+
+.theme-green .zenve-welcome-accent-line {
+  background: #10b981 !important;
+}
+
+.theme-purple .zenve-welcome-accent-line {
+  background: #a855f7 !important;
+}
+
+/* ── Dual Side-by-Side Cards Grid ── */
+.zenve-dual-login-cards-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 22px;
+  width: 100%;
+  position: relative;
+  align-items: stretch;
+}
+
+.theme-blue .zenve-login-method-card {
+  background: #ffffff;
+  border: 1.5px solid #ddecfa;
+  border-radius: 18px;
+  padding: 26px 22px 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  box-shadow: 0 8px 30px -4px rgba(0, 119, 230, 0.07);
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.theme-blue .zenve-login-method-card:hover {
+  border-color: #b9dcfa;
+  box-shadow: 0 12px 36px -4px rgba(0, 119, 230, 0.12);
+}
+
+.theme-blue .zenve-method-icon-circle {
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  background: #e2f1fe;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 14px;
+}
+
+.theme-blue .zenve-method-title {
+  font-size: 1.18rem;
+  font-weight: 800;
+  color: #0c2340;
+  margin: 0 0 6px 0;
+  letter-spacing: -0.015em;
+}
+
+.theme-blue .zenve-method-desc {
+  font-size: 0.8rem;
+  color: #627d98;
+  margin: 0 0 18px 0;
+  line-height: 1.4;
+  min-height: 36px;
+}
+
+.theme-blue .zenve-card-field-label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #0c2340;
+  margin-bottom: 6px;
+  display: block;
+}
+
+.theme-blue .zenve-input-text {
+  height: 42px;
+  border: 1.5px solid #cce0f5;
+  border-radius: 8px;
+  font-size: 0.86rem;
+  background: #ffffff;
+}
+
+.theme-blue .zenve-input-text:focus {
+  border-color: #0077e6;
+  box-shadow: 0 0 0 3px rgba(0, 119, 230, 0.14);
+}
+
+.theme-blue .zenve-phone-input-row {
+  height: 42px;
+  border: 1.5px solid #cce0f5;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.theme-blue .zenve-phone-input-row:focus-within {
+  border-color: #0077e6;
+  box-shadow: 0 0 0 3px rgba(0, 119, 230, 0.14);
+}
+
+.theme-blue .zenve-country-prefix {
+  background: #f8fafc;
+  border-right: 1.5px solid #cce0f5;
+  font-size: 0.86rem;
+  color: #0c2340;
+  font-weight: 700;
+}
+
+.theme-blue .zenve-card-submit-btn {
+  height: 42px;
+  border-radius: 8px;
+  background: #0070e0;
+  font-size: 0.94rem;
+  font-weight: 700;
+  box-shadow: 0 4px 14px rgba(0, 112, 224, 0.28);
+}
+
+.theme-blue .zenve-card-submit-btn:hover:not(:disabled) {
+  background: #005fbf;
+  box-shadow: 0 6px 18px rgba(0, 112, 224, 0.38);
+}
+
+.theme-blue .zenve-forgot-link {
+  color: #0077e6;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.theme-blue .zenve-card-sub-divider-text {
+  font-size: 0.72rem;
+  color: #627d98;
+}
+
+.theme-blue .zenve-card-security-note {
+  font-size: 0.74rem;
+  color: #486581;
+}
+
+/* ── Manager Standalone Login Method Card (Theme Green) ── */
+.theme-green .zenve-login-method-card {
+  background: #ffffff;
+  border: 1.5px solid #d1fae5;
+  border-radius: 18px;
+  padding: 26px 22px 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  box-shadow: 0 8px 30px -4px rgba(5, 150, 105, 0.08);
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.theme-green .zenve-login-method-card:hover {
+  border-color: #a7f3d0;
+  box-shadow: 0 12px 36px -4px rgba(5, 150, 105, 0.14);
+}
+
+.theme-green .zenve-method-icon-circle {
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  background: #ecfdf5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 14px;
+}
+
+.theme-green .zenve-method-title {
+  font-size: 1.18rem;
+  font-weight: 800;
+  color: #064e3b;
+  margin: 0 0 6px 0;
+  letter-spacing: -0.015em;
+}
+
+.theme-green .zenve-method-desc {
+  font-size: 0.8rem;
+  color: #406553;
+  margin: 0 0 18px 0;
+  line-height: 1.4;
+  min-height: 36px;
+}
+
+.theme-green .zenve-card-field-label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #064e3b;
+  margin-bottom: 6px;
+  display: block;
+}
+
+.theme-green .zenve-input-text {
+  height: 42px;
+  border: 1.5px solid #d1fae5;
+  border-radius: 8px;
+  font-size: 0.86rem;
+  background: #ffffff;
+  color: #064e3b;
+}
+
+.theme-green .zenve-input-text:focus {
+  border-color: #059669;
+  box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.14);
+}
+
+.theme-green .zenve-green-submit-btn,
+.theme-green .zenve-card-submit-btn {
+  width: 100%;
+  height: 42px;
+  border-radius: 8px;
+  background: #059669;
+  font-size: 0.94rem;
+  font-weight: 700;
+  color: #ffffff;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  box-shadow: 0 4px 14px rgba(5, 150, 105, 0.28);
+  transition: all 0.2s ease;
+}
+
+.theme-green .zenve-green-submit-btn:hover:not(:disabled),
+.theme-green .zenve-card-submit-btn:hover:not(:disabled) {
+  background: #047857;
+  box-shadow: 0 6px 18px rgba(5, 150, 105, 0.38);
+  transform: translateY(-1px);
+}
+
+.theme-green .zenve-forgot-link {
+  color: #059669;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.theme-green .zenve-card-security-note {
+  font-size: 0.74rem;
+  color: #406553;
+}
+
+/* Centered Form Container */
+.zenve-auth-card-box {
+  width: 100%;
+  max-width: 440px;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  margin: auto 0;
+}
+
+.theme-blue .zenve-auth-card-box {
+  max-width: 440px !important;
+  width: 100% !important;
+  margin: auto 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-sizing: border-box !important;
+}
+
+.theme-green .zenve-auth-card-box {
+  max-width: 440px !important;
+  width: 100% !important;
+  margin: auto 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-sizing: border-box !important;
+}
+
+.zenve-single-email-auth-wrapper {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.zenve-standalone-card {
+  width: 100% !important;
+  max-width: 468px !important;
+  box-sizing: border-box !important;
+}
+
+.theme-purple .zenve-auth-card-box {
+  max-width: 440px !important;
+  width: 100% !important;
+  margin: auto 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-sizing: border-box !important;
+}
+
+/* Unified Single White Card (matching Admin CRM Login Model) */
+.zenve-unified-auth-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 22px;
+  padding: 22px 26px 20px;
+  box-shadow: 0 16px 40px -6px rgba(15, 23, 42, 0.1);
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 440px;
+  position: relative;
+  margin: 0 auto;
+}
+
+.theme-blue .zenve-unified-auth-card {
+  max-width: 440px !important;
+  margin: 0 auto !important;
+  border-radius: 22px !important;
+  border: 1.5px solid #ddecfa !important;
+  padding: 22px 26px 20px !important;
+  box-shadow: 0 16px 40px -6px rgba(0, 119, 230, 0.13) !important;
+  background: #ffffff !important;
+  box-sizing: border-box !important;
+}
+
+.theme-green .zenve-unified-auth-card {
+  width: 100% !important;
+  max-width: 440px !important;
+  margin: 0 auto !important;
+  border-radius: 22px !important;
+  border: 1.5px solid #d1fae5 !important;
+  padding: 22px 26px 20px !important;
+  box-shadow: 0 16px 40px -6px rgba(6, 78, 43, 0.13) !important;
+  background: #ffffff !important;
+  box-sizing: border-box !important;
+}
+
+.theme-purple .zenve-unified-auth-card {
+  width: 100% !important;
+  max-width: 440px !important;
+  margin: 0 auto !important;
+  border-radius: 22px !important;
+  border: 1.5px solid #ede9fe !important;
+  padding: 22px 26px 20px !important;
+  box-shadow: 0 16px 40px -6px rgba(109, 40, 217, 0.13) !important;
+  background: #ffffff !important;
+  box-sizing: border-box !important;
+}
+
+/* Unified Tabs Pill Switcher (Email & Password | Mobile with OTP) */
+.zenve-unified-mode-tabs {
+  display: flex;
+  background: #f1f5f9;
+  padding: 4px;
+  border-radius: 999px;
+  margin: 0 auto 14px auto;
+  border: 1px solid #e2e8f0;
+  gap: 4px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.theme-blue .zenve-unified-mode-tabs {
+  background: #eef6ff !important;
+  border-color: #dbeafe !important;
+  border-radius: 999px !important;
+  padding: 4px !important;
+  margin: 0 auto 14px auto !important;
+}
+
+.theme-green .zenve-unified-mode-tabs {
+  background: #ecfdf5 !important;
+  border-color: #d1fae5 !important;
+  border-radius: 999px !important;
+  padding: 4px !important;
+  margin: 0 auto 14px auto !important;
+}
+
+.theme-purple .zenve-unified-mode-tabs {
+  background: #f5f3ff !important;
+  border-color: #ede9fe !important;
+  border-radius: 999px !important;
+  padding: 4px !important;
+  margin: 0 auto 14px auto !important;
+}
+
+.zenve-unified-tab-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 8px 14px;
+  border: none;
+  background: transparent;
+  border-radius: 999px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.zenve-unified-tab-btn:hover {
+  color: #0f172a;
+}
+
+.zenve-unified-tab-btn.active {
+  background: #ffffff;
+  color: var(--portal-accent);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  font-weight: 700;
+}
+
+.theme-blue .zenve-unified-tab-btn {
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: #4a6886;
+}
+
+.theme-blue .zenve-unified-tab-btn.active {
+  background: #ffffff;
+  color: #0066cc;
+  box-shadow: 0 2px 10px rgba(0, 114, 235, 0.16);
+  font-weight: 700;
+}
+
+.theme-green .zenve-unified-tab-btn {
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: #406553;
+}
+
+.theme-green .zenve-unified-tab-btn.active {
+  background: #ffffff;
+  color: #059669;
+  box-shadow: 0 2px 10px rgba(5, 150, 105, 0.16);
+  font-weight: 700;
+}
+
+.theme-purple .zenve-unified-tab-btn {
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: #554477;
+}
+
+.theme-purple .zenve-unified-tab-btn.active {
+  background: #ffffff;
+  color: #7c3aed;
+  box-shadow: 0 2px 10px rgba(124, 58, 237, 0.16);
+  font-weight: 700;
+}
+
+/* Hide any remaining standalone method elements inside unified auth card */
+.zenve-unified-auth-card .zenve-method-icon-circle,
+.zenve-unified-auth-card .zenve-method-title,
+.zenve-unified-auth-card .zenve-method-desc {
+  display: none !important;
+}
+
+/* Unified Medium Form Styles */
+.zenve-unified-auth-card .zenve-card-form {
+  gap: 10px !important;
+}
+
+.zenve-unified-auth-card .zenve-card-field-label {
+  font-size: 0.8rem !important;
+  font-weight: 700 !important;
+  margin-bottom: 3px !important;
+}
+
+.zenve-unified-auth-card .zenve-input-text,
+.zenve-unified-auth-card .zenve-phone-input-row {
+  height: 42px !important;
+  border-radius: 9px !important;
+  font-size: 0.88rem !important;
+}
+
+.zenve-unified-auth-card .zenve-country-prefix {
+  height: 42px !important;
+  font-size: 0.86rem !important;
+  padding: 0 11px !important;
+}
+
+.zenve-unified-auth-card .zenve-card-submit-btn {
+  height: 42px !important;
+  font-size: 0.94rem !important;
+  font-weight: 700 !important;
+  margin-top: 6px !important;
+  border-radius: 9px !important;
+}
+
+.zenve-unified-auth-card .zenve-forgot-row {
+  margin-top: 3px !important;
+}
+
+.zenve-unified-auth-card .zenve-forgot-link {
+  font-size: 0.76rem !important;
+  font-weight: 600 !important;
+}
+
+.zenve-unified-auth-card .zenve-method-card-footer {
+  margin-top: 8px !important;
+}
+
+.zenve-unified-auth-card .zenve-card-security-note {
+  font-size: 0.72rem !important;
+  gap: 7px !important;
+}
+
+.zenve-unified-auth-card .zenve-card-security-note strong {
+  font-size: 0.76rem !important;
+}
+
+.zenve-unified-auth-card .zenve-card-security-note small {
+  font-size: 0.7rem !important;
+}
+
+/* ── Manager Top Badges (Left & Right Header) ── */
+.zenve-brand-badge-row.manager-brand-row {
+  align-items: center;
+  gap: 12px;
+}
+
+.zenve-manager-left-mascot {
+  width: auto;
+  height: 60px;
+  max-width: 65px;
+  object-fit: contain;
+  flex-shrink: 0;
+  display: block;
+}
+
+.zenve-manager-left-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.zenve-manager-dot-dash {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 6px;
+}
+
+.zenve-dash {
+  width: 24px;
+  height: 3px;
+  background: #0b663b;
+  border-radius: 3px;
+}
+
+.zenve-dot {
+  width: 5px;
+  height: 5px;
+  background: #0b663b;
+  border-radius: 50%;
+}
+
+.zenve-manager-header-badge {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.zenve-manager-header-mascot {
+  width: auto;
+  height: 62px;
+  max-width: 68px;
+  object-fit: contain;
+  flex-shrink: 0;
+  display: block;
+}
+
+.zenve-manager-header-text {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+}
+
+.zenve-manager-portal-tag {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin-top: -2px;
+}
+
+/* ── Manager Left Circles Stack (matching Reference Image 1) ── */
+.zenve-manager-circles-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin: 1.5rem 0 1.25rem 0;
+  z-index: 6;
+  position: relative;
+}
+
+.zenve-manager-circle-badge {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: #a7f3d0;
+  color: #064e2b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: pointer;
+}
+
+.zenve-manager-circle-badge:hover {
+  transform: none !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.16);
+}
+
+.zenve-manager-circle-badge.badge-0 {
+  background: #059669;
+  color: #ffffff;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+}
+
+.zenve-manager-circle-badge.badge-1 {
+  background: #a7f3d0;
+  color: #065f46;
+  border: 2px solid rgba(255, 255, 255, 0.6);
+}
+
+.zenve-manager-circle-badge.badge-2 {
+  background: #6ee7b7;
+  color: #064e2b;
+  border: 2px solid rgba(255, 255, 255, 0.6);
+}
+
+.zenve-manager-circle-badge.badge-3 {
+  background: #a7f3d0;
+  color: #064e2b;
+  border: 2px solid rgba(255, 255, 255, 0.6);
+}
+
+.theme-green-dual-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  width: 100%;
+  position: relative;
+  align-items: stretch;
+  margin-top: 14px;
+}
+
+/* Subtle vertical dividing line in the middle */
+.theme-green-dual-grid::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 14px;
+  bottom: 14px;
+  width: 1px;
+  background: #e2f2ea;
+  transform: translateX(-50%);
+  z-index: 1;
+}
+
+/* OR badge centered in between the two cards */
+.theme-green-dual-grid .zenve-dual-cards-or-badge {
+  position: absolute;
+  left: 50%;
+  top: 48%;
+  transform: translate(-50%, -50%);
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: #bbf7d0;
+  color: #064e3b;
+  border: 3px solid #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.82rem;
+  font-weight: 800;
+  box-shadow: 0 4px 12px rgba(6, 78, 59, 0.12);
+  z-index: 10;
+  pointer-events: none;
+}
+
+/* Card Containers */
+.theme-green-dual-grid .zenve-login-method-card {
+  border-radius: 20px;
+  padding: 28px 22px 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  position: relative;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+  z-index: 2;
+}
+
+/* Left Card: Soft mint tint */
+.theme-green-dual-grid .zenve-phone-card {
+  background: #f4fbf7;
+  border: 1.5px solid #d1fae5;
+  box-shadow: 0 4px 20px -2px rgba(6, 78, 43, 0.05);
+}
+
+.theme-green-dual-grid .zenve-phone-card:hover {
+  border-color: #a7f3d0;
+  box-shadow: 0 8px 24px -4px rgba(6, 78, 43, 0.1);
+}
+
+/* Right Card: Soft clean off-white */
+.theme-green-dual-grid .zenve-email-card {
+  background: #fcfdfc;
+  border: 1.5px solid #e7ede8;
+  box-shadow: 0 4px 20px -2px rgba(6, 78, 43, 0.05);
+}
+
+.theme-green-dual-grid .zenve-email-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 8px 24px -4px rgba(6, 78, 43, 0.1);
+}
+
+/* Method Icon Circles */
+.theme-green-dual-grid .zenve-method-icon-circle {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: #d1fae5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 14px;
+}
+
+/* Method Titles */
+.theme-green-dual-grid .zenve-method-title {
+  font-family: "Playfair Display", Georgia, serif;
+  font-size: 1.28rem;
+  font-weight: 800;
+  color: #064e3b;
+  margin: 0 0 6px 0;
+  letter-spacing: -0.015em;
+}
+
+/* Method Descriptions */
+.theme-green-dual-grid .zenve-method-desc {
+  font-size: 0.82rem;
+  color: #52796f;
+  margin: 0 0 20px 0;
+  line-height: 1.4;
+  min-height: 38px;
+  max-width: 250px;
+}
+
+/* Field Labels */
+.theme-green-dual-grid .zenve-card-field-label {
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: #0f291e;
+  margin-bottom: 6px;
+  display: block;
+}
+
+/* Inputs */
+.theme-green-dual-grid .zenve-input-text {
+  height: 44px;
+  background: #ffffff;
+  border: 1.5px solid #d1fae5;
+  border-radius: 10px;
+  font-size: 0.88rem;
+  color: #0f291e;
+}
+
+.theme-green-dual-grid .zenve-input-text:focus {
+  border-color: #059669;
+  box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.15);
+}
+
+.theme-green-dual-grid .zenve-field-left-icon {
+  color: #059669;
+}
+
+/* Phone input row */
+.theme-green-dual-grid .zenve-phone-input-row {
+  height: 44px;
+  background: #ffffff;
+  border: 1.5px solid #d1fae5;
+  border-radius: 10px;
+}
+
+.theme-green-dual-grid .zenve-phone-input-row:focus-within {
+  border-color: #059669;
+  box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.15);
+}
+
+.theme-green-dual-grid .zenve-country-prefix {
+  background: #f8fafc;
+  border-right: 1.5px solid #d1fae5;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #0f291e;
+  padding: 0 12px;
+}
+
+.theme-green-dual-grid .zenve-phone-prefix-icon {
+  color: #059669;
+}
+
+.theme-green-dual-grid .zenve-phone-input {
+  color: #0f291e;
+  font-size: 0.88rem;
+}
+
+/* Deep Green Submit Buttons */
+.theme-green-dual-grid .zenve-green-submit-btn {
+  width: 100%;
+  height: 46px;
+  border-radius: 10px;
+  border: none;
+  background: #064e3b;
+  color: #ffffff;
+  font-size: 0.96rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  margin-top: 10px;
+  box-shadow: 0 4px 14px rgba(6, 78, 59, 0.28);
+  transition: all 0.2s ease;
+}
+
+.theme-green-dual-grid .zenve-green-submit-btn:hover:not(:disabled) {
+  background: #043c2e;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(6, 78, 59, 0.38);
+}
+
+.theme-green-dual-grid .zenve-green-submit-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Secure Bottom Box in Left Card */
+.zenve-secure-otp-badge-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #f0fdf4;
+  border: 1px solid #d1fae5;
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-top: 22px;
+  width: 100%;
+  box-sizing: border-box;
+  text-align: left;
+}
+
+.zenve-secure-shield-icon {
+  color: #059669;
   flex-shrink: 0;
 }
 
-/* ── Form Body ── */
-.crm-login-body {
-  padding: 1.25rem 1.75rem 1.75rem;
-}
-
-.crm-login-error {
-  background: #fef2f2;
-  border: 1px solid #fecaca;
-  color: #b91c1c;
-  padding: 8px 12px;
-  border-radius: 10px;
-  font-size: 0.77rem;
-  margin-bottom: 14px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  animation: crmErrorShake 0.35s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
-}
-
-@keyframes crmErrorShake {
-  10%, 90% { transform: translate3d(-1px, 0, 0); }
-  20%, 80% { transform: translate3d(2px, 0, 0); }
-  30%, 50%, 70% { transform: translate3d(-3px, 0, 0); }
-  40%, 60% { transform: translate3d(3px, 0, 0); }
-}
-
-.crm-login-form-group {
-  margin-bottom: 1.1rem;
-}
-
-.crm-login-label-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 6px;
-}
-
-.crm-login-label {
-  display: block;
-  font-size: 0.78rem;
+.zenve-secure-otp-badge-box span {
+  font-size: 0.82rem;
   font-weight: 600;
-  color: #334155;
-  margin-bottom: 6px;
+  color: #166534;
+  line-height: 1.35;
 }
 
-.crm-password-hint {
-  font-size: 0.7rem;
-  color: #64748b;
-}
-
-.crm-password-hint code {
-  background: #f1f5f9;
-  padding: 1px 5px;
-  border-radius: 4px;
-  font-family: ui-monospace, monospace;
-  font-size: 0.72rem;
-  color: #0f172a;
-  border: 1px solid #e2e8f0;
-}
-
-/* ── Input Wrapper & Focus State (NO DOUBLE BORDERS) ── */
-.crm-login-input-wrap {
-  position: relative;
+/* Options row in Right Card */
+.theme-green-dual-grid .zenve-card-options-row {
   display: flex;
   align-items: center;
-  border-radius: 12px;
-  border: 1.5px solid #cbd5e1;
-  background: #f8fafc;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  overflow: hidden;
-}
-
-.crm-login-input-wrap:focus-within {
-  border-color: var(--role-accent, #0284c7);
-  background: #ffffff;
-  box-shadow: 0 0 0 3px var(--role-ring, rgba(2, 132, 199, 0.15));
-}
-
-.crm-login-field-icon {
-  position: absolute;
-  left: 12px;
-  color: #94a3b8;
-  display: flex;
-  align-items: center;
-  pointer-events: none;
-  transition: color 0.2s ease;
-}
-
-.crm-login-input-wrap:focus-within .crm-login-field-icon {
-  color: var(--role-accent, #0284c7);
-}
-
-.crm-login-input {
+  justify-content: space-between;
+  margin-top: 8px;
+  margin-bottom: 4px;
   width: 100%;
-  padding: 10px 40px 10px 38px;
-  font-size: 0.88rem;
+}
+
+.theme-green-dual-grid .zenve-remember-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #1e3a2f;
+  cursor: pointer;
+}
+
+.theme-green-dual-grid .zenve-remember-checkbox {
+  width: 16px;
+  height: 16px;
+  accent-color: #059669;
+  cursor: pointer;
+}
+
+.theme-green-dual-grid .zenve-forgot-link {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #059669;
+  background: none;
   border: none;
-  background: transparent;
-  color: #0f172a;
-  outline: none;
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.15s ease;
+}
+
+.theme-green-dual-grid .zenve-forgot-link:hover {
+  color: #047857;
+  text-decoration: underline;
+}
+
+.zenve-login-method-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  padding: 24px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05);
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.zenve-method-icon-circle {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--portal-badge-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+
+.zenve-method-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #003366;
+  margin: 0 0 6px 0;
   font-family: inherit;
 }
 
-.crm-login-input::placeholder {
-  color: #94a3b8;
+.theme-blue .zenve-method-title {
+  color: #003366;
 }
 
-.crm-login-toggle-pw {
+.theme-green .zenve-method-title {
+  color: #11422f;
+}
+
+.theme-purple .zenve-method-title {
+  color: #003366;
+}
+
+.zenve-method-desc {
+  font-size: 0.78rem;
+  color: #557086;
+  margin: 0 0 16px 0;
+  line-height: 1.35;
+  min-height: 32px;
+}
+
+.theme-blue .zenve-method-desc {
+  color: #557086;
+}
+
+.theme-purple .zenve-method-desc {
+  color: #557086;
+}
+
+.zenve-card-form {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  text-align: left;
+}
+
+.zenve-card-field-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #0b2239;
+  margin-bottom: 4px;
+  display: block;
+}
+
+.theme-blue .zenve-card-field-label {
+  color: #0b2239;
+}
+
+.theme-purple .zenve-card-field-label {
+  color: #0b2239;
+}
+
+.zenve-card-submit-btn {
+  width: 100%;
+  height: 44px;
+  border-radius: 8px;
+  border: none;
+  background: var(--portal-accent);
+  color: #ffffff;
+  font-size: 0.95rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  margin-top: 6px;
+  box-shadow: 0 4px 12px var(--portal-shadow);
+}
+
+.zenve-card-submit-btn:hover:not(:disabled) {
+  background: var(--portal-accent-hover);
+  transform: translateY(-1px);
+}
+
+.zenve-card-submit-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.zenve-btn-arrow {
+  font-size: 1.25rem;
+  line-height: 1;
+  font-weight: 400;
+}
+
+.zenve-card-options-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 6px;
+  width: 100%;
+}
+
+.zenve-remember-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: #334155;
+  cursor: pointer;
+  user-select: none;
+}
+
+.zenve-remember-checkbox {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--portal-accent);
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.zenve-forgot-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+
+.zenve-forgot-link {
+  font-size: 0.75rem;
+  color: var(--portal-accent);
+  font-weight: 600;
+  text-decoration: none;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+
+.zenve-forgot-link:hover {
+  text-decoration: underline;
+}
+
+.zenve-method-card-footer {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.zenve-card-sub-divider {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin-bottom: 10px;
+}
+
+.zenve-card-sub-divider-line {
+  flex: 1;
+  height: 1px;
+  background: #e2e8f0;
+}
+
+.zenve-card-sub-divider-text {
+  font-size: 0.68rem;
+  color: #64748b;
+  white-space: nowrap;
+}
+
+.theme-blue .zenve-card-sub-divider-text {
+  color: #627d98;
+}
+
+.theme-green .zenve-card-submit-btn {
+  height: 44px;
+  border-radius: 10px;
+  background: #10b981;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  font-size: 0.96rem;
+  font-weight: 700;
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  transition: all 0.2s ease;
+  margin-top: 8px;
+}
+
+.theme-green .zenve-card-submit-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(5, 150, 105, 0.45);
+}
+
+.theme-green .zenve-method-switch-footer {
+  text-align: center;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px dashed #d1fae5;
+  font-size: 0.84rem;
+  color: #52796f;
+}
+
+.zenve-method-switch-action {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.84rem;
+  font-weight: 700;
+  cursor: pointer;
+  color: #0066cc;
+  transition: color 0.15s ease;
+}
+
+.theme-green .zenve-method-switch-action {
+  color: #059669;
+}
+
+.theme-green .zenve-method-switch-action:hover {
+  color: #047857;
+  text-decoration: underline;
+}
+
+.theme-green .zenve-forgot-link {
+  color: #059669;
+}
+
+.theme-green .zenve-forgot-link:hover {
+  color: #047857;
+}
+
+.theme-green .zenve-remember-checkbox {
+  accent-color: #059669;
+}
+
+.theme-purple .zenve-card-submit-btn {
+  background: linear-gradient(90deg, #3b0764 0%, #581c87 45%, #9a3412 100%) !important;
+  box-shadow: 0 4px 16px rgba(59, 7, 100, 0.4) !important;
+  color: #ffffff !important;
+  font-weight: 800 !important;
+}
+
+.theme-purple .zenve-card-submit-btn:hover:not(:disabled) {
+  background: linear-gradient(90deg, #2e1065 0%, #4c1d95 45%, #7c2d12 100%) !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 6px 20px rgba(59, 7, 100, 0.55) !important;
+}
+
+/* Regional Manager Switch Button & Divider */
+.zenve-card-regional-toggle-row {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.zenve-regional-divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  position: relative;
+  margin: 6px 0;
+}
+
+.zenve-regional-divider::before,
+.zenve-regional-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: #e2e8f0;
+}
+
+.zenve-regional-divider span {
+  padding: 0 10px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #64748b;
+}
+
+.zenve-regional-switch-btn {
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #003366;
+  font-size: 0.78rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  box-sizing: border-box;
+}
+
+.zenve-card-security-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.72rem;
+  color: #486581;
+  font-weight: 500;
+  text-align: left;
+  line-height: 1.3;
+}
+
+.theme-blue .zenve-card-security-note {
+  color: #486581;
+}
+
+.theme-green .zenve-card-security-note {
+  color: #2d6a4f;
+}
+
+.theme-purple .zenve-card-security-note {
+  color: #486581;
+}
+
+.zenve-card-security-note strong {
+  color: #003366;
+  font-size: 0.76rem;
+}
+
+.theme-green .zenve-card-security-note strong {
+  color: #064e2b;
+}
+
+.zenve-card-security-note small {
+  color: #486581;
+  font-size: 0.7rem;
+}
+
+.zenve-card-shield-icon {
+  color: var(--portal-accent);
+  flex-shrink: 0;
+}
+
+/* Feedback Alerts */
+.zenve-auth-alert {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.zenve-auth-alert.alert-error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+}
+
+.zenve-auth-alert.alert-success {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #16a34a;
+}
+
+/* ── Form Layout ── */
+.zenve-auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+}
+
+.zenve-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.zenve-field-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #0b2239;
+  margin: 0;
+}
+
+.zenve-required-asterisk {
+  color: #ef4444;
+  font-weight: 700;
+}
+
+/* Standard Inputs */
+.zenve-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.zenve-field-left-icon {
+  position: absolute;
+  left: 13px;
+  color: var(--portal-accent);
+  pointer-events: none;
+}
+
+.zenve-input-text {
+  width: 100%;
+  height: 44px;
+  padding: 0 13px;
+  background: #fcfdff;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  font-size: 0.88rem;
+  color: #0b2239;
+  outline: none;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+}
+
+.zenve-input-text.zenve-input-with-icon {
+  padding-left: 39px;
+}
+
+.zenve-input-text.zenve-input-with-eye {
+  padding-right: 39px;
+}
+
+.zenve-input-text:focus {
+  border-color: var(--portal-accent);
+  box-shadow: 0 0 0 3px var(--portal-shadow);
+}
+
+.zenve-eye-toggle-btn {
   position: absolute;
   right: 10px;
   background: none;
   border: none;
   color: #94a3b8;
   cursor: pointer;
-  padding: 6px;
-  display: flex;
-  align-items: center;
-  border-radius: 6px;
-  transition: color 0.2s ease, background 0.2s ease;
-}
-
-.crm-login-toggle-pw:hover {
-  color: #334155;
-  background: rgba(0, 0, 0, 0.05);
-}
-
-/* ── Quick Profile Selection Pills ── */
-.crm-quick-users-wrap {
-  margin-top: 8px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.crm-quick-user-label {
-  font-size: 0.69rem;
-  color: #64748b;
-  font-weight: 500;
-  white-space: nowrap;
-}
-
-.crm-quick-users-scroll {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  overflow-x: auto;
-  padding-bottom: 2px;
-}
-
-.crm-quick-users-scroll::-webkit-scrollbar {
-  display: none;
-}
-
-.crm-quick-user-pill {
-  padding: 3px 8px;
-  border-radius: 9999px;
-  font-size: 0.71rem;
-  font-weight: 600;
-  border: 1px solid #e2e8f0;
-  background: #ffffff;
-  color: #334155;
-  cursor: pointer;
-  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  white-space: nowrap;
-}
-
-.crm-quick-user-pill:hover {
-  border-color: var(--role-accent, #0284c7);
-  color: var(--role-accent, #0284c7);
-  background: var(--role-bg, rgba(2, 132, 199, 0.05));
-  transform: translateY(-1px);
-}
-
-.crm-quick-user-pill.selected {
-  border-color: var(--role-accent, #0284c7);
-  background: var(--role-accent, #0284c7);
-  color: #ffffff;
-  box-shadow: 0 2px 6px var(--role-ring, rgba(2, 132, 199, 0.25));
-}
-
-.crm-quick-user-code {
-  opacity: 0.75;
-  font-size: 0.65rem;
-}
-
-/* ── Modern Quick Credentials Box ── */
-.crm-demo-hint-box {
-  background: linear-gradient(135deg, var(--role-bg, rgba(2, 132, 199, 0.06)) 0%, rgba(248, 250, 252, 0.8) 100%);
-  border: 1px solid var(--role-border, rgba(2, 132, 199, 0.2));
-  border-radius: 12px;
-  padding: 9px 12px;
-  margin-bottom: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.crm-demo-hint-left {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-
-.crm-demo-spark-icon {
-  width: 24px;
-  height: 24px;
-  border-radius: 6px;
-  background: var(--role-bg, rgba(2, 132, 199, 0.12));
-  color: var(--role-accent, #0284c7);
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 4px;
+}
+
+.zenve-eye-toggle-btn:hover {
+  color: var(--portal-accent);
+}
+
+/* Phone input with country prefix */
+.zenve-phone-input-row {
+  display: flex;
+  align-items: center;
+  background: #fcfdff;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  height: 44px;
+  overflow: hidden;
+  box-sizing: border-box;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.zenve-phone-input-row:focus-within {
+  border-color: var(--portal-accent);
+  box-shadow: 0 0 0 3px var(--portal-shadow);
+}
+
+.zenve-country-prefix {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 11px;
+  background: #f8fafc;
+  border-right: 1px solid #cbd5e1;
+  height: 100%;
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: #0b2239;
+  user-select: none;
   flex-shrink: 0;
 }
 
-.crm-demo-hint-text {
-  font-size: 0.72rem;
-  color: #475569;
+.zenve-phone-prefix-icon {
+  color: var(--portal-accent);
+}
+
+.zenve-prefix-chevron {
+  color: #94a3b8;
+}
+
+.zenve-phone-input {
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 12px !important;
+  height: 100% !important;
+  flex: 1;
+  outline: none;
+  font-size: 0.88rem !important;
+  color: #0b2239;
+}
+
+/* OTP Reveal section */
+.zenve-otp-reveal-box {
+  background: #f0f7ff;
+  border: 1px solid #bae6fd;
+  padding: 10px;
+  border-radius: 9px;
+  animation: zenveSlideDown 0.2s ease;
+}
+
+@keyframes zenveSlideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.zenve-otp-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.zenve-resend-btn {
+  background: none;
+  border: none;
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--portal-accent);
+  cursor: pointer;
+  padding: 0;
+}
+
+.zenve-resend-btn:disabled {
+  color: #94a3b8;
+  cursor: not-allowed;
+}
+
+.zenve-otp-digits {
+  letter-spacing: 0.25em;
+  font-weight: 800;
+  font-size: 1rem;
+}
+
+.zenve-mobile-hint-text {
+  font-size: 0.78rem;
+  color: #64748b;
+  margin: 0;
   line-height: 1.35;
 }
 
-.crm-demo-hint-text strong {
-  color: #0f172a;
-}
-
-.crm-demo-hint-text code {
-  background: rgba(0, 0, 0, 0.05);
-  padding: 1px 5px;
-  border-radius: 4px;
-  font-family: ui-monospace, monospace;
-  font-size: 0.72rem;
-  color: #0f172a;
-}
-
-.crm-demo-fill-btn {
-  padding: 5px 11px;
-  font-size: 0.72rem;
-  font-weight: 700;
-  border-radius: 8px;
-  border: none;
-  background: var(--role-gradient, linear-gradient(135deg, #0284c7 0%, #0369a1 100%));
-  color: #ffffff;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  box-shadow: 0 2px 6px var(--role-ring, rgba(2, 132, 199, 0.25));
-  flex-shrink: 0;
-}
-
-.crm-demo-fill-btn:hover {
-  transform: translateY(-1px);
-  filter: brightness(1.08);
-  box-shadow: 0 4px 10px var(--role-ring, rgba(2, 132, 199, 0.35));
-}
-
-/* ── Custom Styled Checkbox ── */
-.crm-remember-row {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  user-select: none;
-  margin-bottom: 16px;
-}
-
-.crm-remember-input {
-  position: absolute;
-  opacity: 0;
-  pointer-events: none;
-}
-
-.crm-custom-checkbox {
-  width: 17px;
-  height: 17px;
-  border-radius: 5px;
-  border: 1.5px solid #cbd5e1;
-  background: #ffffff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #ffffff;
-  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.crm-remember-input:checked + .crm-custom-checkbox {
-  background: var(--role-accent, #0284c7);
-  border-color: var(--role-accent, #0284c7);
-}
-
-.crm-remember-label {
-  font-size: 0.77rem;
-  color: #475569;
-  font-weight: 500;
-}
-
-/* ── Action Buttons ── */
-.crm-login-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 9px;
-}
-
-.crm-login-submit-btn {
-  width: 100%;
-  padding: 12px 18px;
-  font-size: 0.88rem;
-  font-weight: 700;
-  border-radius: 12px;
-  border: none;
-  background: var(--role-gradient, linear-gradient(135deg, #0284c7 0%, #0369a1 100%));
-  color: #ffffff;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  box-shadow: 0 4px 14px var(--role-ring, rgba(2, 132, 199, 0.35));
-  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
-  letter-spacing: -0.01em;
-}
-
-.crm-login-submit-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px var(--role-ring, rgba(2, 132, 199, 0.45));
-  filter: brightness(1.06);
-}
-
-.crm-login-submit-btn:hover .crm-submit-arrow {
-  transform: translateX(3px);
-}
-
-.crm-submit-arrow {
-  transition: transform 0.2s ease;
-}
-
-.crm-login-submit-btn:active {
-  transform: translateY(0);
-}
-
-.crm-login-submit-btn:disabled {
-  opacity: 0.65;
-  cursor: not-allowed;
-  transform: none;
-}
-
-.crm-login-cancel-btn {
-  width: 100%;
-  padding: 10px 14px;
-  font-size: 0.78rem;
-  font-weight: 600;
-  border-radius: 10px;
-  border: 1px solid #e2e8f0;
-  background: transparent;
-  color: #64748b;
-  cursor: pointer;
-  transition: all 0.18s ease;
-  text-align: center;
-}
-
-.crm-login-cancel-btn:hover {
-  background: #f8fafc;
-  color: #0f172a;
-  border-color: #cbd5e1;
-}
-
-/* ── Spinner ── */
-.crm-login-spinner {
-  width: 16px;
-  height: 16px;
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  border-top-color: #ffffff;
-  border-radius: 50%;
-  animation: crmSpin 0.7s linear infinite;
-}
-
-@keyframes crmSpin {
-  to { transform: rotate(360deg); }
-}
-
-/* ══════════════════════════════════════════════════════════════
-   DARK MODE
-   ══════════════════════════════════════════════════════════════ */
-[data-theme="dark"] .crm-login-modal,
-.theme-dark .crm-login-modal {
-  background: #0f172a;
-  border-color: rgba(51, 65, 85, 0.8);
-  box-shadow:
-    0 25px 65px -15px rgba(0, 0, 0, 0.7),
-    0 0 0 1px rgba(255, 255, 255, 0.05),
-    0 10px 35px -5px var(--role-ring, rgba(2, 132, 199, 0.2));
-  color: #f1f5f9;
-}
-
-[data-theme="dark"] .crm-login-close-btn {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.1);
-  color: #94a3b8;
-}
-
-[data-theme="dark"] .crm-login-close-btn:hover {
-  background: rgba(239, 68, 68, 0.2);
-  border-color: rgba(239, 68, 68, 0.4);
-  color: #f87171;
-}
-
-[data-theme="dark"] .crm-login-header {
-  border-bottom-color: rgba(51, 65, 85, 0.5);
-  background: linear-gradient(180deg, var(--role-bg, rgba(20, 184, 166, 0.08)) 0%, transparent 100%);
-}
-
-[data-theme="dark"] .crm-login-logo-box {
-  background: #1e293b;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-[data-theme="dark"] .crm-login-brand-title {
-  color: #f8fafc;
-}
-
-[data-theme="dark"] .crm-login-brand-sub {
-  color: #94a3b8;
-}
-
-[data-theme="dark"] .crm-login-role-tabs {
-  background: #1e293b;
-  border-color: #334155;
-}
-
-[data-theme="dark"] .crm-role-tab-btn {
-  color: #94a3b8;
-}
-
-[data-theme="dark"] .crm-role-tab-btn:hover {
-  color: #f8fafc;
-  background: rgba(255, 255, 255, 0.05);
-}
-
-[data-theme="dark"] .crm-role-tab-btn.active {
-  background: #0f172a;
-  color: var(--role-accent, #2dd4bf);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
-}
-
-[data-theme="dark"] .crm-role-banner {
-  background: var(--role-bg, rgba(20, 184, 166, 0.1));
-  border-color: var(--role-border, rgba(20, 184, 166, 0.25));
-}
-
-[data-theme="dark"] .crm-role-banner-title {
-  color: #f8fafc;
-}
-
-[data-theme="dark"] .crm-role-banner-desc {
-  color: #94a3b8;
-}
-
-[data-theme="dark"] .crm-role-pill-badge {
-  background: #1e293b;
-  border-color: var(--role-border, rgba(20, 184, 166, 0.3));
-  color: var(--role-accent, #2dd4bf);
-}
-
-[data-theme="dark"] .crm-login-label {
-  color: #cbd5e1;
-}
-
-[data-theme="dark"] .crm-password-hint {
-  color: #94a3b8;
-}
-
-[data-theme="dark"] .crm-password-hint code {
-  background: #1e293b;
-  border-color: #334155;
-  color: #e2e8f0;
-}
-
-[data-theme="dark"] .crm-login-input-wrap {
-  background: #1e293b;
-  border-color: #334155;
-}
-
-[data-theme="dark"] .crm-login-input-wrap:focus-within {
-  background: #0f172a;
-  border-color: var(--role-accent, #2dd4bf);
-  box-shadow: 0 0 0 3px var(--role-ring, rgba(45, 212, 191, 0.2));
-}
-
-[data-theme="dark"] .crm-login-input {
-  color: #f8fafc;
-}
-
-[data-theme="dark"] .crm-login-input::placeholder {
-  color: #64748b;
-}
-
-[data-theme="dark"] .crm-quick-user-label {
-  color: #94a3b8;
-}
-
-[data-theme="dark"] .crm-quick-user-pill {
-  background: #1e293b;
-  border-color: #334155;
-  color: #cbd5e1;
-}
-
-[data-theme="dark"] .crm-quick-user-pill:hover {
-  border-color: var(--role-accent, #2dd4bf);
-  color: var(--role-accent, #2dd4bf);
-  background: var(--role-bg, rgba(45, 212, 191, 0.1));
-}
-
-[data-theme="dark"] .crm-quick-user-pill.selected {
-  background: var(--role-accent, #2dd4bf);
-  border-color: var(--role-accent, #2dd4bf);
-  color: #0f172a;
-}
-
-[data-theme="dark"] .crm-demo-hint-box {
-  background: linear-gradient(135deg, var(--role-bg, rgba(20, 184, 166, 0.1)) 0%, rgba(15, 23, 42, 0.6) 100%);
-  border-color: var(--role-border, rgba(45, 212, 191, 0.25));
-}
-
-[data-theme="dark"] .crm-demo-hint-text {
-  color: #94a3b8;
-}
-
-[data-theme="dark"] .crm-demo-hint-text strong {
-  color: #f1f5f9;
-}
-
-[data-theme="dark"] .crm-demo-hint-text code {
-  background: rgba(255, 255, 255, 0.08);
-  color: #f8fafc;
-}
-
-[data-theme="dark"] .crm-custom-checkbox {
-  background: #1e293b;
-  border-color: #475569;
-}
-
-[data-theme="dark"] .crm-remember-label {
-  color: #94a3b8;
-}
-
-[data-theme="dark"] .crm-login-cancel-btn {
-  border-color: #334155;
-  color: #94a3b8;
-}
-
-[data-theme="dark"] .crm-login-cancel-btn:hover {
-  background: #1e293b;
-  color: #f1f5f9;
-  border-color: #475569;
-}
-
-/* ── Mobile Login & OTP Styles ── */
-.crm-method-toggle {
-  display: flex;
-  background: #f1f5f9;
-  border-radius: 12px;
-  padding: 4px;
-  gap: 4px;
-  margin-bottom: 1.25rem;
-}
-
-.crm-method-btn {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border: none;
-  background: transparent;
-  color: #64748b;
-  font-size: 0.84rem;
-  font-weight: 600;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.crm-method-btn.active {
-  background: #ffffff;
-  color: #0f172a;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
-}
-
-.crm-otp-mode-selector {
+/* Form Options Row: Remember Me + Forgot Password */
+.zenve-form-options-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: rgba(248, 250, 252, 0.9);
-  border: 1px dashed #cbd5e1;
-  border-radius: 10px;
-  padding: 8px 12px;
-  margin-bottom: 1rem;
+  margin-top: 1px;
+  margin-bottom: 2px;
 }
 
-.crm-otp-mode-label {
-  font-size: 0.78rem;
-  font-weight: 600;
+.zenve-remember-label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.82rem;
   color: #475569;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.crm-otp-pills {
-  display: flex;
-  gap: 6px;
-}
-
-.crm-otp-pill-btn {
-  font-size: 0.72rem;
-  font-weight: 700;
-  padding: 4px 9px;
-  border-radius: 20px;
-  border: 1px solid #cbd5e1;
-  background: #ffffff;
-  color: #64748b;
+  font-weight: 500;
   cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.crm-otp-pill-btn.active {
-  background: var(--role-accent, #0284c7);
-  color: #ffffff;
-  border-color: var(--role-accent, #0284c7);
-}
-
-.crm-phone-row {
-  display: flex;
-  gap: 8px;
-}
-
-.crm-phone-prefix {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 12px;
-  background: #f8fafc;
-  border: 1px solid #cbd5e1;
-  border-radius: 12px;
-  font-size: 0.88rem;
-  font-weight: 700;
-  color: #334155;
   user-select: none;
 }
 
-.crm-send-otp-btn {
-  padding: 0 14px;
-  background: var(--role-gradient, linear-gradient(135deg, #0284c7 0%, #0369a1 100%));
-  color: #ffffff;
+.zenve-checkbox {
+  width: 15px;
+  height: 15px;
+  border-radius: 4px;
+  border: 1px solid #cbd5e1;
+  accent-color: var(--portal-accent);
+  cursor: pointer;
+}
+
+.zenve-forgot-link {
+  background: none;
   border: none;
-  border-radius: 12px;
+  color: var(--portal-accent);
   font-size: 0.82rem;
   font-weight: 600;
   cursor: pointer;
-  white-space: nowrap;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  transition: opacity 0.2s;
-}
-
-.crm-send-otp-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.crm-otp-info-banner {
-  background: #f0fdf4;
-  border: 1px solid #bbf7d0;
-  border-radius: 10px;
-  padding: 10px 12px;
-  margin-bottom: 1rem;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  font-size: 0.8rem;
-  color: #166534;
-}
-
-.crm-autofill-btn {
-  background: #16a34a;
-  color: #ffffff;
-  border: none;
-  border-radius: 6px;
-  padding: 4px 8px;
-  font-size: 0.74rem;
-  font-weight: 700;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background 0.15s;
-}
-
-.crm-autofill-btn:hover {
-  background: #15803d;
-}
-
-.crm-otp-input-field {
-  letter-spacing: 0.4em;
-  font-size: 1.25rem;
-  font-weight: 700;
-  text-align: center;
-  font-family: monospace, inherit;
-}
-
-.crm-resend-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: 6px;
-  font-size: 0.78rem;
-  color: #64748b;
-}
-
-.crm-resend-link {
-  background: none;
-  border: none;
-  color: var(--role-accent, #0284c7);
-  font-weight: 600;
-  cursor: pointer;
   padding: 0;
+  transition: color 0.15s ease;
+}
+
+.zenve-forgot-link:hover {
+  color: var(--portal-accent-hover);
   text-decoration: underline;
 }
 
-.crm-resend-link:disabled {
-  color: #94a3b8;
-  cursor: not-allowed;
-  text-decoration: none;
+/* Primary Action Button (Sign In) */
+.zenve-action-btn {
+  width: 100%;
+  height: 44px;
+  border-radius: 10px;
+  border: none;
+  font-size: 0.92rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  margin-top: 3px;
+  box-sizing: border-box;
 }
 
+.zenve-action-btn.btn-primary {
+  background: var(--portal-gradient);
+  color: #ffffff;
+  box-shadow: 0 6px 18px -3px var(--portal-shadow);
+}
+
+.zenve-action-btn.btn-primary:hover:not(:disabled) {
+  opacity: 0.94;
+  box-shadow: 0 8px 22px -3px var(--portal-shadow);
+  transform: translateY(-1px);
+}
+
+.zenve-action-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Single Card Footer */
+.zenve-single-card-footer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.zenve-secure-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin-top: 18px;
+}
+
+.zenve-divider-line {
+  flex: 1;
+  height: 1px;
+  background: #e2e8f0;
+}
+
+.zenve-secure-badge {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.72rem;
+  color: #64748b;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.zenve-shield-icon {
+  color: #0077e6;
+  flex-shrink: 0;
+}
+
+/* ══════════════════════════════════════════════════════════
+   RESPONSIVE MEDIA QUERIES
+   ══════════════════════════════════════════════════════════ */
+@media (max-width: 1040px) {
+  .zenve-portal-page {
+    flex-direction: column;
+    height: auto;
+    min-height: 100vh;
+    max-height: none;
+    overflow-y: auto;
+  }
+
+  .zenve-portal-left,
+  .zenve-portal-right {
+    flex: 1 1 100%;
+    width: 100%;
+    height: auto;
+    min-height: auto;
+    max-height: none;
+    overflow: visible;
+    padding: 2.25rem 1.75rem;
+  }
+
+  .zenve-portal-bg-img-wrap {
+    opacity: 0.25;
+    width: 100%;
+    height: 100%;
+    top: 0;
+  }
+
+  .zenve-value-pillars-stack {
+    max-width: 100%;
+    width: 100%;
+  }
+
+  .zenve-auth-card-box {
+    max-width: 100%;
+  }
+
+  .zenve-manager-full-banner-wrap {
+    height: 480px;
+    max-height: 60vh;
+  }
+}
+
+@media (max-width: 720px) {
+
+  .zenve-portal-left,
+  .zenve-portal-right {
+    padding: 1.75rem 1.25rem;
+  }
+
+  .zenve-hero-title-dark,
+  .zenve-hero-title-accent {
+    font-size: 1.75rem;
+  }
+}

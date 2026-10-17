@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
   Clock,
   LogIn,
@@ -6,18 +6,14 @@ import {
   CheckCircle2,
   AlertCircle,
   Calendar,
-  User,
   Timer,
   Check,
   Sparkles,
-  TrendingUp,
   Award,
   Camera,
   MapPin,
-  UserCheck,
   Utensils,
   Coffee,
-  RefreshCw,
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
@@ -26,17 +22,11 @@ import {
 import DoctorAvatar from "./DoctorAvatar.jsx";
 import FacePunchModal from "./FacePunchModal.jsx";
 import LocationMapModal from "./LocationMapModal.jsx";
-import AttendancePunchAlertsPanel from "./AttendancePunchAlertsPanel.jsx";
 import {
   getAttendanceLocation,
   LOCATION_OPTIMAL_ACCURACY,
-  LOCATION_MAX_ACCURACY,
-  LOCATION_EXTREME_LIMIT,
 } from "../utils/location.js";
 import {
-  getFreshExecutiveLocation,
-  reverseGeocodeCoordinates,
-  VERIFIED_FIELD_LOCATION,
   formatExecutiveLocation,
   formatLocationString,
 } from "../geoUtils.js";
@@ -46,24 +36,21 @@ import {
   punchInAttendance,
   punchOutAttendance,
   punchLunchAttendance,
-  punchLunchOutAttendance,
-  punchLunchInAttendance,
   fetchAttendanceList,
   fetchTodayAttendance,
 } from "../api.js";
 import { formatAttendanceDateAndDay } from "../dateUtils.js";
-import { playChime } from "../notificationSound.js";
 import "./AttendanceView.css";
 import "./FacePunchModal.css";
 
 const STORAGE_KEY = "zenve_crm_attendance_records";
 
-export function normalizeDisplayLoc(addr, exec = null) {
+function normalizeDisplayLoc(addr, exec = null) {
   if (!addr) return "";
   return formatLocationString(addr, exec);
 }
 
-export function normalizeRecordLocations(rec, exec = null) {
+function normalizeRecordLocations(rec, exec = null) {
   if (!rec || typeof rec !== "object") return rec;
   const updated = { ...rec };
   const currentExec = exec || rec.executiveObj || {
@@ -73,7 +60,6 @@ export function normalizeRecordLocations(rec, exec = null) {
   };
 
   if (updated.punchInLocation) {
-    const rawLoc = updated.punchInLocation.displayAddress || updated.punchInLocation.locality || updated.punchInLocation.area;
     const normLoc = formatExecutiveLocation(updated.punchInLocation, currentExec);
     updated.punchInLocation = {
       ...updated.punchInLocation,
@@ -83,7 +69,6 @@ export function normalizeRecordLocations(rec, exec = null) {
     };
   }
   if (updated.punchOutLocation) {
-    const rawLoc = updated.punchOutLocation.displayAddress || updated.punchOutLocation.locality || updated.punchOutLocation.area;
     const normLoc = formatExecutiveLocation(updated.punchOutLocation, currentExec);
     updated.punchOutLocation = {
       ...updated.punchOutLocation,
@@ -123,10 +108,6 @@ function formatShortLocation(loc, exec = null) {
   return formatExecutiveLocation(loc, exec);
 }
 
-function formatShortLocationString(str, exec = null) {
-  return formatLocationString(str, exec);
-}
-
 function formatShortRemarks(rem, exec = null) {
   if (!rem) return "";
   const s = String(rem);
@@ -139,7 +120,7 @@ function formatShortRemarks(rem, exec = null) {
   return s;
 }
 
-export function getLocTooltip(loc, fallback = "") {
+function getLocTooltip(loc, fallback = "") {
   if (!loc) return fallback;
   const name = formatExecutiveLocation(loc) || fallback;
   if (!name) return "";
@@ -235,21 +216,12 @@ function calculateDuration(inTimeStr, outTimeStr, lunchOutStr, lunchInStr, dateS
 }
 
 // Helper for initializing attendance history (returns empty array so only real punches appear)
-function getInitialAttendanceHistory() {
-  return [];
-}
-
-
 export default function AttendanceView({
   data = {},
   execId,
   role,
   currentRecord,
-  onSwitchExecutive,
-  isExecutiveReportView = false,
 }) {
-  const isManagerOrRegional = role === "manager" || role === "regional" || isExecutiveReportView;
-
   const [internalExecutives, setInternalExecutives] = useState([]);
 
   useEffect(() => {
@@ -271,22 +243,15 @@ export default function AttendanceView({
     return internalExecutives;
   }, [data?.executives, internalExecutives]);
 
-  const [selectedExecId, setSelectedExecId] = useState(() => {
+  const [selectedExecId] = useState(() => {
     try {
       const saved = localStorage.getItem("zippy_crm_selected_exec_id");
       if (saved) return Number(saved);
-    } catch (e) {}
+    } catch {
+      /* ignore storage read error */
+    }
     return execId || null;
   });
-
-  const handleSwitchExec = (newId) => {
-    setSelectedExecId(newId);
-    try {
-      localStorage.setItem("zippy_crm_selected_exec_id", String(newId));
-      localStorage.setItem("zippy_crm_preferred_exec_id", String(newId));
-    } catch (e) {}
-    onSwitchExecutive?.(newId);
-  };
 
   // Active executive
   const activeExecutive = useMemo(() => {
@@ -308,7 +273,9 @@ export default function AttendanceView({
         const byPref = executivesList.find((e) => String(e.id) === String(prefId));
         if (byPref) return byPref;
       }
-    } catch (e) {}
+    } catch {
+      /* ignore */
+    }
 
     // Check if active auth exists in localStorage
     try {
@@ -321,7 +288,9 @@ export default function AttendanceView({
           return auth.user;
         }
       }
-    } catch (e) {}
+    } catch {
+      /* ignore */
+    }
 
     // Default to first or preferred executive in database
     if (executivesList.length) {
@@ -361,7 +330,6 @@ export default function AttendanceView({
   const [currentLocation, setCurrentLocation] = useState(null);
   const [locationDetecting, setLocationDetecting] = useState(true);
   const [locationStage, setLocationStage] = useState("Fetching current location...");
-  const [locationError, setLocationError] = useState(null);
   const isLocatingRef = useRef(false);
 
   // Fresh GPS Geolocation and Reverse Geocoding
@@ -370,19 +338,15 @@ export default function AttendanceView({
     isLocatingRef.current = true;
     setLocationDetecting(true);
     setLocationStage("Fetching current location...");
-    setLocationError(null);
     try {
       const loc = await getAttendanceLocation((stage) => setLocationStage(stage));
       if (!loc || loc.latitude == null) {
         setCurrentLocation((prev) => prev || null);
-        setLocationError("Your device could not determine your current location. Please enable Windows Location Services and try again.");
       } else {
         setCurrentLocation(loc);
-        setLocationError(null);
       }
-    } catch (err) {
+    } catch {
       setCurrentLocation((prev) => prev || null);
-      setLocationError(err?.message || "Location request failed. Please check browser permissions and Windows Location Services.");
     } finally {
       setLocationDetecting(false);
       isLocatingRef.current = false;
@@ -391,21 +355,11 @@ export default function AttendanceView({
 
   // Request fresh location on component mount or executive switch
   useEffect(() => {
-    refreshLiveLocation();
+    const timer = setTimeout(() => {
+      refreshLiveLocation();
+    }, 0);
+    return () => clearTimeout(timer);
   }, [refreshLiveLocation, activeExecutive?.id]);
-
-  // Backward compatibility alias for any remaining sub-render references
-  const liveLocality = currentLocation?.displayAddress || "";
-  const liveLocalityDetecting = locationDetecting;
-
-  // Desktop location verification:
-  // Allowed if location is obtained, and either confirmed via map OR within acceptable accuracy (<= 1000m)
-  const canPunchByAccuracy = Boolean(
-    !currentLocation || (
-      currentLocation.canPunch !== false &&
-      currentLocation.latitude != null
-    )
-  );
 
   const todayIso = getTodayIso();
 
@@ -433,7 +387,9 @@ export default function AttendanceView({
         if (cleaned) {
           try {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
-          } catch (e) {}
+          } catch {
+            /* ignore storage write error */
+          }
         }
         return parsed;
       }
@@ -459,7 +415,9 @@ export default function AttendanceView({
           });
           setRecords(parsed);
         }
-      } catch (e) {}
+      } catch {
+        /* ignore storage read error */
+      }
     };
     sync();
     window.addEventListener("storage", sync);
@@ -629,7 +587,9 @@ export default function AttendanceView({
             const merged = { ...prev, [key]: { ...prev[key], ...mapped } };
             try {
               localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
-            } catch (e) {}
+            } catch {
+              /* ignore storage write error */
+            }
             return merged;
           });
         }
@@ -644,7 +604,7 @@ export default function AttendanceView({
       isMounted = false;
       window.removeEventListener("storage", sync);
     };
-  }, [activeExecutive?.id, todayIso]);
+  }, [activeExecutive?.id, activeExecutive?.name, todayIso]);
 
   // Today's attendance key for this executive
   const todayKey = `${activeExecutive?.id || 1}_${todayIso}`;
@@ -673,32 +633,24 @@ export default function AttendanceView({
   }, [toastMessage]);
 
   // Live work duration counter while punched in
-  const [liveDuration, setLiveDuration] = useState("0h 0m");
+  const [tick, setTick] = useState(0);
   useEffect(() => {
-    if (!isPunchedIn || !todayRecord?.punchIn) {
-      setLiveDuration("0h 0m");
-      return;
-    }
-    if (isPunchedOut && todayRecord?.duration) {
-      setLiveDuration(todayRecord.duration);
-      return;
-    }
-
-    const updateLiveTimer = () => {
-      setLiveDuration(
-        calculateDuration(
-          todayRecord?.punchIn,
-          todayRecord?.punchOut,
-          todayRecord?.lunchOut,
-          todayRecord?.lunchIn
-        )
-      );
-    };
-
-    updateLiveTimer();
-    const interval = setInterval(updateLiveTimer, 10000); // update every 10s
+    if (!isPunchedIn || isPunchedOut) return;
+    const interval = setInterval(() => setTick((t) => t + 1), 10000);
     return () => clearInterval(interval);
-  }, [isPunchedIn, isPunchedOut, todayRecord]);
+  }, [isPunchedIn, isPunchedOut]);
+
+  const liveDuration = useMemo(() => {
+    void tick;
+    if (!isPunchedIn || !todayRecord?.punchIn) return "0h 0m";
+    if (isPunchedOut && todayRecord?.duration) return todayRecord.duration;
+    return calculateDuration(
+      todayRecord?.punchIn,
+      todayRecord?.punchOut,
+      todayRecord?.lunchOut,
+      todayRecord?.lunchIn
+    );
+  }, [isPunchedIn, isPunchedOut, todayRecord, tick]);
 
   // Biometric Face & Google Maps Location Modal States
   const [punchModalOpen, setPunchModalOpen] = useState(false);
@@ -758,36 +710,6 @@ export default function AttendanceView({
       locationData: confirmedLoc,
       faceImage: faceImg,
     });
-  };
-
-  // Helper: get fresh high-accuracy device GPS position and reverse-geocoded address
-  const fetchCurrentLocation = async (actionLabel = "attendance") => {
-    try {
-      const loc = await getAttendanceLocation();
-      return {
-        success: true,
-        latitude: loc.latitude,
-        longitude: loc.longitude,
-        area: loc.area,
-        city: loc.city,
-        district: loc.district,
-        state: loc.state,
-        country: loc.country || "India",
-        pincode: loc.pincode || "",
-        full_address: loc.displayAddress || `${loc.latitude.toFixed(6)}, ${loc.longitude.toFixed(6)}`,
-        accuracy: loc.accuracy,
-        location_accuracy: loc.accuracy,
-        location_source: "BROWSER_GEOLOCATION",
-        location_timestamp: loc.timestamp || new Date().toISOString(),
-        displayAddress: loc.displayAddress,
-        locationObj: loc,
-      };
-    } catch (e) {
-      return {
-        success: false,
-        error: e?.message || "Unable to determine your current location. Please check browser permissions and Windows Location Services.",
-      };
-    }
   };
 
   // Confirm and Save Verified Punch Record to LocalStorage and MySQL Database
@@ -852,7 +774,7 @@ export default function AttendanceView({
     };
 
     if (punchActionType === "in") {
-      let dbRes = null;
+      let dbRes;
       try {
         const payload = {
           sales_executive_id: Number(activeExecutive.id),
@@ -941,29 +863,6 @@ export default function AttendanceView({
         console.error(e);
       }
 
-      // Broadcast real-time Attendance Punch Alert
-      try {
-        playChime();
-        const alertInPayload = {
-          id: Date.now(),
-          executive_id: activeExecutive.id,
-          executive_name: activeExecutive.name,
-          executive_code: activeExecutive.code || `ID-${activeExecutive.id}`,
-          punch_type: "Punch In",
-          punch_time: punchTime,
-          location: locFull,
-          title: `Punch In: ${activeExecutive.name}`,
-          message: `${activeExecutive.name} (${activeExecutive.code || `ID-${activeExecutive.id}`}) punched IN at ${punchTime} from ${locFull}`,
-          created_at: new Date().toISOString(),
-        };
-        window.dispatchEvent(new CustomEvent("crm_attendance_punch_alert", { detail: alertInPayload }));
-        const storedAlerts = JSON.parse(localStorage.getItem("zenve_crm_attendance_alerts") || "[]");
-        storedAlerts.unshift(alertInPayload);
-        localStorage.setItem("zenve_crm_attendance_alerts", JSON.stringify(storedAlerts.slice(0, 50)));
-        if (typeof data?.reload === "function") data.reload();
-      } catch (e) {
-        console.error("Failed to broadcast punch in alert:", e);
-      }
 
       showToast(`🟢 Punched In successfully at ${punchTime}! Single member face verified.`);
     } else if (punchActionType === "lunch_out") {
@@ -1022,7 +921,9 @@ export default function AttendanceView({
       setRecords(updated);
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-      } catch (e) {}
+      } catch {
+        /* ignore storage write error */
+      }
       showToast(`🍴 Lunch Out recorded at ${punchTime} · 📍 ${locFull}!`);
     } else if (punchActionType === "lunch_in") {
       try {
@@ -1075,7 +976,9 @@ export default function AttendanceView({
       setRecords(updated);
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-      } catch (e) {}
+      } catch {
+        /* ignore storage write error */
+      }
       showToast(`🍱 Lunch In recorded at ${punchTime} · 📍 ${locFull}!`);
     } else {
       // Punch Out
@@ -1093,7 +996,7 @@ export default function AttendanceView({
         todayRecord.lunchIn
       );
 
-      let dbRes = null;
+      let dbRes;
       try {
         const payload = {
           sales_executive_id: Number(activeExecutive.id),
@@ -1173,29 +1076,6 @@ export default function AttendanceView({
         console.error(e);
       }
 
-      // Broadcast real-time Attendance Punch Alert
-      try {
-        playChime();
-        const alertOutPayload = {
-          id: Date.now(),
-          executive_id: activeExecutive.id,
-          executive_name: activeExecutive.name,
-          executive_code: activeExecutive.code || `ID-${activeExecutive.id}`,
-          punch_type: "Punch Out",
-          punch_time: punchTime,
-          location: locFull,
-          title: `Punch Out: ${activeExecutive.name}`,
-          message: `${activeExecutive.name} (${activeExecutive.code || `ID-${activeExecutive.id}`}) punched OUT at ${punchTime} from ${locFull}`,
-          created_at: new Date().toISOString(),
-        };
-        window.dispatchEvent(new CustomEvent("crm_attendance_punch_alert", { detail: alertOutPayload }));
-        const storedAlerts = JSON.parse(localStorage.getItem("zenve_crm_attendance_alerts") || "[]");
-        storedAlerts.unshift(alertOutPayload);
-        localStorage.setItem("zenve_crm_attendance_alerts", JSON.stringify(storedAlerts.slice(0, 50)));
-        if (typeof data?.reload === "function") data.reload();
-      } catch (e) {
-        console.error("Failed to broadcast punch out alert:", e);
-      }
 
       showToast(`🔴 Punched Out successfully at ${punchTime} (Total: ${finalDuration}). Face verified and shift completed.`);
     }
@@ -1457,7 +1337,7 @@ export default function AttendanceView({
     return Array.from(map.values())
       .filter((r) => r.punchIn || r.punchOut)
       .sort((a, b) => new Date(b.date) - new Date(a.date));
-  }, [records, dbRecords, activeExecutive?.id, activeExecutive?.name, profileName, profileRegion, todayRecord, todayIso]);
+  }, [records, dbRecords, activeExecutive?.id, activeExecutive?.name, profileName, todayRecord, todayIso]);
 
   // Statistics
   const stats = useMemo(() => {
@@ -1493,9 +1373,12 @@ export default function AttendanceView({
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(15);
 
-  useEffect(() => {
+  const pageResetKey = `${sortOrder}_${activeExecutive?.id}`;
+  const [prevPageResetKey, setPrevPageResetKey] = useState(pageResetKey);
+  if (pageResetKey !== prevPageResetKey) {
+    setPrevPageResetKey(pageResetKey);
     setCurrentPage(1);
-  }, [sortOrder, activeExecutive?.id]);
+  }
 
   const totalRecords = displayList.length;
   const totalPages = Math.max(1, Math.ceil(totalRecords / pageSize));
@@ -1540,14 +1423,6 @@ export default function AttendanceView({
           <span>{toastMessage}</span>
           <button type="button" onClick={() => setToastMessage("")}>✕</button>
         </div>
-      )}
-
-      {/* Live Punch Alerts Panel for Managers & Regional */}
-      {isManagerOrRegional && (
-        <AttendancePunchAlertsPanel
-          alerts={data?.alerts || []}
-          execsInScope={executivesList}
-        />
       )}
 
       {/* Top Bar Header & Shift Punch Center */}

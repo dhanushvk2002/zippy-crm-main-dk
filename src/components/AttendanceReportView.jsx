@@ -1,19 +1,14 @@
-import React, { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, Fragment } from "react";
 import {
   Calendar,
   Clock,
-  User,
   MapPin,
   Camera,
   Check,
-  CheckCircle2,
   Download,
   Search,
-  Filter,
   Award,
   Timer,
-  Sparkles,
-  Users,
   FileSpreadsheet,
   PlusCircle,
   X,
@@ -27,11 +22,9 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import DoctorAvatar from "./DoctorAvatar.jsx";
-import AttendancePunchAlertsPanel from "./AttendancePunchAlertsPanel.jsx";
-import defaultFacePhoto from "../assets/doctor-male.jpg";
 import { fetchAttendanceList, punchInAttendance } from "../api.js";
 import { formatAttendanceDateAndDay } from "../dateUtils.js";
-import { formatExecutiveLocation, formatLocationString } from "../geoUtils.js";
+import { formatLocationString, formatExecutiveLocation } from "../geoUtils.js";
 import "./AttendanceReportView.css";
 
 const STORAGE_KEY = "zenve_crm_attendance_records";
@@ -39,14 +32,6 @@ const STORAGE_KEY = "zenve_crm_attendance_records";
 function normalizeFullAddress(addr, exec = null) {
   if (!addr) return "";
   return formatLocationString(addr, exec);
-}
-
-function formatShortLocation(loc, exec = null) {
-  return formatExecutiveLocation(loc, exec);
-}
-
-function formatShortLocationString(str, exec = null) {
-  return formatLocationString(str, exec);
 }
 
 function getTodayIso() {
@@ -71,26 +56,21 @@ function formatIsoToTimeStr(val) {
   return String(val);
 }
 
-// Returns real stored history only (no mock records)
-function getSampleHistoryForExec() {
-  return [];
-}
-
-
 export default function AttendanceReportView({
   data = {},
   execId,
   role = "executive",
-  currentRecord,
 }) {
-  const executives = data?.executives || [];
+  const executives = useMemo(() => data?.executives || [], [data?.executives]);
 
   // Default selected executive: for executive role, lock to their ID; for managers, default to "all" or execId
   const [selectedExecFilter, setSelectedExecFilter] = useState(() => {
     try {
       const prefId = localStorage.getItem("zippy_crm_preferred_exec_id");
       if (prefId && role === "executive") return String(prefId);
-    } catch (e) {}
+    } catch {
+      /* ignore storage read error */
+    }
     if (role === "executive") {
       return execId
         ? String(execId)
@@ -101,11 +81,11 @@ export default function AttendanceReportView({
     return "all";
   });
 
-  useEffect(() => {
-    if (role === "executive" && execId) {
-      setSelectedExecFilter(String(execId));
-    }
-  }, [role, execId]);
+  const [prevExecId, setPrevExecId] = useState(execId);
+  if (role === "executive" && execId && execId !== prevExecId) {
+    setPrevExecId(execId);
+    setSelectedExecFilter(String(execId));
+  }
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -205,7 +185,9 @@ export default function AttendanceReportView({
         if (cleaned) {
           try {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
-          } catch (e) {}
+          } catch {
+            /* ignore storage write error */
+          }
         }
         return parsed;
       }
@@ -224,7 +206,9 @@ export default function AttendanceReportView({
           const parsed = JSON.parse(saved);
           setSavedRecords(parsed);
         }
-      } catch (e) {}
+      } catch {
+        /* ignore storage read error */
+      }
     };
     sync();
     window.addEventListener("storage", sync);
@@ -516,10 +500,13 @@ export default function AttendanceReportView({
   };
 
   // Reset to page 1 whenever any filter or search changes
-  useEffect(() => {
+  const filterKey = `${selectedExecFilter}_${statusFilter}_${periodFilter}_${search}`;
+  const [prevFilterKey, setPrevFilterKey] = useState(filterKey);
+  if (filterKey !== prevFilterKey) {
+    setPrevFilterKey(filterKey);
     setCurrentPage(1);
     setExpandedRowId(null);
-  }, [selectedExecFilter, statusFilter, periodFilter, search]);
+  }
 
   const totalRecords = filteredList.length;
   const totalPages = Math.max(1, Math.ceil(totalRecords / pageSize));
@@ -727,12 +714,6 @@ export default function AttendanceReportView({
         </div>
       </div>
 
-      {/* ── LIVE ATTENDANCE PUNCH ALERTS (Displayed when Sales Manager / Regional Manager clicks Attendance) ── */}
-      <AttendancePunchAlertsPanel
-        alerts={data?.alerts || []}
-        execsInScope={executives}
-      />
-
       {/* ── FILTERS BAR ── */}
       <div className="att-rep-filters">
         <div className="att-rep-search-wrap">
@@ -835,7 +816,7 @@ export default function AttendanceReportView({
                   const isExpanded = expandedRowId === rowKey;
 
                   return (
-                    <React.Fragment key={rowKey}>
+                    <Fragment key={rowKey}>
                       <tr className={`att-rep-row ${isExpanded ? "att-rep-tr-expanded" : ""}`}>
                         <td className="att-rep-row-num" style={{ textAlign: "center" }}>{rowNumber}</td>
                         <td>
@@ -1192,7 +1173,7 @@ export default function AttendanceReportView({
                           </td>
                         </tr>
                       )}
-                    </React.Fragment>
+                    </Fragment>
                   );
                 })}
               </tbody>

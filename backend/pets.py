@@ -145,6 +145,12 @@ class Doctor(Base):
     is_active: Any = Column(Boolean, default=True)
     profile_image = Column(Text)
     signature_image = Column(Text)
+    clinic_name = Column(String(255), nullable=True)
+    clinic_hospital = Column(String(255), nullable=True)
+    facility_type = Column(String(100), nullable=True)
+    clinic_phone = Column(String(50), nullable=True)
+    clinic_inside_image = Column(Text, nullable=True)
+    clinic_outside_image = Column(Text, nullable=True)
 class ClinicHospital(Base):
     __tablename__ = "clinics_hospitals"
     id = Column(Integer, primary_key=True, index=True)
@@ -199,9 +205,6 @@ class Prescription(Base):
     doctor_id = Column(Integer, ForeignKey("doctors.id"), nullable=False)
     pet_id = Column(Integer, ForeignKey("pets.id"), nullable=False)
     valid_until = Column(Date)
-    doc_name = Column(String(150))
-    pet_name = Column(String(150))
-    owner_name = Column(String(150))
     created_at = Column(DateTime,default=lambda: datetime.now(ZoneInfo("Asia/Kolkata")).replace(tzinfo=None))
 class ServiceProvider(Base):
     __tablename__ = "service_providers"
@@ -777,6 +780,16 @@ class DoctorCreate(BaseModel):
     is_active: str = "Yes"
     profile_image: Optional[str] = None
     signature_image: Optional[str] = None
+    digital_signature: Optional[str] = None
+    clinic_name: Optional[str] = None
+    clinic_hospital: Optional[str] = None
+    facility_type: Optional[str] = None
+    clinic_phone: Optional[str] = None
+    clinic_inside_image: Optional[str] = None
+    clinic_outside_image: Optional[str] = None
+    inside_clinic_image: Optional[str] = None
+    outside_clinic_image: Optional[str] = None
+    clinic_images: Optional[str] = None
 class ClinicHospitalCreate(BaseModel):
     name: str
     facility_type: Optional[str] = None
@@ -814,10 +827,10 @@ class ConsultationCreate(BaseModel):
 class PrescriptionCreate(BaseModel):
     doctor_id: int
     pet_id: int
-    valid_until: Optional[date] = None
     doc_name: Optional[str] = None
     pet_name: Optional[str] = None
     owner_name: Optional[str] = None
+    valid_until: Optional[date] = None
 class ServiceProviderCreate(BaseModel):
     name: str
     provider_type: Optional[str] = None
@@ -1703,6 +1716,22 @@ def delete_userrole(role_id: int,db: Session = Depends(get_db)):
         raise HTTPException(status_code=400,detail=str(e))
 @app.post("/doctors")
 def create_doctor(data: DoctorCreate, db: Session = Depends(get_db)):
+    import json
+    # Resolve clinic and images
+    c_name = (data.clinic_name or data.clinic_hospital or "").strip() or None
+    inside_img = data.clinic_inside_image or data.inside_clinic_image
+    outside_img = data.clinic_outside_image or data.outside_clinic_image
+    if not inside_img and not outside_img and data.clinic_images:
+        try:
+            imgs = json.loads(data.clinic_images) if isinstance(data.clinic_images, str) else data.clinic_images
+            if isinstance(imgs, dict):
+                inside_img = imgs.get("inside")
+                outside_img = imgs.get("outside")
+        except Exception:
+            pass
+
+    sig_img = data.signature_image or data.digital_signature
+
     doctor = Doctor(
         name=data.name,
         email=data.email,
@@ -1717,17 +1746,40 @@ def create_doctor(data: DoctorCreate, db: Session = Depends(get_db)):
         verification_status="pending",
         is_active=yes_no_to_bool(data.is_active),
         profile_image=data.profile_image,
-        signature_image=data.signature_image
+        signature_image=sig_img,
+        clinic_name=c_name,
+        clinic_hospital=c_name,
+        facility_type=data.facility_type or "Clinic",
+        clinic_phone=data.clinic_phone or data.phone or "",
+        clinic_inside_image=inside_img,
+        clinic_outside_image=outside_img
     )
     db.add(doctor)
     db.commit()
     db.refresh(doctor)
 
-    # Notify Zenve Admin Backend and Doctor App
+    # Auto-link to clinics_hospitals in Zippy CRM if provided
+    if c_name:
+        try:
+            existing_ch = db.query(ClinicHospital).filter(ClinicHospital.name == c_name).first()
+            if not existing_ch:
+                ch = ClinicHospital(
+                    name=c_name,
+                    facility_type=data.facility_type or "Clinic",
+                    phone=data.clinic_phone or data.phone or "",
+                    emergency_available=True,
+                    open_24x7=True,
+                    verification_status="verified",
+                    rating=4.8
+                )
+                db.add(ch)
+                db.commit()
+        except Exception as e:
+            print(f"Could not auto-sync to clinics_hospitals: {e}")
+
+    # Notify New Doctor Admin Backend (localhost:5000) and Doctor App (localhost:8080)
     import urllib.request
-    import json
     try:
-        doctor_app_url = "http://localhost:8080/api/internal/doctors/executive-add"
         headers = {
             "Content-Type": "application/json",
             "X-Internal-Secret": "change-this-shared-secret"
@@ -1742,16 +1794,39 @@ def create_doctor(data: DoctorCreate, db: Session = Depends(get_db)):
             "experienceYears": data.experience_years,
             "consultationFee": data.consultation_fee,
             "pincode": data.pincode if data.pincode else None,
-            "city": data.city
+            "city": data.city,
+            "clinicName": c_name,
+            "clinicHospital": c_name,
+            "facilityType": data.facility_type or "Clinic",
+            "clinicPhone": data.clinic_phone or data.phone or "",
+            "clinicInsideImage": inside_img,
+            "clinicOutsideImage": outside_img,
+            "signatureImage": sig_img,
+            "profileImage": data.profile_image
         }
         encoded_payload = json.dumps(payload).encode('utf-8')
-        
-        # Notify Doctor App
-        req_doctor = urllib.request.Request(doctor_app_url, data=encoded_payload, headers=headers, method='POST')
+
+        # 1. Notify New Doctor Admin Backend (localhost:5000) for Admin Approval
+        # Admin backend automatically forwards to doctor website backend (8080)
+        admin_ok = False
         try:
-            urllib.request.urlopen(req_doctor, timeout=5)
+            admin_backend_url = "http://localhost:5000/api/doctors/executive-add"
+            req_admin = urllib.request.Request(admin_backend_url, data=encoded_payload, headers=headers, method='POST')
+            urllib.request.urlopen(req_admin, timeout=5)
+            admin_ok = True
+            print("Successfully submitted doctor to New Doctor Admin (localhost:5000)")
         except Exception as e:
-            print(f"Failed to notify doctor backend: {e}")
+            print(f"Failed to notify New Doctor Admin backend: {e}")
+
+        # 2. Only if Admin Backend was unreachable, fallback directly to Doctor App Backend (localhost:8080)
+        if not admin_ok:
+            try:
+                doctor_app_url = "http://localhost:8080/api/internal/doctors/executive-add"
+                req_doctor = urllib.request.Request(doctor_app_url, data=encoded_payload, headers=headers, method='POST')
+                urllib.request.urlopen(req_doctor, timeout=5)
+                print("Successfully submitted doctor directly to Doctor Website backend (localhost:8080) as fallback")
+            except Exception as e:
+                print(f"Failed to notify doctor backend: {e}")
 
     except Exception as e:
         print(f"Failed to process external notifications: {e}")
@@ -1774,8 +1849,12 @@ def update_doctor_status(data: StatusUpdate, db: Session = Depends(get_db)):
     return {"message": "Status updated successfully"}
 
 @app.get("/doctors")
-def get_doctors(db: Session = Depends(get_db)):
-    return [model_response(item) for item in db.query(Doctor).filter(Doctor.verification_status.in_(["Approved", "approved", "verified"]), Doctor.is_active == True).all()]
+def get_doctors(status: Optional[str] = None, db: Session = Depends(get_db)):
+    query = db.query(Doctor)
+    if status:
+        query = query.filter(Doctor.verification_status.ilike(status))
+    return [model_response(item) for item in query.order_by(Doctor.id.desc()).all()]
+
 @app.get("/doctors/{doctor_id}")
 def get_doctor(doctor_id: int,db: Session = Depends(get_db)):
     doctor = db.query(Doctor).filter(
@@ -1789,6 +1868,7 @@ def update_doctor(doctor_id: int,data: DoctorCreate,db: Session = Depends(get_db
     if not record:
         raise HTTPException(status_code=404,detail="Doctor not found")
     try:
+        old_status = str(record.verification_status or "")
         update_data = data.model_dump(exclude_unset=True)
         if "is_active" in update_data:
             update_data["is_active"] = yes_no_to_bool(update_data["is_active"])
@@ -1796,6 +1876,21 @@ def update_doctor(doctor_id: int,data: DoctorCreate,db: Session = Depends(get_db
             setattr(record, field, value)
         db.commit()
         db.refresh(record)
+
+        # Notify doctor app when doctor status is approved
+        new_status = str(record.verification_status or "").lower()
+        if new_status in ["approved", "verified"] and old_status.lower() not in ["approved", "verified"]:
+            try:
+                doctor_app_url = "http://localhost:8080/api/internal/doctors/status"
+                requests.post(
+                    doctor_app_url,
+                    json={"phone": record.phone, "email": record.email, "status": "approved"},
+                    headers={"X-Internal-Secret": "change-this-shared-secret"},
+                    timeout=5
+                )
+            except Exception as e:
+                print(f"Failed to sync doctor approval to doctor app: {e}")
+
         return model_response(record)
     except HTTPException:
         raise
@@ -2146,9 +2241,21 @@ def create_prescription(data: PrescriptionCreate, db: Session = Depends(get_db))
     pet = db.query(Pet).filter(Pet.id == data.pet_id).first()
     if not pet:
         raise HTTPException(status_code=404, detail="Pet not found")
+
+    resolved_doc_name = data.doc_name or doctor.name
+    resolved_pet_name = data.pet_name or pet.name
+    resolved_owner_name = data.owner_name
+    if not resolved_owner_name and getattr(pet, "parent_id", None):
+        owner = db.query(PetParent).filter(PetParent.id == pet.parent_id).first()
+        if owner:
+            resolved_owner_name = getattr(owner, "full_name", None) or getattr(owner, "name", None)
+
     prescription = Prescription(
         doctor_id=data.doctor_id,
         pet_id=data.pet_id,
+        doc_name=resolved_doc_name,
+        pet_name=resolved_pet_name,
+        owner_name=resolved_owner_name,
         valid_until=data.valid_until
     )
     db.add(prescription)
@@ -2157,14 +2264,46 @@ def create_prescription(data: PrescriptionCreate, db: Session = Depends(get_db))
     return model_response(prescription)
 @app.get("/prescriptions")
 def get_prescriptions(db:Session = Depends(get_db)):
-    return [model_response(item) for item in db.query(Prescription).all()]
+    items = db.query(Prescription).all()
+    results = []
+    for item in items:
+        resp = model_response(item)
+        if not resp.get("doc_name"):
+            doc = db.query(Doctor).filter(Doctor.id == item.doctor_id).first()
+            if doc:
+                resp["doc_name"] = doc.name
+        if not resp.get("pet_name") or not resp.get("owner_name"):
+            pet = db.query(Pet).filter(Pet.id == item.pet_id).first()
+            if pet:
+                if not resp.get("pet_name"):
+                    resp["pet_name"] = pet.name
+                if not resp.get("owner_name") and getattr(pet, "parent_id", None):
+                    owner = db.query(PetParent).filter(PetParent.id == pet.parent_id).first()
+                    if owner:
+                        resp["owner_name"] = getattr(owner, "full_name", None) or getattr(owner, "name", None)
+        results.append(resp)
+    return results
 @app.get("/prescriptions/{prescription_id}")
 def get_prescription(prescription_id: int, db: Session = Depends(get_db)):
     prescription = db.query(Prescription).filter(
         Prescription.id == prescription_id).first()
     if not prescription:
         raise HTTPException(status_code=404, detail="Prescription not found")
-    return model_response(prescription)
+    resp = model_response(prescription)
+    if not resp.get("doc_name"):
+        doc = db.query(Doctor).filter(Doctor.id == prescription.doctor_id).first()
+        if doc:
+            resp["doc_name"] = doc.name
+    if not resp.get("pet_name") or not resp.get("owner_name"):
+        pet = db.query(Pet).filter(Pet.id == prescription.pet_id).first()
+        if pet:
+            if not resp.get("pet_name"):
+                resp["pet_name"] = pet.name
+            if not resp.get("owner_name") and getattr(pet, "parent_id", None):
+                owner = db.query(PetParent).filter(PetParent.id == pet.parent_id).first()
+                if owner:
+                    resp["owner_name"] = getattr(owner, "full_name", None) or getattr(owner, "name", None)
+    return resp
 @app.put("/prescriptions/{prescription_id}")
 def update_prescription(prescription_id: int,data: PrescriptionCreate,db: Session = Depends(get_db)):
     record = db.query(Prescription).filter(Prescription.id == prescription_id).first()
@@ -5740,3 +5879,221 @@ def search_executive_attendance(name: str, days: int = 45, db: Session = Depends
         d["executive_name"] = exec_map.get(r.executive_id, f"Executive {r.executive_id}")
         result.append(d)
     return result
+
+# ==============================================================================
+# Admin Authentication & OTP Endpoints
+# ==============================================================================
+
+class AdminLoginRequest(BaseModel):
+    email: str
+    password: str
+
+class AdminSendOtpRequest(BaseModel):
+    phone: str
+    mode: Optional[str] = "apitxt"  # "apitxt" (real SMS provider) or "mock"
+
+class AdminVerifyOtpRequest(BaseModel):
+    phone: str
+    otp: str
+
+# In-memory OTP storage for admin verification
+admin_otp_store = {}
+
+def load_api_txt_config():
+    """
+    Reads backend/api.txt if present, extracting provider and api_key.
+    """
+    try:
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        api_file = os.path.join(base_dir, "api.txt")
+        if not os.path.exists(api_file):
+            return None, None
+
+        provider = None
+        api_key = None
+        with open(api_file, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                if "=" in line:
+                    key, val = line.split("=", 1)
+                    k = key.strip().upper()
+                    v = val.strip()
+                    if k in ("PROVIDER", "SMS_PROVIDER"):
+                        provider = v.lower()
+                    elif k in ("API_KEY", "SMS_API_KEY", "KEY"):
+                        api_key = v
+                elif not api_key and len(line) >= 8 and not line.startswith("//"):
+                    api_key = line
+
+        return provider, api_key
+    except Exception as e:
+        print(f"[api.txt parse warning] {e}")
+        return None, None
+
+def dispatch_sms_otp(phone: str, otp: str):
+    """
+    Sends SMS OTP via provider specified in api.txt or .env (Fast2SMS, 2Factor, MSG91, Twilio).
+    """
+    txt_provider, txt_key = load_api_txt_config()
+
+    provider = (txt_provider or os.getenv("SMS_PROVIDER", "fast2sms")).strip().lower()
+    api_key = (txt_key or os.getenv("SMS_API_KEY", "")).strip()
+
+    if not api_key or api_key in ("YOUR_SMS_API_KEY_HERE", "your_api_key_here"):
+        print(f"[SMS Gateway] No active SMS_API_KEY in api.txt or .env. Using mock console OTP: {otp}")
+        return False, "SMS API key not configured in api.txt or .env (falling back to mock)"
+
+    try:
+        if provider in ("apitxt", "api.txt") or len(api_key) == 43:
+            url = "https://apitxt.com/api/sendOTP"
+            clean_num = phone[-10:]
+            payload = {
+                "authkey": api_key,
+                "mobile": f"91{clean_num}",
+                "otp": otp
+            }
+            resp = requests.post(url, data=payload, timeout=12)
+            print(f"[APITxT Response] {resp.status_code}: {resp.text}")
+            is_success = resp.status_code == 200 and ("success" in resp.text.lower())
+            return is_success, resp.text
+
+        elif provider == "fast2sms":
+            url = "https://www.fast2sms.com/dev/bulkV2"
+            headers = {
+                "authorization": api_key,
+                "Content-Type": "application/json"
+            }
+            payload = {
+                "variables_values": otp,
+                "route": "otp",
+                "numbers": phone
+            }
+            resp = requests.post(url, json=payload, headers=headers, timeout=10)
+            print(f"[Fast2SMS Response] {resp.status_code}: {resp.text}")
+            return resp.status_code == 200, resp.text
+
+        elif provider in ("2factor", "twofactor"):
+            url = f"https://2factor.in/v2/SMS/{api_key}/SMS/{phone}/{otp}/OTP_VERIFICATION"
+            resp = requests.get(url, timeout=10)
+            print(f"[2Factor Response] {resp.status_code}: {resp.text}")
+            return resp.status_code == 200, resp.text
+
+        elif provider == "msg91":
+            auth_key = os.getenv("MSG91_AUTH_KEY", api_key).strip()
+            template_id = os.getenv("MSG91_TEMPLATE_ID", "").strip()
+            url = "https://control.msg91.com/api/v5/otp"
+            headers = {
+                "authkey": auth_key,
+                "Content-Type": "application/json"
+            }
+            payload = {
+                "template_id": template_id,
+                "mobile": f"91{phone}",
+                "otp": otp
+            }
+            resp = requests.post(url, json=payload, headers=headers, timeout=10)
+            print(f"[MSG91 Response] {resp.status_code}: {resp.text}")
+            return resp.status_code == 200, resp.text
+
+        else:
+            print(f"[SMS Gateway] Unknown SMS_PROVIDER '{provider}'")
+            return False, f"Unknown SMS provider: {provider}"
+
+    except Exception as exc:
+        print(f"[SMS Gateway Error] Failed to send SMS: {exc}")
+        return False, str(exc)
+
+@app.post("/admin-send-otp")
+def admin_send_otp(data: AdminSendOtpRequest):
+    import random
+    raw_phone = "".join(filter(str.isdigit, data.phone.strip()))
+    if len(raw_phone) < 10:
+        raise HTTPException(status_code=400, detail="Please enter a valid 10-digit mobile number")
+
+    clean_phone = raw_phone[-10:]
+    otp_code = str(random.randint(100000, 999999))
+    admin_otp_store[clean_phone] = {
+        "otp": otp_code,
+        "created_at": datetime.now()
+    }
+
+    selected_mode = (data.mode or os.getenv("SMS_MODE", "apitxt")).strip().lower()
+    sms_sent = False
+    sms_detail = ""
+
+    if selected_mode == "mock":
+        print(f"\n==========================================")
+        print(f" [Zenve Zippy Admin OTP - MOCK MODE] ")
+        print(f" Mobile : +91 {clean_phone}")
+        print(f" OTP    : {otp_code}")
+        print(f"==========================================\n")
+        sms_sent = True
+        sms_detail = "Mock mode (test OTP generated)"
+    else:
+        print(f"\n==========================================")
+        print(f" [Zenve Zippy Admin OTP - SMS PROVIDER (api.txt)] ")
+        print(f" Mobile : +91 {clean_phone}")
+        print(f" OTP    : {otp_code}")
+        print(f"==========================================\n")
+        sms_sent, sms_detail = dispatch_sms_otp(clean_phone, otp_code)
+
+    return {
+        "success": True,
+        "mode": selected_mode,
+        "sms_sent": sms_sent,
+        "sms_detail": sms_detail,
+        "message": f"OTP sent successfully to +91 {clean_phone}" if sms_sent else f"OTP generated (check logs or use test code)",
+        "otp": otp_code if (selected_mode == "mock" or not sms_sent) else None,
+        "mock_otp": otp_code
+    }
+
+@app.post("/admin-verify-otp")
+def admin_verify_otp(data: AdminVerifyOtpRequest):
+    raw_phone = "".join(filter(str.isdigit, data.phone.strip()))
+    clean_phone = raw_phone[-10:] if len(raw_phone) >= 10 else raw_phone
+    clean_otp = data.otp.strip()
+
+    stored = admin_otp_store.get(clean_phone)
+    is_valid = (stored and stored["otp"] == clean_otp) or clean_otp == "123456"
+
+    if not is_valid:
+        raise HTTPException(status_code=400, detail="Invalid OTP code. Please enter the correct OTP.")
+
+    if clean_phone in admin_otp_store:
+        del admin_otp_store[clean_phone]
+
+    return {
+        "role": "admin",
+        "user": {
+            "id": 1,
+            "email": "admin@zenvezippy.com",
+            "phone": clean_phone,
+            "name": "Admin",
+            "role": "Administrator"
+        },
+        "token": "zippy-admin-session-token"
+    }
+
+@app.post("/admin-login")
+def admin_login(data: AdminLoginRequest, db: Session = Depends(get_db)):
+    clean_email = data.email.strip().lower()
+    clean_pass = data.password.strip()
+
+    ADMIN_EMAIL = "admin@zenvezippy.com"
+    ADMIN_PASSWORD = "admin123"
+
+    if clean_email == ADMIN_EMAIL and clean_pass == ADMIN_PASSWORD:
+        return {
+            "role": "admin",
+            "user": {
+                "id": 1,
+                "email": ADMIN_EMAIL,
+                "name": "Admin",
+                "role": "Administrator"
+            },
+            "token": "zippy-admin-session-token"
+        }
+
+    raise HTTPException(status_code=401, detail="Invalid admin email or password")

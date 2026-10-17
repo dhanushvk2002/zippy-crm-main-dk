@@ -1188,7 +1188,19 @@ function ApprovalsTab({
               execDocs = assignedDoctors;
             } else if (data?.coverage && data?.doctors) {
               const pins = new Set(data.coverage.filter((c) => c.executive_id === exec.id).map((c) => c.pincode));
-              execDocs = data.doctors.filter((d) => pins.has(d.pincode)).map(adaptDoctor);
+              let matched = pins.size > 0 ? data.doctors.filter((d) => pins.has(d.pincode)) : [];
+              if (matched.length === 0) {
+                const execCity = (exec?.city || "").toLowerCase().trim();
+                const isExecBang = /bang|beng/i.test(execCity);
+                matched = data.doctors.filter((d) => {
+                  const docCity = (d.city || "").toLowerCase().trim();
+                  const docPin = String(d.pincode || "").trim();
+                  return (execCity && (docCity === execCity || docCity.includes(execCity))) ||
+                         (isExecBang && (/bang|beng/i.test(docCity) || docPin.startsWith("560")));
+                });
+              }
+              if (matched.length === 0) matched = data.doctors;
+              execDocs = matched.map(adaptDoctor);
             }
             return (
               <ApprovalCard
@@ -1244,10 +1256,23 @@ export default function PlanView({
   // Adapt live API doctors to the shape planView components expect
   const assignedDoctors = useMemo(() => {
     if (!data.doctors?.length) return [];
-    return data.doctors
-      .filter((d) => myPincodes.has(d.pincode))
-      .map((d, i) => adaptDoctor(d, i, monthKey));
-  }, [data, myPincodes, monthKey]);
+    if (myPincodes.size > 0) {
+      return data.doctors
+        .filter((d) => myPincodes.has(d.pincode))
+        .map((d, i) => adaptDoctor(d, i, monthKey));
+    }
+    const exec = data.executives?.find((e) => e.id === execId);
+    const execCity = (exec?.city || "").toLowerCase().trim();
+    const isExecBang = /bang|beng/i.test(execCity);
+    const matched = data.doctors.filter((d) => {
+      const docCity = (d.city || "").toLowerCase().trim();
+      const docPin = String(d.pincode || "").trim();
+      return (execCity && (docCity === execCity || docCity.includes(execCity))) ||
+             (isExecBang && (/bang|beng/i.test(docCity) || docPin.startsWith("560")));
+    });
+    const list = matched.length > 0 ? matched : data.doctors;
+    return list.map((d, i) => adaptDoctor(d, i, monthKey));
+  }, [data, myPincodes, monthKey, execId]);
 
   // ── Store (API-backed, falls back to cache / demo)
   const store = usePlanStore(execId, monthKey, assignedDoctors);

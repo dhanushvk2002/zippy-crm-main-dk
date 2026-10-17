@@ -20,17 +20,61 @@ import Dashboard from "./components/Dashboard.jsx";
 import BulkTools from "./components/BulkTools.jsx";
 import SalesCrmClone from "./components/SalesCrm.jsx";
 import SalesCrmLoginModal from "./components/SalesCrmLoginModal.jsx";
+import AdminLogin from "./components/AdminLogin.jsx";
 
 
 const PAGE_SIZE = 10;
 
 export default function App() {
+  const [adminUser, setAdminUser] = useState(() => {
+    try {
+      const saved = localStorage.getItem("zippy_admin_user") || sessionStorage.getItem("zippy_admin_user");
+      if (!saved) return null;
+      const parsed = JSON.parse(saved);
+      if (parsed && parsed.name === "Zenve Admin") {
+        parsed.name = "Admin";
+      }
+      return parsed;
+    } catch {
+      return null;
+    }
+  });
 
-  const [salesLoginModal, setSalesLoginModal] = useState({ isOpen: false, role: "executive" });
+  function handleLogout() {
+    localStorage.removeItem("zippy_admin_user");
+    sessionStorage.removeItem("zippy_admin_user");
+    setAdminUser(null);
+  }
+
+  const [salesLoginModal, setSalesLoginModal] = useState(() => {
+    try {
+      const path = window.location.pathname;
+      const hash = window.location.hash;
+      if (path === "/manager-login" || path === "/manager/login" || path === "/sales-manager-login" || hash === "#manager-login") {
+        return { isOpen: true, role: "manager" };
+      }
+      if (path === "/regional-login" || path === "/regional/login" || path === "/regional-manager-login" || hash === "#regional-login") {
+        return { isOpen: true, role: "regional" };
+      }
+      if (path === "/login" || path === "/executive-login" || path === "/sales-executive-login" || path === "/sales-login" || hash === "#login" || hash === "#sales-login") {
+        return { isOpen: true, role: "executive" };
+      }
+      return { isOpen: false, role: "executive" };
+    } catch {
+      return { isOpen: false, role: "executive" };
+    }
+  });
   const [salesCrmView, setSalesCrmView] = useState(() => {
     try {
       const hash = window.location.hash;
       const path = window.location.pathname;
+      const isLoginPath =
+        path === "/manager-login" || path === "/manager/login" || path === "/sales-manager-login" || hash === "#manager-login" ||
+        path === "/regional-login" || path === "/regional/login" || path === "/regional-manager-login" || hash === "#regional-login" ||
+        path === "/login" || path === "/executive-login" || path === "/sales-executive-login" || path === "/sales-login" || hash === "#login" || hash === "#sales-login";
+      if (isLoginPath) {
+        return null;
+      }
       if (path.includes("/doctor")) return "manager";
       const saved = localStorage.getItem("zippy_crm_last_view");
       if (saved === "admin") return null;
@@ -40,7 +84,9 @@ export default function App() {
       if (hash && (hash === "#attendance" || hash === "#attendance_report" || hash === "#doctors" || hash === "#reports" || hash === "#dashboard" || hash === "#plan" || hash === "#approvals")) {
         return "manager";
       }
-    } catch (e) {}
+    } catch {
+      /* ignore */
+    }
     return null;
   });
 
@@ -55,7 +101,9 @@ export default function App() {
           history.replaceState(null, "", window.location.pathname);
         }
       }
-    } catch (e) {}
+    } catch {
+      /* ignore */
+    }
   }
 
   const [activeSalesUser, setActiveSalesUser] = useState(() => {
@@ -65,22 +113,57 @@ export default function App() {
         const parsed = JSON.parse(saved);
         return parsed?.user || null;
       }
-    } catch (e) {}
+    } catch {
+      /* ignore */
+    }
     return null;
   });
 
   function handleOpenSalesCrmLogin(role) {
+    const selectedRole = role || "executive";
     setSalesLoginModal({
       isOpen: true,
-      role: role || "executive",
+      role: selectedRole,
     });
+    try {
+      const targetPath = selectedRole === "manager" ? "/manager-login" : selectedRole === "regional" ? "/regional-login" : "/executive-login";
+      if (window.location.pathname !== targetPath) {
+        history.pushState(null, "", targetPath);
+      }
+    } catch {
+      /* ignore */
+    }
   }
 
   function handleSalesLoginSuccess({ role, user }) {
     setActiveSalesUser(user);
     handleSetSalesCrmView(role);
     setSalesLoginModal({ isOpen: false, role });
+    try {
+      history.replaceState(null, "", "/");
+    } catch {
+      /* ignore */
+    }
   }
+
+  useEffect(() => {
+    function handlePopState() {
+      const path = window.location.pathname;
+      const hash = window.location.hash;
+      if (path === "/manager-login" || path === "/manager/login" || path === "/sales-manager-login" || hash === "#manager-login") {
+        setSalesCrmView(null);
+        setSalesLoginModal({ isOpen: true, role: "manager" });
+      } else if (path === "/regional-login" || path === "/regional/login" || path === "/regional-manager-login" || hash === "#regional-login") {
+        setSalesCrmView(null);
+        setSalesLoginModal({ isOpen: true, role: "regional" });
+      } else if (path === "/login" || path === "/executive-login" || path === "/sales-executive-login" || path === "/sales-login" || hash === "#login" || hash === "#sales-login") {
+        setSalesCrmView(null);
+        setSalesLoginModal({ isOpen: true, role: "executive" });
+      }
+    }
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
   const [currentKey, setCurrentKey] = useState("pet_parents");
   const [records, setRecords] = useState([]); // raw objects from the API, in list order
   const [loading, setLoading] = useState(true);
@@ -220,7 +303,9 @@ export default function App() {
             });
             if (changed) localStorage.setItem(attendKey, JSON.stringify(parsed));
           }
-        } catch (e) {}
+        } catch {
+          /* ignore */
+        }
       }
 
       closeModal();
@@ -256,17 +341,72 @@ export default function App() {
         role={salesCrmView}
         initialUser={activeSalesUser}
         onSwitchRole={(view) => handleSetSalesCrmView(view)}
-        onExit={() => {
+        onExit={(loggedOutRole) => {
+          const roleToRedirect = loggedOutRole || salesCrmView || "executive";
           setActiveSalesUser(null);
-          handleSetSalesCrmView(null);
+          try {
+            localStorage.removeItem("zippy_crm_active_auth");
+            localStorage.removeItem("zippy_crm_last_view");
+          } catch {
+            /* ignore */
+          }
+          setSalesCrmView(null);
+          setSalesLoginModal({ isOpen: true, role: roleToRedirect });
+          try {
+            const targetPath =
+              roleToRedirect === "manager"
+                ? "/manager-login"
+                : roleToRedirect === "regional"
+                ? "/regional-login"
+                : "/executive-login";
+            if (window.location.pathname !== targetPath) {
+              history.pushState(null, "", targetPath);
+            }
+          } catch {
+            /* ignore */
+          }
         }}
+      />
+    );
+  }
+
+  if (salesLoginModal.isOpen) {
+    return (
+      <SalesCrmLoginModal
+        key={salesLoginModal.role || "executive"}
+        isOpen={true}
+        initialRole={salesLoginModal.role || "executive"}
+        onClose={() => {
+          setSalesLoginModal({ isOpen: false, role: "executive" });
+          try {
+            if (window.location.pathname === "/login") {
+              history.replaceState(null, "", "/");
+            }
+          } catch {
+            /* ignore */
+          }
+        }}
+        onLoginSuccess={handleSalesLoginSuccess}
+      />
+    );
+  }
+
+  if (!adminUser) {
+    return (
+      <AdminLogin
+        onLoginSuccess={(user) => setAdminUser(user)}
       />
     );
   }
 
   return (
     <div className="zzc-app">
-      <Sidebar currentKey={currentKey} onSelect={selectTable}/>
+      <Sidebar
+        currentKey={currentKey}
+        onSelect={selectTable}
+        adminUser={adminUser}
+        onLogout={handleLogout}
+      />
 
       <main className="zzc-main">
         <TopBar
@@ -274,7 +414,7 @@ export default function App() {
           subtitle={`${filtered.length} records · table ${currentKey}`}
           showSearch={activeTab === "data" && Boolean(searchConfig)}
           showNewRecord={activeTab === "data"}
-          searchPlaceholder={searchConfig ? "Search " + searchConfig.placeholder : ""}
+          searchPlaceholder={searchConfig ? "Search " + (searchConfig.placeholder || "").replace(/_/g, " ") : ""}
           searchTerm={searchTerm}
           onSearchChange={(value) => {
             setSearchTerm(value);
@@ -284,6 +424,8 @@ export default function App() {
           activeTab={activeTab}
           onTabChange={setActiveTab}
           onOpenSalesCRM={(view) => handleOpenSalesCrmLogin(view)}
+          adminUser={adminUser}
+          onLogout={handleLogout}
         />
 
         {error && (
@@ -348,13 +490,6 @@ export default function App() {
         onSave={saveModal}
         onCancel={closeModal}
         saving={saving}
-      />
-
-      <SalesCrmLoginModal
-        isOpen={salesLoginModal.isOpen}
-        initialRole={salesLoginModal.role}
-        onClose={() => setSalesLoginModal((prev) => ({ ...prev, isOpen: false }))}
-        onLoginSuccess={handleSalesLoginSuccess}
       />
     </div>
   );

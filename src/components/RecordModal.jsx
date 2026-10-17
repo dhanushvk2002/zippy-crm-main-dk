@@ -25,6 +25,7 @@ import {
 import NavIcon from "./NavIcon.jsx";
 import { findLabel } from "../data.js";
 import { sendMobileOtp, verifyMobileOtp } from "../api.js";
+import "./RecordModal.css";
 
 function RegionDatalist() {
   return (
@@ -359,14 +360,16 @@ export default function RecordModal({ mode, tableKey, columns, values, onChange,
   }, [phoneOtpCountdown]);
 
   // Reset modal state on mode change
-  useEffect(() => {
+  const [prevMode, setPrevMode] = useState(mode);
+  if (prevMode !== mode) {
+    setPrevMode(mode);
     setShowPassword(false);
     setInputError("");
     setPhoneOtp("");
     setPhoneOtpSent(false);
     setPhoneOtpCountdown(0);
     setPhoneOtpMsg("");
-  }, [mode]);
+  }
 
   async function handleSendPhoneOtp() {
     setInputError("");
@@ -511,7 +514,7 @@ export default function RecordModal({ mode, tableKey, columns, values, onChange,
               background: "none",
               border: "none",
               cursor: "pointer",
-              color: "#0284c7",
+              color: "var(--primary, #046a60)",
             }}
           >
             {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -792,7 +795,7 @@ export default function RecordModal({ mode, tableKey, columns, values, onChange,
                   Mobile Number Verification
                 </span>
                 {phoneOtpMsg && (
-                  <span style={{ fontSize: "0.72rem", color: "#0284c7", fontWeight: 500 }}>
+                  <span style={{ fontSize: "0.72rem", color: "var(--primary, #046a60)", fontWeight: 500 }}>
                     {phoneOtpMsg}
                   </span>
                 )}
@@ -808,8 +811,8 @@ export default function RecordModal({ mode, tableKey, columns, values, onChange,
                       fontWeight: 600,
                       borderRadius: "6px",
                       border: "none",
-                      background: "#0284c7",
-                      color: "#ffffff",
+                      background: "var(--primary, #046a60)",
+                      color: "var(--primary-foreground, #ffffff)",
                       cursor: "pointer",
                       opacity: cleanPhone.length === 10 ? 1 : 0.6,
                     }}
@@ -864,7 +867,7 @@ export default function RecordModal({ mode, tableKey, columns, values, onChange,
                     style={{
                       background: "none",
                       border: "none",
-                      color: "#0284c7",
+                      color: "var(--primary, #046a60)",
                       fontSize: "0.74rem",
                       fontWeight: 600,
                       cursor: phoneOtpCountdown > 0 ? "not-allowed" : "pointer",
@@ -919,6 +922,8 @@ export default function RecordModal({ mode, tableKey, columns, values, onChange,
   const sections = groupColumnsIntoSections(columns, tableKey);
   const isEdit = mode === "edit";
 
+  if (!mode) return null;
+
   return createPortal(
     <div
       className="zzc-modal-overlay zzc-exec-overlay"
@@ -928,16 +933,8 @@ export default function RecordModal({ mode, tableKey, columns, values, onChange,
     >
       <section className="zzc-exec-modal" aria-labelledby="zzc-exec-title">
         <header className="zzc-exec-header">
-          <span className="zzc-exec-header-icon">
-            <NavIcon name={tableKey} size={21} />
-          </span>
           <div>
-            <h2 id="zzc-exec-title">{isEdit ? `Edit ${recordTitle}` : `Add ${recordTitle}`}</h2>
-            <p>
-              {isEdit
-                ? `Update existing ${recordTitle.toLowerCase()} record`
-                : `Create a new ${recordTitle.toLowerCase()} profile`}
-            </p>
+            <h2 id="zzc-exec-title">{isEdit ? `Edit record` : `New record`}</h2>
           </div>
           <button
             type="button"
@@ -955,26 +952,41 @@ export default function RecordModal({ mode, tableKey, columns, values, onChange,
             {saveError && <div className="zzc-modal-error" role="alert">{saveError}</div>}
             {inputError && <div className="zzc-modal-error" role="alert">{inputError}</div>}
 
-            {sections.map((section) => {
-              const SectionIcon = section.Icon;
-              return (
-                <section className="zzc-exec-section" key={section.id}>
-                  <h3>
-                    <SectionIcon size={16} />
-                    {section.title}
-                  </h3>
-                  <div
-                    className={`zzc-exec-fields ${
-                      section.isSingle ? "zzc-exec-fields-single" : ""
-                    }`}
-                  >
-                    {section.columns.map((field) =>
-                      renderExecutiveField(field.key, getFieldIcon(field.key, field.type), getFieldPlaceholder(field))
-                    )}
+            {tableKey === "sales_executives" || tableKey === "sales_managers" || tableKey === "regional_managers" ? (
+              sections.map((section) => {
+                const SectionIcon = section.Icon;
+                return (
+                  <section className="zzc-exec-section" key={section.id}>
+                    <h3>
+                      <SectionIcon size={16} />
+                      {section.title}
+                    </h3>
+                    <div
+                      className={`zzc-exec-fields ${
+                        section.isSingle ? "zzc-exec-fields-single" : ""
+                      }`}
+                    >
+                      {section.columns.map((field) =>
+                        renderExecutiveField(field.key, getFieldIcon(field.key, field.type), getFieldPlaceholder(field))
+                      )}
+                    </div>
+                  </section>
+                );
+              })
+            ) : (
+              <div className="zzc-classic-fields-stack">
+                {columns.filter((c) => c.key !== "id" && c.key !== "created_at" && c.key !== "updated_at").map((field) => (
+                  <div className="zzc-classic-field-item" key={field.key}>
+                    <label htmlFor={`field_${field.key}`}>
+                      {field.key.toUpperCase()} {field.required ? "*" : ""}
+                    </label>
+                    <div className="zzc-classic-input-wrap">
+                      {renderInput(field, "")}
+                    </div>
                   </div>
-                </section>
-              );
-            })}
+                ))}
+              </div>
+            )}
           </form>
         </div>
 
@@ -993,14 +1005,7 @@ export default function RecordModal({ mode, tableKey, columns, values, onChange,
             className="zzc-btn zzc-btn-primary"
             disabled={saving}
           >
-            {isEdit ? <Save size={15} /> : <UserPlus size={15} />}
-            {saving
-              ? isEdit
-                ? "Saving…"
-                : "Creating…"
-              : isEdit
-              ? "Save Changes"
-              : `Create ${recordTitle}`}
+            {saving ? "Saving…" : "Save"}
           </button>
         </footer>
       </section>

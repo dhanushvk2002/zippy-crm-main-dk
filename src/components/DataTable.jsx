@@ -26,21 +26,23 @@ export default function DataTable({
                 <td colSpan={columns.length + 1}>No records found</td>
               </tr>
             ) : (
-              pageItems.map(({ row, index }) => (
-                <tr key={index}>
-                  {row.map((cell, i) => (
-                    <td key={i}>{cell}</td>
-                  ))}
-                  <td className="actions">
-                    <button className="zzc-btn-sm" onClick={() => onEdit(index)}>
-                      Edit
-                    </button>
-                    <button className="zzc-btn-sm zzc-btn-danger" onClick={() => onDelete(index)}>
-                      Delete
-                    </button>
-                  </td>
-                </tr>
-              ))
+              pageItems.map(({ row, index }) => {
+                return (
+                  <tr key={index}>
+                    {row.map((cell, i) => (
+                      <td key={i}>{cell}</td>
+                    ))}
+                    <td className="actions">
+                      <button className="zzc-btn-sm" onClick={() => onEdit(index)}>
+                        Edit
+                      </button>
+                      <button className="zzc-btn-sm zzc-btn-danger" onClick={() => onDelete(index)}>
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>

@@ -28,13 +28,5 @@ __pycache__/
 *.py[cod]
 *$py.class
 *.pyc
-*.bak
-scratch/
-.venv/
-
-# Environment files
 .env
-.env.*
-!.env.example
-*.env
 

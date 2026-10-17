@@ -7,9 +7,6 @@ import {
   Stethoscope,
   ClipboardCheck,
   FileText,
-  Globe,
-  Users,
-  User,
   LogOut,
   Calendar,
   UserCheck,
@@ -24,10 +21,6 @@ import {
   Sparkles,
   Building,
   Building2,
-  Bell,
-  LogIn,
-  AlertCircle,
-  X,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
@@ -42,7 +35,6 @@ import {
   API_BASE,
 } from "../api.js";
 import logo from "../assets/zenve-zippy-logo.png";
-import { playChime } from "../notificationSound.js";
 import "./SalesCRM.css";
 import SalesCrmLoginModal from "./SalesCrmLoginModal.jsx";
 import PlanView from "./planView.jsx";
@@ -69,6 +61,90 @@ const ROLE_TABLE_KEY = {
   manager: "sales_managers",
   regional: "regional_managers",
 };
+
+/* ─────────────────────────────────────────────────────────
+   PINCODE TO CITY AUTO-GENERATION DICTIONARY
+───────────────────────────────────────────────────────── */
+const PINCODE_CITY_MAP = {
+  "560068": "Silk Board, Bangalore",
+  "560034": "Koramangala, Bangalore",
+  "560076": "BTM Layout, Bangalore",
+  "560100": "Electronic City, Bangalore",
+  "560038": "Indiranagar, Bangalore",
+  "560001": "Bangalore GPO",
+  "560002": "City Market, Bangalore",
+  "560003": "Malleswaram, Bangalore",
+  "560004": "Basavanagudi, Bangalore",
+  "560011": "Jayanagar, Bangalore",
+  "560025": "Richmond Town, Bangalore",
+  "560041": "Jayanagar 4th Block, Bangalore",
+  "560078": "JP Nagar, Bangalore",
+  "560085": "Banashankari, Bangalore",
+  "560095": "Koramangala 8th Block, Bangalore",
+  "560102": "HSR Layout, Bangalore",
+  "560066": "Whitefield, Bangalore",
+  "560037": "Marathahalli, Bangalore",
+  "560043": "Kalyan Nagar, Bangalore",
+  "560092": "Hebbal, Bangalore",
+  "560064": "Yelahanka, Bangalore",
+  "635653": "Natrampalli, Tamil Nadu",
+  "635851": "Vaniyambadi, Tamil Nadu",
+  "635601": "Tirupattur, Tamil Nadu",
+  "570001": "Mysore",
+  "575001": "Mangalore",
+  "580001": "Hubli",
+  "600001": "Chennai",
+  "400001": "Mumbai",
+  "110001": "New Delhi",
+  "500001": "Hyderabad",
+};
+
+/**
+ * Checks if a doctor belongs to the executive's territory.
+ * Supports direct pincode coverage match, Bangalore/Bengaluru city equivalence,
+ * 560xxx pincode prefix, and postal localities.
+ */
+function matchesExecutiveTerritory(doc, exec, myPincodes) {
+  if (!doc) return false;
+  // 1. Direct match on assigned coverage pincodes
+  if (myPincodes && myPincodes.size > 0 && myPincodes.has(doc.pincode)) {
+    return true;
+  }
+  if (!exec) return true;
+
+  const docCity = (doc.city || "").toLowerCase().trim();
+  const execCity = (exec.city || "").toLowerCase().trim();
+  const execRegion = (exec.region || "").toLowerCase().trim();
+  const docPin = String(doc.pincode || "").trim();
+
+  // Direct city equality or containment
+  if (execCity && docCity && (docCity === execCity || docCity.includes(execCity) || execCity.includes(docCity))) {
+    return true;
+  }
+
+  // Bangalore / Bengaluru equivalence
+  const isExecBangalore = /bang|beng/i.test(execCity) || /bang|beng/i.test(execRegion);
+  const isDocBangalore =
+    /bang|beng/i.test(docCity) ||
+    docPin.startsWith("560") ||
+    /bang|beng/i.test(PINCODE_CITY_MAP[docPin] || "");
+  if (isExecBangalore && isDocBangalore) {
+    return true;
+  }
+
+  // Check known pincode dictionary
+  const mappedCity = (PINCODE_CITY_MAP[docPin] || "").toLowerCase();
+  if (execCity && mappedCity && (mappedCity.includes(execCity) || execCity.includes(mappedCity))) {
+    return true;
+  }
+
+  // State / Region matching
+  if (execRegion && (docCity.includes(execRegion) || (doc.state || "").toLowerCase().includes(execRegion))) {
+    return true;
+  }
+
+  return false;
+}
 
 /* ─────────────────────────────────────────────────────────
    SMALL SHARED UI COMPONENTS
@@ -159,25 +235,6 @@ function Performers({ title, people }) {
   );
 }
 
-function DashTable({ title, headers, rows }) {
-  return (
-    <div className="panel table-panel">
-      <div className="panel-title"><h2>{title}</h2></div>
-      <table>
-        <thead><tr>{headers.map((h) => <th key={h}>{h}</th>)}</tr></thead>
-        <tbody>
-          {rows.length === 0 ? (
-            <tr><td colSpan={headers.length} style={{ color: "#7f8b98" }}>No data yet</td></tr>
-          ) : (
-            rows.map((row, i) => (
-              <tr key={i}>{row.map((cell, ci) => <td key={ci}>{cell}</td>)}</tr>
-            ))
-          )}
-        </tbody>
-      </table>
-    </div>
-  );
-}
 
 function StatusList({ title, rows }) {
   return (
@@ -1350,28 +1407,26 @@ function ReceivedReportsSection({ data, role, currentRecord }) {
 ───────────────────────────────────────────────────────── */
 export function ViewDoctorModal({ doctor, onClose }) {
   if (!doctor) return null;
-  
+
   const docName = doctor.doctorName || doctor.name || "—";
   const spec = doctor.specializations || doctor.specialization || doctor.tag || "—";
-  const cleanName = docName.replace(/^dr\.?\s*/i, '').trim();
-  const avatarChar = cleanName.length > 0 ? cleanName.charAt(0).toUpperCase() : "D";
 
   return (
     <div className="zzc-modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="zzc-modal" style={{ maxWidth: 450, borderRadius: 12, overflow: "hidden", padding: 0 }}>
-        
+
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', padding: '1.25rem 1.5rem', borderBottom: '1px solid #e2e8f0', position: 'relative' }}>
-          
+
           <DoctorAvatar name={docName} size={48} />
-          
+
           <div style={{ flex: 1, textAlign: 'left', marginLeft: '14px', display: 'flex', flexDirection: 'column' }}>
             <span style={{ fontWeight: 700, fontSize: '1.05rem', color: 'var(--foreground, #1e293b)' }}>{docName}</span>
             <span style={{ fontSize: '0.8rem', color: '#64748b', marginTop: 2 }}>{spec}</span>
           </div>
-          
-          <button onClick={onClose} style={{ 
-            background: 'none', border: 'none', fontSize: '1rem', cursor: 'pointer', color: '#94a3b8', 
+
+          <button onClick={onClose} style={{
+            background: 'none', border: 'none', fontSize: '1rem', cursor: 'pointer', color: '#94a3b8',
             padding: 0, width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center'
           }}>
             &#x2715;
@@ -1389,10 +1444,10 @@ export function ViewDoctorModal({ doctor, onClose }) {
               { label: 'Pin Code', value: doctor.pincode || doctor.location || "—" },
               { label: 'Experience', value: doctor.experience_years != null ? `${doctor.experience_years} yrs` : "—" },
             ].map((item, idx, arr) => (
-              <div key={idx} style={{ 
-                display: 'flex', justifyContent: 'space-between', padding: '0.9rem 0', 
-                borderBottom: idx === arr.length - 1 ? 'none' : '1px dashed #cbd5e1', 
-                fontSize: '0.85rem' 
+              <div key={idx} style={{
+                display: 'flex', justifyContent: 'space-between', padding: '0.9rem 0',
+                borderBottom: idx === arr.length - 1 ? 'none' : '1px dashed #cbd5e1',
+                fontSize: '0.85rem'
               }}>
                 <span style={{ color: '#64748b' }}>{item.label}</span>
                 <span style={{ fontWeight: 600, color: '#0f172a' }}>{item.value}</span>
@@ -1447,17 +1502,10 @@ function ReportsView({ data, execId, role, managerId, regionalId, currentRecord 
   const territoryDoctors = useMemo(() => {
     if (!data.doctors || data.doctors.length === 0) return [];
     // 1. Doctors matching assigned pincodes
-    let list = data.doctors.filter((d) => myPincodes.has(d.pincode));
-    // 2. If no coverage pincodes assigned or no match, match by executive's city or region
+    let list = myPincodes.size > 0 ? data.doctors.filter((d) => myPincodes.has(d.pincode)) : [];
+    // 2. If no coverage pincodes assigned or no match, match by executive's territory
     if (list.length === 0 && exec) {
-      list = data.doctors.filter((d) => {
-        const docCity = (d.city || "").toLowerCase().trim();
-        const execCity = (exec.city || "").toLowerCase().trim();
-        const execRegion = (exec.region || "").toLowerCase().trim();
-        const isCityMatch = execCity && (docCity === execCity || (docCity.includes("bang") && execCity.includes("bang")));
-        const isRegionMatch = execRegion && (docCity.includes(execRegion) || (d.name || "").toLowerCase().includes(execRegion));
-        return isCityMatch || isRegionMatch;
-      });
+      list = data.doctors.filter((d) => matchesExecutiveTerritory(d, exec, myPincodes));
     }
     // 3. Fallback to all available doctors so executive is never blocked
     if (list.length === 0) {
@@ -2172,42 +2220,6 @@ function ReportsView({ data, execId, role, managerId, regionalId, currentRecord 
    - Proper heading matching Reports page style
    - Consistent CSS classes
 ───────────────────────────────────────────────────────── */
-/* ─────────────────────────────────────────────────────────
-   PINCODE TO CITY AUTO-GENERATION DICTIONARY
-───────────────────────────────────────────────────────── */
-const PINCODE_CITY_MAP = {
-  "560068": "Silk Board, Bangalore",
-  "560034": "Koramangala, Bangalore",
-  "560076": "BTM Layout, Bangalore",
-  "560100": "Electronic City, Bangalore",
-  "560038": "Indiranagar, Bangalore",
-  "560001": "Bangalore GPO",
-  "560002": "City Market, Bangalore",
-  "560003": "Malleswaram, Bangalore",
-  "560004": "Basavanagudi, Bangalore",
-  "560011": "Jayanagar, Bangalore",
-  "560025": "Richmond Town, Bangalore",
-  "560041": "Jayanagar 4th Block, Bangalore",
-  "560078": "JP Nagar, Bangalore",
-  "560085": "Banashankari, Bangalore",
-  "560095": "Koramangala 8th Block, Bangalore",
-  "560102": "HSR Layout, Bangalore",
-  "560066": "Whitefield, Bangalore",
-  "560037": "Marathahalli, Bangalore",
-  "560043": "Kalyan Nagar, Bangalore",
-  "560092": "Hebbal, Bangalore",
-  "560064": "Yelahanka, Bangalore",
-  "635653": "Natrampalli, Tamil Nadu",
-  "635851": "Vaniyambadi, Tamil Nadu",
-  "635601": "Tirupattur, Tamil Nadu",
-  "570001": "Mysore",
-  "575001": "Mangalore",
-  "580001": "Hubli",
-  "600001": "Chennai",
-  "400001": "Mumbai",
-  "110001": "New Delhi",
-  "500001": "Hyderabad",
-};
 
 /* ─────────────────────────────────────────────────────────
    DIGITAL SIGNATURE PAD MODAL (PNG MODEL)
@@ -2233,11 +2245,10 @@ function SignaturePadModal({ isOpen, onClose, onSave, existingSignature }) {
       };
       img.src = existingSignature;
     } else {
-      setHasDrawn(false);
+      const t = setTimeout(() => setHasDrawn(false), 0);
+      return () => clearTimeout(t);
     }
   }, [isOpen, existingSignature]);
-
-  if (!isOpen) return null;
 
   const getCoordinates = (e) => {
     const canvas = canvasRef.current;
@@ -2482,19 +2493,34 @@ function AddDoctorModal({ defaultCity = "", availablePincodes = [], onClose, onD
 
   const [form, setForm] = useState({
     name: "",
+    email: "",
+    password: "",
     qualification: "",
     specializations: "",
+    clinic_name: "",
+    facility_type: "Clinic",
     phone: "",
     experience_years: "",
     city: initialCity,
     pincode: initialPin,
     consultation_fee: "",
-    verification_status: "verified",
+    verification_status: "pending",
     is_active: "Yes",
     inside_clinic_image: null,
     outside_clinic_image: null,
     digital_signature: null,
   });
+
+  const [existingClinics, setExistingClinics] = useState([]);
+
+  useEffect(() => {
+    fetch(`${API_BASE}/clinics-hospitals`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data)) setExistingClinics(data);
+      })
+      .catch(() => {});
+  }, []);
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -2600,7 +2626,7 @@ function AddDoctorModal({ defaultCity = "", availablePincodes = [], onClose, onD
               setAutoDetected(true);
             }
           })
-          .catch(() => {});
+          .catch(() => { });
       }
     }
   };
@@ -2653,14 +2679,21 @@ function AddDoctorModal({ defaultCity = "", availablePincodes = [], onClose, onD
 
       const payload = {
         name: form.name.trim(),
+        email: form.email.trim() || null,
+        password: form.password ? form.password.trim() : null,
         qualification: form.qualification.trim() || null,
         specializations: form.specializations.trim() || null,
+        clinic_name: form.clinic_name.trim() || null,
+        clinic_hospital: form.clinic_name.trim() || null,
+        facility_type: form.facility_type || "Clinic",
+        inside_clinic_image: form.inside_clinic_image || null,
+        outside_clinic_image: form.outside_clinic_image || null,
         phone: form.phone.trim() || null,
         experience_years: form.experience_years !== "" ? Number(form.experience_years) : null,
         city: form.city.trim() || null,
         pincode: form.pincode.trim() || null,
         consultation_fee: form.consultation_fee !== "" ? Number(form.consultation_fee) : null,
-        verification_status: form.verification_status || "verified",
+        verification_status: form.verification_status || "pending",
         is_active: form.is_active || "Yes",
         digital_signature: form.digital_signature || null,
         clinic_images:
@@ -2759,16 +2792,83 @@ function AddDoctorModal({ defaultCity = "", availablePincodes = [], onClose, onD
               />
             </div>
 
+            {/* Clinic / Hospital Name */}
+            <div className="zzc-field">
+              <label htmlFor="doc_clinic_name">Clinic / Hospital Name</label>
+              <input
+                id="doc_clinic_name"
+                type="text"
+                list="crm-clinic-options"
+                placeholder="e.g. City Vet Clinic & Hospital"
+                value={form.clinic_name}
+                onChange={(e) => handleChange("clinic_name", e.target.value)}
+              />
+              {existingClinics.length > 0 && (
+                <datalist id="crm-clinic-options">
+                  {existingClinics.map((c, i) => (
+                    <option key={c.id || i} value={c.name} />
+                  ))}
+                </datalist>
+              )}
+              <span style={{ fontSize: "0.68rem", color: "var(--muted-foreground)" }}>Select from existing or type new clinic</span>
+            </div>
+
+            {/* Facility Type */}
+            <div className="zzc-field">
+              <label htmlFor="doc_facility_type">Facility Type</label>
+              <select
+                id="doc_facility_type"
+                value={form.facility_type}
+                onChange={(e) => handleChange("facility_type", e.target.value)}
+              >
+                <option value="Clinic">Clinic</option>
+                <option value="Hospital">Hospital</option>
+                <option value="Specialty Referral Center">Specialty Referral Center</option>
+                <option value="Diagnostic Center">Diagnostic Center</option>
+                <option value="Animal Shelter / NGO">Animal Shelter / NGO</option>
+              </select>
+            </div>
+
             {/* Phone */}
             <div className="zzc-field">
-              <label htmlFor="doc_phone">Phone Number</label>
+              <label htmlFor="doc_phone">Phone Number <span style={{ color: "#ef4444" }}>*</span></label>
               <input
                 id="doc_phone"
                 type="tel"
                 placeholder="e.g. 9876543210"
                 value={form.phone}
                 onChange={(e) => handleChange("phone", e.target.value)}
+                required
               />
+            </div>
+
+            {/* Doctor Email (Doctor Website Login) */}
+            <div className="zzc-field">
+              <label htmlFor="doc_email">Doctor Email (Login ID) <span style={{ color: "#ef4444" }}>*</span></label>
+              <input
+                id="doc_email"
+                type="email"
+                placeholder="e.g. doctor@clinic.com"
+                value={form.email}
+                onChange={(e) => handleChange("email", e.target.value)}
+                required
+              />
+              <span style={{ fontSize: "0.68rem", color: "var(--muted-foreground)" }}>Login user ID for Doctor Website</span>
+            </div>
+
+            {/* Doctor Password (Doctor Website Login) */}
+            <div className="zzc-field">
+              <label htmlFor="doc_password">Doctor Password <span style={{ color: "#ef4444" }}>*</span></label>
+              <input
+                id="doc_password"
+                type="password"
+                placeholder="Minimum 6 characters"
+                value={form.password}
+                onChange={(e) => handleChange("password", e.target.value)}
+                required
+                minLength={6}
+              />
+              <span style={{ fontSize: "0.68rem", color: "var(--muted-foreground)" }}>Login password for Doctor Website</span>
             </div>
 
             {/* Experience */}
@@ -2873,9 +2973,12 @@ function AddDoctorModal({ defaultCity = "", availablePincodes = [], onClose, onD
                 value={form.verification_status}
                 onChange={(e) => handleChange("verification_status", e.target.value)}
               >
-                <option value="verified">Verified</option>
-                <option value="pending">Pending</option>
+                <option value="pending">Pending (Submit for Admin Approval)</option>
+                <option value="verified">Verified (Approved)</option>
               </select>
+              <span style={{ fontSize: "0.75rem", color: "#0284c7", marginTop: "4px", display: "block" }}>
+                ℹ️ When submitted as <strong>Pending</strong>, this doctor routes to the Admin Approval page and their login account is prepared for the Doctor Website.
+              </span>
             </div>
 
             {/* ── CLINIC PHOTOS SECTION (INSIDE & OUTSIDE CLINIC IMAGES) ── */}
@@ -3303,6 +3406,18 @@ function DoctorDetailsModal({ doctor, onClose }) {
                 {doctor.phone || "—"}
               </span>
             </div>
+            <div className="doc-details-item">
+              <span className="doc-details-label">Clinic / Hospital</span>
+              <span className="doc-details-value" style={{ fontWeight: 600, color: "var(--foreground)" }}>
+                {doctor.clinic_name || doctor.clinic_hospital || "—"}
+              </span>
+            </div>
+            <div className="doc-details-item">
+              <span className="doc-details-label">Facility Type</span>
+              <span className="doc-details-value">
+                {doctor.facility_type || "Clinic"}
+              </span>
+            </div>
             <div className="doc-details-item" style={{ gridColumn: "1 / -1" }}>
               <span className="doc-details-label">Specializations</span>
               <div style={{ marginTop: "4px", display: "flex", flexWrap: "wrap", gap: "6px" }}>
@@ -3512,17 +3627,13 @@ function DoctorsView({ data, execId }) {
 
   const myDoctors = useMemo(() => {
     if (!data.doctors || data.doctors.length === 0) return [];
-    let list = data.doctors.filter((d) => myPincodes.has(d.pincode));
+    // 1. Doctors matching assigned pincodes
+    let list = myPincodes.size > 0 ? data.doctors.filter((d) => myPincodes.has(d.pincode)) : [];
+    // 2. If no coverage pincodes assigned or no match, match by executive's territory
     if (list.length === 0 && exec) {
-      list = data.doctors.filter((d) => {
-        const docCity = (d.city || "").toLowerCase().trim();
-        const execCity = (exec.city || "").toLowerCase().trim();
-        const execRegion = (exec.region || "").toLowerCase().trim();
-        const isCityMatch = execCity && (docCity === execCity || (docCity.includes("bang") && execCity.includes("bang")));
-        const isRegionMatch = execRegion && (docCity.includes(execRegion) || (d.name || "").toLowerCase().includes(execRegion));
-        return isCityMatch || isRegionMatch;
-      });
+      list = data.doctors.filter((d) => matchesExecutiveTerritory(d, exec, myPincodes));
     }
+    // 3. Fallback to all available doctors so executive is never blocked
     if (list.length === 0) {
       list = data.doctors;
     }
@@ -3594,8 +3705,8 @@ function DoctorsView({ data, execId }) {
           <div className="stat-icon orange">⊞</div>
           <div>
             <span>Pin Codes</span>
-            <strong>{pincodeList.length || myPincodes.size}</strong>
-            <small>Assigned coverage</small>
+            <strong>{myPincodes.size || pincodeList.length}</strong>
+            <small>{myPincodes.size > 0 ? "Assigned coverage" : "In my Region"}</small>
           </div>
         </div>
         <div className="doc-stat-card">
@@ -3748,7 +3859,7 @@ function DoctorsView({ data, execId }) {
               await data.reload();
             }
             setShowAddDoctorModal(false);
-            setSuccessToast(`Doctor "${newDoc?.name || "New Doctor"}" added successfully!`);
+            setSuccessToast(`Doctor "${newDoc?.name || "New Doctor"}" submitted for Admin approval! Login credentials created for Doctor Website.`);
             setTimeout(() => setSuccessToast(""), 5000);
           }}
         />
@@ -3899,7 +4010,8 @@ function TeamPlanTargetPanel({ execsInScope, monthKey, monthLabel, onGoToPlan, o
   const activeMonthLabel = monthLabel || formatMonthLabel(activeMonth);
 
   useEffect(() => {
-    setCurrentPage(1);
+    const t = setTimeout(() => setCurrentPage(1), 0);
+    return () => clearTimeout(t);
   }, [execsInScope, activeMonth]);
 
   useEffect(() => {
@@ -4184,8 +4296,8 @@ function TeamPlanTargetPanel({ execsInScope, monthKey, monthLabel, onGoToPlan, o
 /* ─────────────────────────────────────────────────────────
    EXECUTIVE DASHBOARD
 ───────────────────────────────────────────────────────── */
-function ExecutiveDashboard({ data, execId, planStats, monthLabel, onGoToPlan, onGoToAttendance }) {
-  const { executives, coverage, tasks, doctors, products, alerts } = data;
+function ExecutiveDashboard({ data, execId, planStats, monthLabel, onGoToPlan }) {
+  const { executives, coverage, tasks, doctors, products } = data;
   const exec = executives.find((e) => e.id === execId) || executives[0];
   const myPincodes = new Set(coverage.filter((c) => c.executive_id === exec?.id).map((c) => c.pincode));
   const myTasks = tasks.filter((t) => !t.pincode || myPincodes.has(t.pincode));
@@ -4270,7 +4382,8 @@ function ExecutivePerformanceTable({ rows }) {
 
   // Auto-reset to page 1 whenever row count or region filter changes
   useEffect(() => {
-    setCurrentPage(1);
+    const t = setTimeout(() => setCurrentPage(1), 0);
+    return () => clearTimeout(t);
   }, [rows.length]);
 
   const displayedRows = useMemo(() => {
@@ -4384,8 +4497,8 @@ function ExecutivePerformanceTable({ rows }) {
 /* ─────────────────────────────────────────────────────────
    TEAM DASHBOARD (Managers & Regional Managers)
 ───────────────────────────────────────────────────────── */
-function TeamDashboard({ data, region, scopeLabel, monthKey, monthLabel, onGoToPlan, onGoToAttendance }) {
-  const { executives, coverage, tasks, doctors, alerts } = data;
+function TeamDashboard({ data, region, scopeLabel, monthKey, monthLabel, onGoToPlan }) {
+  const { executives, doctors } = data;
 
   const normalizeReg = (r) => (r || "").trim().toLowerCase().replace(/[\s_-]+/g, "");
 
@@ -4521,7 +4634,9 @@ export default function SalesCrm({ role, initialUser, onSwitchRole, onExit }) {
           return auth.user.id;
         }
       }
-    } catch (e) {}
+    } catch {
+      /* ignore */
+    }
     return null;
   });
   const [managerId, setManagerId] = useState(() => {
@@ -4545,180 +4660,75 @@ export default function SalesCrm({ role, initialUser, onSwitchRole, onExit }) {
         }
         return hash;
       }
-    } catch (e) {}
+    } catch {
+      /* ignore */
+    }
     // Default: executives start at Attendance, managers/regional start at Dashboard
     return (role === ROLES.MANAGER || role === ROLES.REGIONAL) ? "dashboard" : "attendance";
   });
 
-  const [bellOpen, setBellOpen] = useState(false);
-  const [liveToast, setLiveToast] = useState(null);
-  const [readAlertIds, setReadAlertIds] = useState(() => {
-    try {
-      return new Set(JSON.parse(localStorage.getItem("zenve_read_alert_ids") || "[]"));
-    } catch (e) {
-      return new Set();
-    }
-  });
-  const bellRef = useRef(null);
-
-  // Close bell dropdown on outside click
-  useEffect(() => {
-    function handleClickOutside(e) {
-      if (bellRef.current && !bellRef.current.contains(e.target)) {
-        setBellOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  const knownAlertKeysRef = useRef(new Set());
-
-  // Listen for real-time punch alerts broadcasted anywhere in app
-  useEffect(() => {
-    function onPunchAlert(e) {
-      const alertData = e.detail;
-      if (!alertData) return;
-      playChime();
-      setLiveToast({
-        id: Date.now(),
-        name: alertData.executive_name,
-        code: alertData.executive_code,
-        type: alertData.punch_type,
-        time: alertData.punch_time,
-        location: alertData.location,
-      });
-      const timer = setTimeout(() => {
-        setLiveToast(null);
-      }, 7000);
-      return () => clearTimeout(timer);
-    }
-    window.addEventListener("crm_attendance_punch_alert", onPunchAlert);
-    return () => window.removeEventListener("crm_attendance_punch_alert", onPunchAlert);
-  }, []);
-
-  // Background polling to catch attendance punches from other devices/sessions
-  useEffect(() => {
-    let isMounted = true;
-    async function pollPunchAlerts() {
-      try {
-        const fresh = await fetchList("executive_alerts").catch(() => []);
-        if (!isMounted || !fresh || fresh.length === 0) return;
-
-        if (knownAlertKeysRef.current.size > 0) {
-          const brandNew = fresh.filter((a) => !knownAlertKeysRef.current.has(a.id));
-          if (brandNew.length > 0) {
-            const topOne = brandNew[0];
-            playChime();
-            setLiveToast({
-              id: Date.now(),
-              name: topOne.executive_name || topOne.title,
-              code: topOne.executive_code || "",
-              type: topOne.punch_type || (topOne.title?.toLowerCase().includes("in") ? "Punch In" : "Punch Out"),
-              time: topOne.punch_time || "Just now",
-              location: topOne.location || topOne.message || "Field Location",
-            });
-            setTimeout(() => setLiveToast(null), 7000);
-            if (typeof data.reload === "function") data.reload();
-          }
-        }
-
-        fresh.forEach((a) => knownAlertKeysRef.current.add(a.id));
-      } catch (e) {}
-    }
-
-    if (data.alerts && data.alerts.length > 0) {
-      data.alerts.forEach((a) => knownAlertKeysRef.current.add(a.id));
-    }
-
-    const interval = setInterval(pollPunchAlerts, 8000);
-    return () => {
-      isMounted = false;
-      clearInterval(interval);
-    };
-  }, [data]);
-
-  const allRecentAlerts = useMemo(() => {
-    let localAlerts = [];
-    try {
-      localAlerts = JSON.parse(localStorage.getItem("zenve_crm_attendance_alerts") || "[]");
-    } catch (e) {}
-    const merged = [...localAlerts, ...(data.alerts || [])];
-    const seen = new Set();
-    const res = [];
-    for (const a of merged) {
-      const k = a.id ? `id_${a.id}` : `${a.executive_name || a.title}_${a.punch_time}_${a.punch_type}`;
-      if (!seen.has(k)) {
-        seen.add(k);
-        res.push(a);
-      }
-    }
-    return res;
-  }, [data.alerts]);
-
-  const unreadCount = useMemo(() => {
-    return allRecentAlerts.filter((a) => {
-      const idKey = a.id ? `id_${a.id}` : `${a.executive_name}_${a.punch_time}`;
-      return !readAlertIds.has(idKey) && !a.is_read;
-    }).length;
-  }, [allRecentAlerts, readAlertIds]);
-
-  function handleMarkAllAlertsRead() {
-    const allIds = allRecentAlerts.map((a) => a.id ? `id_${a.id}` : `${a.executive_name}_${a.punch_time}`);
-    const updatedSet = new Set([...readAlertIds, ...allIds]);
-    setReadAlertIds(updatedSet);
-    try {
-      localStorage.setItem("zenve_read_alert_ids", JSON.stringify([...updatedSet]));
-    } catch (e) {}
-  }
 
   const handleSelectSection = (sec) => {
     setActiveSection(sec);
     try {
       window.location.hash = sec;
-    } catch (e) {}
+    } catch {
+      /* ignore */
+    }
   };
 
   useEffect(() => {
+    let t;
     if (initialUser?.id) {
-      if (role === ROLES.EXECUTIVE) setExecId(initialUser.id);
-      if (role === ROLES.MANAGER) setManagerId(initialUser.id);
-      if (role === ROLES.REGIONAL) setRegionalId(initialUser.id);
+      t = setTimeout(() => {
+        if (role === ROLES.EXECUTIVE) setExecId(initialUser.id);
+        if (role === ROLES.MANAGER) setManagerId(initialUser.id);
+        if (role === ROLES.REGIONAL) setRegionalId(initialUser.id);
+      }, 0);
     }
+    return () => clearTimeout(t);
   }, [initialUser, role]);
 
   useEffect(() => {
+    let t;
     if (role === ROLES.EXECUTIVE && data.executives.length) {
+      let targetId = null;
       try {
         const prefId = localStorage.getItem("zippy_crm_preferred_exec_id");
         if (prefId) {
           const match = data.executives.find((e) => String(e.id) === String(prefId));
           if (match) {
-            setExecId(match.id);
-            return;
+            targetId = match.id;
           }
         }
-        const authStr = localStorage.getItem("zippy_crm_active_auth");
-        if (authStr) {
-          const auth = JSON.parse(authStr);
-          if (auth?.role === ROLES.EXECUTIVE && auth?.user?.id) {
-            const match = data.executives.find((e) => e.id === auth.user.id);
-            if (match) {
-              setExecId(match.id);
-              return;
+        if (!targetId) {
+          const authStr = localStorage.getItem("zippy_crm_active_auth");
+          if (authStr) {
+            const auth = JSON.parse(authStr);
+            if (auth?.role === ROLES.EXECUTIVE && auth?.user?.id) {
+              const match = data.executives.find((e) => e.id === auth.user.id);
+              if (match) {
+                targetId = match.id;
+              }
             }
           }
         }
-      } catch (e) {}
-      if (!execId) {
+      } catch {
+        /* ignore */
+      }
+      if (!targetId && !execId) {
         // Default to latest added executive (newest record in database)
         const latest = data.executives[data.executives.length - 1];
         if (latest?.id) {
-          setExecId(latest.id);
+          targetId = latest.id;
         }
       }
+      if (targetId && targetId !== execId) {
+        t = setTimeout(() => setExecId(targetId), 0);
+      }
     }
-  }, [data.executives, role]);
+    return () => clearTimeout(t);
+  }, [data.executives, role, execId]);
 
   useEffect(() => {
     if (!managerId && data.salesManagers.length) {
@@ -4787,7 +4797,9 @@ export default function SalesCrm({ role, initialUser, onSwitchRole, onExit }) {
             if (String(auth.user.id) === String(execId) || !execId) return auth.user;
           }
         }
-      } catch (e) {}
+      } catch {
+        /* ignore */
+      }
       return initialUser || data.executives[data.executives.length - 1] || null;
     }
     if (role === ROLES.MANAGER) {
@@ -4804,16 +4816,6 @@ export default function SalesCrm({ role, initialUser, onSwitchRole, onExit }) {
     }
     return null;
   }, [role, data.executives, data.salesManagers, data.regionalManagers, execId, managerId, regionalId, initialUser]);
-
-  function initialsOf(name) {
-    if (!name) return "?";
-    return name.trim().charAt(0).toUpperCase();
-  }
-
-  function handleSwitchRole(newRole) {
-    handleSelectSection(newRole === ROLES.EXECUTIVE ? "attendance" : "dashboard");
-    onSwitchRole(newRole);
-  }
 
   function handleLoginModalSuccess({ role: targetRole, user }) {
     setLoginModal({ isOpen: false, role: targetRole });
@@ -4901,9 +4903,9 @@ export default function SalesCrm({ role, initialUser, onSwitchRole, onExit }) {
             Reports
           </button>
 
-          <button className="nav-item" onClick={onExit} style={{ marginTop: "0.5rem" }}>
+          <button className="nav-item" onClick={() => onExit?.(role)} style={{ marginTop: "0.5rem" }}>
             <LogOut size={16} style={{ marginRight: "10px", flexShrink: 0 }} />
-            Admin CRM
+            Log Out
           </button>
         </nav>
       </aside>
@@ -4980,7 +4982,7 @@ export default function SalesCrm({ role, initialUser, onSwitchRole, onExit }) {
             <button
               type="button"
               className="header-logout-btn"
-              onClick={onExit}
+              onClick={() => onExit?.(role)}
               title="Log Out of Sales CRM"
             >
               <LogOut size={13} />
@@ -4990,45 +4992,6 @@ export default function SalesCrm({ role, initialUser, onSwitchRole, onExit }) {
           </div>
         </header>
 
-        {/* ── Floating Live Punch Alert Toast ── */}
-        {liveToast && (
-          <div
-            className="live-punch-toast"
-            onClick={() => {
-              setActiveSection("dashboard");
-              setLiveToast(null);
-            }}
-          >
-            <div className="live-punch-toast-icon">
-              <Bell size={18} className="live-toast-bell-bounce" />
-            </div>
-            <div className="live-punch-toast-body">
-              <div className="live-punch-toast-title">
-                <span>⚡ Real-Time Attendance Alert</span>
-                <span className={`punch-badge-mini ${liveToast.type?.toLowerCase().includes("in") ? "badge-mini-in" : "badge-mini-out"}`}>
-                  {liveToast.type}
-                </span>
-              </div>
-              <div className="live-punch-toast-msg">
-                <strong>{liveToast.name}</strong> {liveToast.code ? `(${liveToast.code})` : ""} punched {liveToast.type} at {liveToast.time}
-              </div>
-              <div className="live-punch-toast-loc" title={liveToast.location}>
-                <MapPin size={11} /> <span>{liveToast.location}</span>
-              </div>
-            </div>
-            <button
-              type="button"
-              className="live-punch-toast-close"
-              onClick={(e) => {
-                e.stopPropagation();
-                setLiveToast(null);
-              }}
-              title="Dismiss"
-            >
-              <X size={14} />
-            </button>
-          </div>
-        )}
 
         <section className="content">
           {activeSection === "attendance" && (
@@ -5060,7 +5023,6 @@ export default function SalesCrm({ role, initialUser, onSwitchRole, onExit }) {
                   planStats={planStats}
                   monthLabel={selectedMonthLabel}
                   onGoToPlan={() => setActiveSection("plan")}
-                  onGoToAttendance={() => handleSelectSection("attendance")}
                 />
               )}
               {!data.loading && !data.error && role === ROLES.MANAGER && (
@@ -5071,7 +5033,6 @@ export default function SalesCrm({ role, initialUser, onSwitchRole, onExit }) {
                   monthKey={selectedMonth}
                   monthLabel={selectedMonthLabel}
                   onGoToPlan={() => setActiveSection("approvals")}
-                  onGoToAttendance={() => handleSelectSection("attendance_report")}
                 />
               )}
               {!data.loading && !data.error && role === ROLES.REGIONAL && (
@@ -5082,7 +5043,6 @@ export default function SalesCrm({ role, initialUser, onSwitchRole, onExit }) {
                   monthKey={selectedMonth}
                   monthLabel={selectedMonthLabel}
                   onGoToPlan={() => setActiveSection("approvals")}
-                  onGoToAttendance={() => handleSelectSection("attendance_report")}
                 />
               )}
             </>

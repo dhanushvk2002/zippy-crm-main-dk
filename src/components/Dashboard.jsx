@@ -501,7 +501,7 @@ export default function Dashboard() {
         <p className="zzc-muted">
           Live view of the marketplace: veterinary network, pet commerce, services, pin-code coverage and the field sales engine. Every number is read directly from the production cloud.
         </p>
-        <div className="dash-hero-actions">
+        <div className="dash-hero-actions" style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: "10px", marginTop: "14px" }}>
           <button
             className="zzc-btn zzc-btn-outline dash-export-btn"
             onClick={() => downloadCSV("kpis.csv", ["label", "value", "detail"], d.kpis.map((k) => [k.label, k.value, k.sub]))}
