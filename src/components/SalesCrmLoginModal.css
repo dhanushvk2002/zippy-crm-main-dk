@@ -1844,17 +1844,28 @@
 }
 
 .theme-blue .zenve-card-submit-btn {
-  height: 42px;
-  border-radius: 8px;
-  background: #0070e0;
-  font-size: 0.94rem;
-  font-weight: 700;
-  box-shadow: 0 4px 14px rgba(0, 112, 224, 0.28);
+  height: 44px !important;
+  border-radius: 10px !important;
+  background: linear-gradient(135deg, #005ce6 0%, #003db3 100%) !important;
+  font-size: 0.96rem !important;
+  font-weight: 700 !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 14px rgba(0, 61, 179, 0.38) !important;
+  border: none !important;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  transition: all 0.2s ease;
+  margin-top: 8px;
+  opacity: 1 !important;
 }
 
-.theme-blue .zenve-card-submit-btn:hover:not(:disabled) {
-  background: #005fbf;
-  box-shadow: 0 6px 18px rgba(0, 112, 224, 0.38);
+.theme-blue .zenve-card-submit-btn:hover {
+  background: linear-gradient(135deg, #004ecc 0%, #002f8a 100%) !important;
+  box-shadow: 0 6px 18px rgba(0, 61, 179, 0.48) !important;
+  transform: translateY(-1px);
 }
 
 .theme-blue .zenve-forgot-link {
@@ -1945,26 +1956,28 @@
 .theme-green .zenve-green-submit-btn,
 .theme-green .zenve-card-submit-btn {
   width: 100%;
-  height: 42px;
-  border-radius: 8px;
-  background: #059669;
-  font-size: 0.94rem;
-  font-weight: 700;
-  color: #ffffff;
-  border: none;
+  height: 44px !important;
+  border-radius: 10px !important;
+  background: linear-gradient(135deg, #059669 0%, #046c4e 100%) !important;
+  font-size: 0.96rem !important;
+  font-weight: 700 !important;
+  color: #ffffff !important;
+  border: none !important;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  box-shadow: 0 4px 14px rgba(5, 150, 105, 0.28);
+  gap: 7px;
+  box-shadow: 0 4px 14px rgba(4, 108, 78, 0.38) !important;
   transition: all 0.2s ease;
+  margin-top: 8px;
+  opacity: 1 !important;
 }
 
-.theme-green .zenve-green-submit-btn:hover:not(:disabled),
-.theme-green .zenve-card-submit-btn:hover:not(:disabled) {
-  background: #047857;
-  box-shadow: 0 6px 18px rgba(5, 150, 105, 0.38);
+.theme-green .zenve-green-submit-btn:hover,
+.theme-green .zenve-card-submit-btn:hover {
+  background: linear-gradient(135deg, #047857 0%, #03523b 100%) !important;
+  box-shadow: 0 6px 18px rgba(4, 108, 78, 0.48) !important;
   transform: translateY(-1px);
 }
 
@@ -2749,30 +2762,36 @@
 .zenve-card-submit-btn {
   width: 100%;
   height: 44px;
-  border-radius: 8px;
+  border-radius: 10px;
   border: none;
   background: var(--portal-accent);
   color: #ffffff;
   font-size: 0.95rem;
-  font-weight: 600;
+  font-weight: 700;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 7px;
   cursor: pointer;
   transition: all 0.15s ease;
-  margin-top: 6px;
-  box-shadow: 0 4px 12px var(--portal-shadow);
+  margin-top: 8px;
+  box-shadow: 0 4px 14px var(--portal-shadow);
+  opacity: 1 !important;
 }
 
-.zenve-card-submit-btn:hover:not(:disabled) {
+.zenve-card-submit-btn:hover {
   background: var(--portal-accent-hover);
   transform: translateY(-1px);
 }
 
-.zenve-card-submit-btn:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
+.zenve-card-submit-btn:disabled,
+.theme-blue .zenve-card-submit-btn:disabled,
+.theme-green .zenve-card-submit-btn:disabled,
+.theme-purple .zenve-card-submit-btn:disabled,
+.zenve-unified-auth-card .zenve-card-submit-btn:disabled {
+  opacity: 1 !important;
+  filter: none !important;
+  cursor: pointer;
   transform: none;
 }
 
@@ -2862,26 +2881,26 @@
 }
 
 .theme-green .zenve-card-submit-btn {
-  height: 44px;
-  border-radius: 10px;
-  background: #10b981;
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-  font-size: 0.96rem;
-  font-weight: 700;
-  color: #ffffff;
-  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
+  height: 44px !important;
+  border-radius: 10px !important;
+  background: linear-gradient(135deg, #059669 0%, #046c4e 100%) !important;
+  font-size: 0.96rem !important;
+  font-weight: 700 !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 14px rgba(4, 108, 78, 0.38) !important;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 7px;
   transition: all 0.2s ease;
   margin-top: 8px;
+  opacity: 1 !important;
 }
 
-.theme-green .zenve-card-submit-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+.theme-green .zenve-card-submit-btn:hover {
+  background: linear-gradient(135deg, #047857 0%, #03523b 100%) !important;
   transform: translateY(-1px);
-  box-shadow: 0 6px 18px rgba(5, 150, 105, 0.45);
+  box-shadow: 0 6px 18px rgba(4, 108, 78, 0.48) !important;
 }
 
 .theme-green .zenve-method-switch-footer {
@@ -2926,16 +2945,26 @@
 }
 
 .theme-purple .zenve-card-submit-btn {
-  background: linear-gradient(90deg, #3b0764 0%, #581c87 45%, #9a3412 100%) !important;
-  box-shadow: 0 4px 16px rgba(59, 7, 100, 0.4) !important;
+  height: 44px !important;
+  border-radius: 10px !important;
+  background: linear-gradient(135deg, #6d28d9 0%, #4c1d95 100%) !important;
+  box-shadow: 0 4px 16px rgba(76, 29, 149, 0.45) !important;
   color: #ffffff !important;
   font-weight: 800 !important;
+  font-size: 0.96rem !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  transition: all 0.2s ease;
+  margin-top: 8px;
+  opacity: 1 !important;
 }
 
-.theme-purple .zenve-card-submit-btn:hover:not(:disabled) {
-  background: linear-gradient(90deg, #2e1065 0%, #4c1d95 45%, #7c2d12 100%) !important;
+.theme-purple .zenve-card-submit-btn:hover {
+  background: linear-gradient(135deg, #5b21b6 0%, #3b0764 100%) !important;
   transform: translateY(-1px) !important;
-  box-shadow: 0 6px 20px rgba(59, 7, 100, 0.55) !important;
+  box-shadow: 0 6px 20px rgba(76, 29, 149, 0.55) !important;
 }
 
 /* Regional Manager Switch Button & Divider */

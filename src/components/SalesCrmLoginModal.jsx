@@ -1070,7 +1070,7 @@ export default function SalesCrmLoginModal({
                 <button
                   type="submit"
                   className="zenve-card-submit-btn"
-                  disabled={passwordLoading || !username.trim() || !password.trim()}
+                  disabled={passwordLoading}
                 >
                   {passwordLoading ? (
                     <span>Logging in...</span>
@@ -1221,14 +1221,7 @@ export default function SalesCrmLoginModal({
                 <button
                   type="submit"
                   className="zenve-card-submit-btn"
-                  disabled={
-                    mobileLoading ||
-                    otpLoading ||
-                    (selectedCountry.code === "IN"
-                      ? phone.replace(/\D/g, "").length !== 10
-                      : phone.replace(/\D/g, "").length < 7) ||
-                    (otpSent && otp.length < 4)
-                  }
+                  disabled={mobileLoading || otpLoading}
                 >
                   {mobileLoading ? (
                     <span>Verifying OTP...</span>
