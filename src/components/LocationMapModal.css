@@ -409,14 +409,7 @@
    GOOGLE MAPS LAYERS DRAWER (Bottom-Left Widget from User Screenshot)
    ============================================================ */
 .gmap-layers-bottom-widget {
-  position: absolute;
-  bottom: 12px;
-  left: 10px;
-  z-index: 1000;
-  display: flex;
-  align-items: flex-end;
-  gap: 8px;
-  user-select: none;
+  display: none !important;
 }
 
 /* Main Map/Satellite Thumbnail Button */
