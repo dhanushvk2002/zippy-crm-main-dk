@@ -238,6 +238,71 @@
   background: #ffffff;
 }
 
+.att-rep-search-clear-btn {
+  position: absolute;
+  right: 10px;
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.15s ease;
+}
+
+.att-rep-search-clear-btn:hover {
+  color: #0f172a;
+  background: #e2e8f0;
+}
+
+.att-rep-quick-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  flex-wrap: wrap;
+}
+
+.att-rep-quick-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--muted-foreground, #64748b);
+}
+
+.att-rep-quick-btn {
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  color: #475569;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.att-rep-quick-btn:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.att-rep-quick-btn.is-active {
+  background: #0d9488;
+  border-color: #0d9488;
+  color: #ffffff;
+  font-weight: 700;
+  box-shadow: 0 2px 6px rgba(13, 148, 136, 0.25);
+}
+
+.att-rep-custom-date-input {
+  font-family: inherit;
+}
+
 /* Table Card */
 .att-rep-table-card {
   background: var(--card, #ffffff);

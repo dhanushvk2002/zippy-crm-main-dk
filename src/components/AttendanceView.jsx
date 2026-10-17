@@ -1574,21 +1574,30 @@ export default function AttendanceView({
   // Sort order: newest first (desc) or oldest first (asc)
   const [sortOrder, setSortOrder] = useState("desc");
 
+  // Attendance log filter mode: "today" (default: show today's punch only) or "all"
+  const [attendanceFilter, setAttendanceFilter] = useState("today");
+
   const displayList = useMemo(() => {
-    const list = [...historyList];
+    let list = [...historyList];
+    const targetToday = punchDate || todayIso;
+
+    if (attendanceFilter === "today") {
+      list = list.filter((r) => r.date === targetToday);
+    }
+
     list.sort((a, b) => {
       const timeA = new Date(a.date).getTime();
       const timeB = new Date(b.date).getTime();
       return sortOrder === "asc" ? timeA - timeB : timeB - timeA;
     });
     return list;
-  }, [historyList, sortOrder]);
+  }, [historyList, sortOrder, attendanceFilter, punchDate, todayIso]);
 
   // ── Pagination State for Executive Attendance Records ──
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(15);
 
-  const pageResetKey = `${sortOrder}_${activeExecutive?.id}`;
+  const pageResetKey = `${sortOrder}_${attendanceFilter}_${activeExecutive?.id}`;
   const [prevPageResetKey, setPrevPageResetKey] = useState(pageResetKey);
   if (pageResetKey !== prevPageResetKey) {
     setPrevPageResetKey(pageResetKey);
@@ -2187,6 +2196,27 @@ export default function AttendanceView({
           </div>
 
           <div className="attend-header-actions-right">
+            {/* Filter Toggle: Today's Punch vs All Records */}
+            <div className="attend-filter-toggle-pills" role="tablist" aria-label="Attendance filter">
+              <button
+                type="button"
+                className={`attend-filter-pill-btn ${attendanceFilter === "today" ? "is-active" : ""}`}
+                onClick={() => setAttendanceFilter("today")}
+                title="Show only today's punch record"
+              >
+                <span className="attend-filter-pill-dot" />
+                Today's Punch
+              </button>
+              <button
+                type="button"
+                className={`attend-filter-pill-btn ${attendanceFilter === "all" ? "is-active" : ""}`}
+                onClick={() => setAttendanceFilter("all")}
+                title="View all attendance records"
+              >
+                All Records ({historyList.length})
+              </button>
+            </div>
+
             {totalRecords > 0 && (
               <span className="attend-count-badge">
                 Showing {(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, totalRecords).toLocaleString()} of {totalRecords.toLocaleString()} Records
@@ -2230,10 +2260,39 @@ export default function AttendanceView({
                   color: "var(--foreground, #0f172a)",
                 }}
               >
-                No Punched Attendance Records Yet
+                {attendanceFilter === "today"
+                  ? `No Punch Recorded for Today (${todayInfo.formattedDate}) Yet`
+                  : "No Punched Attendance Records Yet"}
               </h4>
               <p style={{ margin: 0, color: "#64748b", fontSize: "13px" }}>
-                Punch in above using "Morning Punch In" to start today's shift. Only days with punch activity are displayed!
+                {attendanceFilter === "today" ? (
+                  <>
+                    Punch in above using <strong>"Morning Punch In"</strong> to start today's duty.
+                    {historyList.length > 0 && (
+                      <span style={{ display: "block", marginTop: "8px" }}>
+                        Or click{" "}
+                        <button
+                          type="button"
+                          onClick={() => setAttendanceFilter("all")}
+                          style={{
+                            background: "none",
+                            border: "none",
+                            color: "#0d9488",
+                            fontWeight: 600,
+                            cursor: "pointer",
+                            textDecoration: "underline",
+                            padding: 0,
+                          }}
+                        >
+                          All Records ({historyList.length})
+                        </button>{" "}
+                        to view your past attendance history.
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  'Punch in above using "Morning Punch In" to start today\'s shift. Only days with punch activity are displayed!'
+                )}
               </p>
             </div>
           ) : (

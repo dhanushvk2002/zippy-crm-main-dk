@@ -42,6 +42,24 @@ function getTodayIso() {
   return `${y}-${m}-${day}`;
 }
 
+function getYesterdayIso() {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function getDayBeforeYesterdayIso() {
+  const d = new Date();
+  d.setDate(d.getDate() - 2);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 function formatIsoToTimeStr(val) {
   if (!val) return "";
   const d = new Date(val);
@@ -89,7 +107,8 @@ export default function AttendanceReportView({
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [periodFilter, setPeriodFilter] = useState("all");
+  const [periodFilter, setPeriodFilter] = useState("today");
+  const [customDate, setCustomDate] = useState("");
   const [previewPhotoModal, setPreviewPhotoModal] = useState(null);
 
   // New Record modal state (for managers)
@@ -449,6 +468,19 @@ export default function AttendanceReportView({
   const filteredList = useMemo(() => {
     const term = search.trim().toLowerCase();
     const curMonthPrefix = new Date().toISOString().slice(0, 7);
+    const todayIso = getTodayIso();
+    const yesterdayIso = getYesterdayIso();
+    const dayBeforeIso = getDayBeforeYesterdayIso();
+
+    const isSearchingYesterday = term === "yesterday" || term === "yesterdays" || term === "நேற்று";
+    const isSearchingDayBefore =
+      term === "day before yesterday" ||
+      term === "day of yesterday" ||
+      term === "day before" ||
+      term.includes("day of yesterday") ||
+      term.includes("day before yesterday");
+    const isSearchingToday = term === "today" || term === "todays" || term === "இன்று";
+    const isSearchingSpecificDate = /^\d{4}-\d{2}-\d{2}$/.test(term);
 
     return allAttendanceList.filter((row) => {
       // Executive filter
@@ -464,31 +496,47 @@ export default function AttendanceReportView({
         if (statusFilter === "completed" && s !== "completed") return false;
       }
 
-      // Period filter
-      if (periodFilter === "today") {
-        if (row.date !== getTodayIso()) return false;
-      } else if (periodFilter === "current_month") {
-        if (!row.date.startsWith("2026-09") && !row.date.startsWith(curMonthPrefix)) return false;
+      // Period filter (bypassed if user is explicitly searching a date keyword)
+      if (!isSearchingYesterday && !isSearchingDayBefore && !isSearchingToday && !isSearchingSpecificDate) {
+        if (periodFilter === "today") {
+          if (row.date !== todayIso) return false;
+        } else if (periodFilter === "yesterday") {
+          if (row.date !== yesterdayIso) return false;
+        } else if (periodFilter === "day_before_yesterday") {
+          if (row.date !== dayBeforeIso) return false;
+        } else if (periodFilter === "custom" && customDate) {
+          if (row.date !== customDate) return false;
+        } else if (periodFilter === "current_month") {
+          if (!row.date.startsWith("2026-09") && !row.date.startsWith(curMonthPrefix)) return false;
+        }
       }
 
       // Search term
       if (term) {
-        const matchName = row.execName?.toLowerCase().includes(term);
-        const matchDate = row.date?.includes(term);
-        const matchRemarks = row.remarks?.toLowerCase().includes(term);
-        const matchLoc =
-          row.punchInLocation?.locality?.toLowerCase().includes(term) ||
-          row.executiveObj?.region?.toLowerCase().includes(term) ||
-          row.executiveObj?.employee_code?.toLowerCase().includes(term);
+        if (isSearchingYesterday) {
+          if (row.date !== yesterdayIso) return false;
+        } else if (isSearchingDayBefore) {
+          if (row.date !== dayBeforeIso) return false;
+        } else if (isSearchingToday) {
+          if (row.date !== todayIso) return false;
+        } else {
+          const matchName = row.execName?.toLowerCase().includes(term);
+          const matchDate = row.date?.includes(term);
+          const matchRemarks = row.remarks?.toLowerCase().includes(term);
+          const matchLoc =
+            row.punchInLocation?.locality?.toLowerCase().includes(term) ||
+            row.executiveObj?.region?.toLowerCase().includes(term) ||
+            row.executiveObj?.employee_code?.toLowerCase().includes(term);
 
-        if (!matchName && !matchDate && !matchRemarks && !matchLoc) {
-          return false;
+          if (!matchName && !matchDate && !matchRemarks && !matchLoc) {
+            return false;
+          }
         }
       }
 
       return true;
     });
-  }, [allAttendanceList, selectedExecFilter, statusFilter, periodFilter, search]);
+  }, [allAttendanceList, selectedExecFilter, statusFilter, periodFilter, customDate, search]);
 
   // ── Pagination & Row Expansion State (supporting up to 1000+ sales executive records) ──
   const [currentPage, setCurrentPage] = useState(1);
@@ -500,7 +548,7 @@ export default function AttendanceReportView({
   };
 
   // Reset to page 1 whenever any filter or search changes
-  const filterKey = `${selectedExecFilter}_${statusFilter}_${periodFilter}_${search}`;
+  const filterKey = `${selectedExecFilter}_${statusFilter}_${periodFilter}_${customDate}_${search}`;
   const [prevFilterKey, setPrevFilterKey] = useState(filterKey);
   if (filterKey !== prevFilterKey) {
     setPrevFilterKey(filterKey);
@@ -721,10 +769,20 @@ export default function AttendanceReportView({
           <input
             type="text"
             className="att-rep-search-input"
-            placeholder="Search by executive name, employee code, locality, remarks…"
+            placeholder="Search executive, locality, or type 'yesterday', 'today', 'day before yesterday'…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
+          {search && (
+            <button
+              type="button"
+              className="att-rep-search-clear-btn"
+              onClick={() => setSearch("")}
+              title="Clear search"
+            >
+              <X size={14} />
+            </button>
+          )}
         </div>
 
         {/* Executive Filter Dropdown */}
@@ -760,16 +818,65 @@ export default function AttendanceReportView({
 
         {/* Period Filter */}
         <div className="att-rep-filter-group">
-          <label>Period</label>
+          <label>Period / Date</label>
           <select
             className="att-rep-select"
             value={periodFilter}
             onChange={(e) => setPeriodFilter(e.target.value)}
           >
-            <option value="all">All Punched Records</option>
-            <option value="today">Today Only ({getTodayIso()})</option>
+            <option value="today">Today ({getTodayIso()})</option>
+            <option value="yesterday">Yesterday ({getYesterdayIso()})</option>
+            <option value="day_before_yesterday">Day Before Yesterday ({getDayBeforeYesterdayIso()})</option>
             <option value="current_month">Current Month</option>
+            <option value="custom">Custom Date</option>
+            <option value="all">All Dates & History</option>
           </select>
+        </div>
+
+        {/* Custom Date Input */}
+        {periodFilter === "custom" && (
+          <div className="att-rep-filter-group">
+            <label>Pick Date</label>
+            <input
+              type="date"
+              className="att-rep-select att-rep-custom-date-input"
+              value={customDate}
+              onChange={(e) => setCustomDate(e.target.value)}
+            />
+          </div>
+        )}
+
+        {/* Quick Date Shortcuts */}
+        <div className="att-rep-quick-bar">
+          <span className="att-rep-quick-label">QUICK:</span>
+          <button
+            type="button"
+            className={`att-rep-quick-btn ${periodFilter === "today" ? "is-active" : ""}`}
+            onClick={() => { setPeriodFilter("today"); setSearch(""); setCustomDate(""); }}
+          >
+            Today
+          </button>
+          <button
+            type="button"
+            className={`att-rep-quick-btn ${periodFilter === "yesterday" ? "is-active" : ""}`}
+            onClick={() => { setPeriodFilter("yesterday"); setSearch(""); setCustomDate(""); }}
+          >
+            Yesterday
+          </button>
+          <button
+            type="button"
+            className={`att-rep-quick-btn ${periodFilter === "day_before_yesterday" ? "is-active" : ""}`}
+            onClick={() => { setPeriodFilter("day_before_yesterday"); setSearch(""); setCustomDate(""); }}
+          >
+            Day Before Yesterday
+          </button>
+          <button
+            type="button"
+            className={`att-rep-quick-btn ${periodFilter === "all" ? "is-active" : ""}`}
+            onClick={() => { setPeriodFilter("all"); setCustomDate(""); }}
+          >
+            All Dates
+          </button>
         </div>
       </div>
 

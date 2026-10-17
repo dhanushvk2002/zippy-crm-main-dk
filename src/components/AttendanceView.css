@@ -2487,5 +2487,49 @@
   }
 }
 
+/* ── ATTENDANCE LOG FILTER PILLS (Today vs All) ── */
+.attend-filter-toggle-pills {
+  display: inline-flex;
+  align-items: center;
+  background: var(--muted, #f1f5f9);
+  padding: 3px;
+  border-radius: 9px;
+  border: 1px solid var(--border, #e2e8f0);
+  gap: 3px;
+}
 
+.attend-filter-pill-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 7px;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
 
+.attend-filter-pill-btn:hover {
+  color: #0f172a;
+}
+
+.attend-filter-pill-btn.is-active {
+  background: #ffffff;
+  color: #0f172a;
+  font-weight: 700;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.08);
+}
+
+.attend-filter-pill-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #10b981;
+  display: inline-block;
+  box-shadow: 0 0 6px rgba(16, 185, 129, 0.5);
+}
