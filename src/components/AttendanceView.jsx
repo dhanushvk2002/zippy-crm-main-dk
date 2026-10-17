@@ -1579,7 +1579,7 @@ export default function AttendanceView({
 
   const displayList = useMemo(() => {
     let list = [...historyList];
-    const targetToday = punchDate || todayIso;
+    const targetToday = todayIso;
 
     if (attendanceFilter === "today") {
       list = list.filter((r) => r.date === targetToday);
@@ -1591,7 +1591,7 @@ export default function AttendanceView({
       return sortOrder === "asc" ? timeA - timeB : timeB - timeA;
     });
     return list;
-  }, [historyList, sortOrder, attendanceFilter, punchDate, todayIso]);
+  }, [historyList, sortOrder, attendanceFilter, todayIso]);
 
   // ── Pagination State for Executive Attendance Records ──
   const [currentPage, setCurrentPage] = useState(1);
