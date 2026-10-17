@@ -18,6 +18,10 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  Wifi,
+  WifiOff,
+  CloudUpload,
+  RefreshCw,
 } from "lucide-react";
 import DoctorAvatar from "./DoctorAvatar.jsx";
 import FacePunchModal from "./FacePunchModal.jsx";
@@ -44,6 +48,37 @@ import "./AttendanceView.css";
 import "./FacePunchModal.css";
 
 const STORAGE_KEY = "zenve_crm_attendance_records";
+const OFFLINE_PUNCH_QUEUE_KEY = "zenve_crm_offline_attendance_queue";
+
+function getOfflineQueue() {
+  try {
+    const raw = localStorage.getItem(OFFLINE_PUNCH_QUEUE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveToOfflineQueue(punchItem) {
+  try {
+    const queue = getOfflineQueue();
+    queue.push({
+      ...punchItem,
+      queueId: `offline_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+      queuedAt: new Date().toISOString(),
+    });
+    localStorage.setItem(OFFLINE_PUNCH_QUEUE_KEY, JSON.stringify(queue));
+  } catch (e) {
+    console.error("Failed to save to offline queue", e);
+  }
+}
+
+function removeOfflineQueueItem(queueId) {
+  try {
+    const queue = getOfflineQueue().filter((item) => item.queueId !== queueId);
+    localStorage.setItem(OFFLINE_PUNCH_QUEUE_KEY, JSON.stringify(queue));
+  } catch {}
+}
 
 function normalizeDisplayLoc(addr, exec = null) {
   if (!addr) return "";
@@ -318,6 +353,74 @@ export default function AttendanceView({
 
   // Live ticking clock
   const [currentDateTime, setCurrentDateTime] = useState(new Date());
+
+  // ── Network Connectivity & Offline Punch Sync State ──
+  const [isOnline, setIsOnline] = useState(() => (typeof navigator !== "undefined" ? navigator.onLine : true));
+  const [offlineQueueCount, setOfflineQueueCount] = useState(() => getOfflineQueue().length);
+  const [isSyncingOffline, setIsSyncingOffline] = useState(false);
+
+  // Sync offline punches to backend database
+  const handleSyncOfflineQueue = useCallback(async () => {
+    const queue = getOfflineQueue();
+    if (!queue.length) {
+      setOfflineQueueCount(0);
+      return;
+    }
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      return;
+    }
+
+    setIsSyncingOffline(true);
+    let syncedSuccess = 0;
+
+    for (const item of queue) {
+      try {
+        if (item.actionType === "in") {
+          await punchInAttendance(item.payload);
+        } else if (item.actionType === "lunch_out" || item.actionType === "lunch_in") {
+          await punchLunchAttendance(item.payload);
+        } else if (item.actionType === "out") {
+          await punchOutAttendance(item.payload);
+        }
+        removeOfflineQueueItem(item.queueId);
+        syncedSuccess++;
+      } catch (err) {
+        console.warn("[Offline Attendance Sync] Retrying later for punch item:", item, err);
+      }
+    }
+
+    const remaining = getOfflineQueue().length;
+    setOfflineQueueCount(remaining);
+    setIsSyncingOffline(false);
+
+    if (syncedSuccess > 0) {
+      showToast(`📶 Synced ${syncedSuccess} offline punch record(s) to server successfully!`);
+    }
+  }, []);
+
+  // Monitor online / offline network changes
+  useEffect(() => {
+    function handleOnline() {
+      setIsOnline(true);
+      handleSyncOfflineQueue();
+    }
+    function handleOffline() {
+      setIsOnline(false);
+    }
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, [handleSyncOfflineQueue]);
+
+  // Attempt auto-sync on mount if online
+  useEffect(() => {
+    if (typeof navigator !== "undefined" && navigator.onLine && getOfflineQueue().length > 0) {
+      handleSyncOfflineQueue();
+    }
+  }, [handleSyncOfflineQueue]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -775,8 +878,7 @@ export default function AttendanceView({
 
     if (punchActionType === "in") {
       let dbRes;
-      try {
-        const payload = {
+      const payload = {
           sales_executive_id: Number(activeExecutive.id),
           employee_id: Number(activeExecutive.id),
           employee_name: activeExecutive.name,
@@ -823,13 +925,48 @@ export default function AttendanceView({
           login_selfie_url: faceImage,
           status: "Working",
         };
-        dbRes = await punchInAttendance(payload);
-      } catch (err) {
-        console.error("Backend punchInAttendance error:", err);
-        showToast(`Attendance rejected: ${err.message || "Multiple faces detected or verification failed"}`, "error");
-        alert(`Attendance Login Rejected: ${err.message || "Only one member face is accepted."}`);
-        return;
-      }
+        const isNetworkOnline = typeof navigator !== "undefined" ? navigator.onLine : true;
+        let isOfflineSaved = false;
+
+        if (!isNetworkOnline) {
+          isOfflineSaved = true;
+          saveToOfflineQueue({
+            actionType: "in",
+            payload,
+            punchTime,
+            punchDate: punchDate || todayIso,
+            execId: activeExecutive.id,
+          });
+          setOfflineQueueCount(getOfflineQueue().length);
+        } else {
+          try {
+            dbRes = await punchInAttendance(payload);
+          } catch (err) {
+            const isConnErr =
+              !navigator.onLine ||
+              (err.message &&
+                (err.message.toLowerCase().includes("failed to fetch") ||
+                  err.message.toLowerCase().includes("network") ||
+                  err.message.toLowerCase().includes("offline")));
+
+            if (isConnErr) {
+              isOfflineSaved = true;
+              saveToOfflineQueue({
+                actionType: "in",
+                payload,
+                punchTime,
+                punchDate: punchDate || todayIso,
+                execId: activeExecutive.id,
+              });
+              setOfflineQueueCount(getOfflineQueue().length);
+            } else {
+              console.error("Backend punchInAttendance error:", err);
+              showToast(`Attendance rejected: ${err.message || "Multiple faces detected or verification failed"}`, "error");
+              alert(`Attendance Login Rejected: ${err.message || "Only one member face is accepted."}`);
+              return;
+            }
+          }
+        }
 
       setPunchModalOpen(false);
 
@@ -848,8 +985,11 @@ export default function AttendanceView({
         punchOutLocation: null,
         punchOutFaceImage: null,
         duration: "0h 0m",
-        status: "Working",
-        remarks: `Face verified · 📍 ${locFull}`,
+        status: isOfflineSaved ? "Working (Offline)" : "Working",
+        isOffline: isOfflineSaved,
+        remarks: isOfflineSaved
+          ? `⚡ Offline Punch recorded at ${punchTime} · 📍 ${locFull}`
+          : `Face verified · 📍 ${locFull}`,
       };
 
       const updated = {
@@ -863,11 +1003,13 @@ export default function AttendanceView({
         console.error(e);
       }
 
-
-      showToast(`🟢 Punched In successfully at ${punchTime}! Single member face verified.`);
+      if (isOfflineSaved) {
+        showToast(`⚡ Offline Mode: Punched In at ${punchTime}! Saved locally, will auto-sync once connected.`);
+      } else {
+        showToast(`🟢 Punched In successfully at ${punchTime}! Single member face verified.`);
+      }
     } else if (punchActionType === "lunch_out") {
-      try {
-        const payload = {
+      const payload = {
           sales_executive_id: Number(activeExecutive.id),
           executive_id: Number(activeExecutive.id),
           employee_id: Number(activeExecutive.id),
@@ -897,10 +1039,30 @@ export default function AttendanceView({
           selfie_url: faceImage,
           lunch_selfie_url: faceImage,
         };
-        await punchLunchAttendance(payload);
-      } catch (err) {
-        console.error("Backend punchLunchAttendance error:", err);
-      }
+        const isNetworkOnline = typeof navigator !== "undefined" ? navigator.onLine : true;
+        if (!isNetworkOnline) {
+          saveToOfflineQueue({
+            actionType: "lunch_out",
+            payload,
+            punchTime,
+            punchDate: punchDate || todayRecord?.date || todayIso,
+            execId: activeExecutive.id,
+          });
+          setOfflineQueueCount(getOfflineQueue().length);
+        } else {
+          try {
+            await punchLunchAttendance(payload);
+          } catch (err) {
+            saveToOfflineQueue({
+              actionType: "lunch_out",
+              payload,
+              punchTime,
+              punchDate: punchDate || todayRecord?.date || todayIso,
+              execId: activeExecutive.id,
+            });
+            setOfflineQueueCount(getOfflineQueue().length);
+          }
+        }
 
       setPunchModalOpen(false);
 
@@ -926,8 +1088,7 @@ export default function AttendanceView({
       }
       showToast(`🍴 Lunch Out recorded at ${punchTime} · 📍 ${locFull}!`);
     } else if (punchActionType === "lunch_in") {
-      try {
-        const payload = {
+      const payload = {
           sales_executive_id: Number(activeExecutive.id),
           executive_id: Number(activeExecutive.id),
           employee_id: Number(activeExecutive.id),
@@ -957,10 +1118,30 @@ export default function AttendanceView({
           selfie_url: faceImage,
           lunch_selfie_url: faceImage,
         };
-        await punchLunchAttendance(payload);
-      } catch (err) {
-        console.error("Backend punchLunchAttendance error:", err);
-      }
+        const isNetworkOnline = typeof navigator !== "undefined" ? navigator.onLine : true;
+        if (!isNetworkOnline) {
+          saveToOfflineQueue({
+            actionType: "lunch_in",
+            payload,
+            punchTime,
+            punchDate: todayRecord?.date || todayIso,
+            execId: activeExecutive.id,
+          });
+          setOfflineQueueCount(getOfflineQueue().length);
+        } else {
+          try {
+            await punchLunchAttendance(payload);
+          } catch (err) {
+            saveToOfflineQueue({
+              actionType: "lunch_in",
+              payload,
+              punchTime,
+              punchDate: todayRecord?.date || todayIso,
+              execId: activeExecutive.id,
+            });
+            setOfflineQueueCount(getOfflineQueue().length);
+          }
+        }
 
       setPunchModalOpen(false);
 
@@ -997,8 +1178,7 @@ export default function AttendanceView({
       );
 
       let dbRes;
-      try {
-        const payload = {
+      const payload = {
           sales_executive_id: Number(activeExecutive.id),
           employee_id: Number(activeExecutive.id),
           employee_name: activeExecutive.name,
@@ -1046,13 +1226,48 @@ export default function AttendanceView({
           total_working_minutes: totalMinutes,
           status: "Completed",
         };
-        dbRes = await punchOutAttendance(payload);
-      } catch (err) {
-        console.error("Backend punchOutAttendance error:", err);
-        showToast(`Attendance logout rejected: ${err.message || "Multiple faces detected or verification failed"}`, "error");
-        alert(`Attendance Logout Rejected: ${err.message || "Only one member face is accepted."}`);
-        return;
-      }
+        const isNetworkOnline = typeof navigator !== "undefined" ? navigator.onLine : true;
+        let isOfflineSaved = false;
+
+        if (!isNetworkOnline) {
+          isOfflineSaved = true;
+          saveToOfflineQueue({
+            actionType: "out",
+            payload,
+            punchTime,
+            punchDate: punchDate || todayIso,
+            execId: activeExecutive.id,
+          });
+          setOfflineQueueCount(getOfflineQueue().length);
+        } else {
+          try {
+            dbRes = await punchOutAttendance(payload);
+          } catch (err) {
+            const isConnErr =
+              !navigator.onLine ||
+              (err.message &&
+                (err.message.toLowerCase().includes("failed to fetch") ||
+                  err.message.toLowerCase().includes("network") ||
+                  err.message.toLowerCase().includes("offline")));
+
+            if (isConnErr) {
+              isOfflineSaved = true;
+              saveToOfflineQueue({
+                actionType: "out",
+                payload,
+                punchTime,
+                punchDate: punchDate || todayIso,
+                execId: activeExecutive.id,
+              });
+              setOfflineQueueCount(getOfflineQueue().length);
+            } else {
+              console.error("Backend punchOutAttendance error:", err);
+              showToast(`Attendance logout rejected: ${err.message || "Multiple faces detected or verification failed"}`, "error");
+              alert(`Attendance Logout Rejected: ${err.message || "Only one member face is accepted."}`);
+              return;
+            }
+          }
+        }
 
       setPunchModalOpen(false);
 
@@ -1422,6 +1637,43 @@ export default function AttendanceView({
         <div className={`attend-toast ${toastType === "error" ? "error" : ""}`} role="alert">
           <span>{toastMessage}</span>
           <button type="button" onClick={() => setToastMessage("")}>✕</button>
+        </div>
+      )}
+
+      {/* Offline Mode & Auto-Sync Network Status Banner */}
+      {(!isOnline || offlineQueueCount > 0) && (
+        <div className={`zenve-network-banner ${!isOnline ? "offline" : "pending-sync"}`}>
+          {!isOnline ? (
+            <>
+              <div className="zenve-network-banner-left">
+                <WifiOff size={16} className="zenve-network-icon" />
+                <span>
+                  <strong>Offline Mode Active:</strong> You can punch attendance freely in rural / remote areas. Records are stored securely on this device and will auto-sync once connected.
+                </span>
+              </div>
+              {offlineQueueCount > 0 && (
+                <span className="zenve-queue-count-pill">{offlineQueueCount} queued</span>
+              )}
+            </>
+          ) : (
+            <>
+              <div className="zenve-network-banner-left">
+                <CloudUpload size={16} className="zenve-network-icon" />
+                <span>
+                  <strong>Internet Reconnected:</strong> {offlineQueueCount} offline attendance punch(es) saved on this device.
+                </span>
+              </div>
+              <button
+                type="button"
+                className="zenve-sync-now-btn"
+                onClick={handleSyncOfflineQueue}
+                disabled={isSyncingOffline}
+              >
+                <RefreshCw size={13} className={isSyncingOffline ? "zenve-spin" : ""} />
+                <span>{isSyncingOffline ? "Syncing..." : "Sync Now"}</span>
+              </button>
+            </>
+          )}
         </div>
       )}
 

@@ -2393,4 +2393,99 @@
   color: #f8fafc;
 }
 
+/* ════════════════════════════════════════════════════════════
+   OFFLINE MODE & AUTO-SYNC NETWORK STATUS BANNER
+   ════════════════════════════════════════════════════════════ */
+.zenve-network-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  margin-bottom: 14px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease;
+}
+
+.zenve-network-banner.offline {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  color: #92400e;
+}
+
+.zenve-network-banner.pending-sync {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #166534;
+}
+
+.zenve-network-banner-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+}
+
+.zenve-network-icon {
+  flex-shrink: 0;
+}
+
+.zenve-network-banner.offline .zenve-network-icon {
+  color: #d97706;
+}
+
+.zenve-network-banner.pending-sync .zenve-network-icon {
+  color: #16a34a;
+}
+
+.zenve-queue-count-pill {
+  background: #fef3c7;
+  border: 1px solid #fcd34d;
+  color: #b45309;
+  font-size: 0.76rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.zenve-sync-now-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #16a34a;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.zenve-sync-now-btn:hover:not(:disabled) {
+  background: #15803d;
+  transform: translateY(-1px);
+}
+
+.zenve-sync-now-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.zenve-spin {
+  animation: zenveSpin 1s linear infinite;
+}
+
+@keyframes zenveSpin {
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+
 
