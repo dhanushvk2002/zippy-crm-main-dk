@@ -896,11 +896,9 @@
   border-color: #10b981;
 }
 
-/* Pegman Street View button active state */
-.gmap-ctrl-pegman-btn.is-active {
-  background-color: #2b2210;
-  border-color: #f59e0b;
-  box-shadow: 0 0 14px rgba(245, 158, 11, 0.45), 0 4px 12px rgba(0, 0, 0, 0.4);
+/* Pegman Street View button hidden */
+.gmap-ctrl-pegman-btn {
+  display: none !important;
 }
 
 /* Zoom In / Zoom Out Pill */

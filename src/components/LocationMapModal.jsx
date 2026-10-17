@@ -1432,19 +1432,6 @@ export default function LocationMapModal({
               </button>
             </div>
 
-            {/* 3. Pegman Street View Button */}
-            <button
-              type="button"
-              className={`gmap-ctrl-btn gmap-ctrl-pegman-btn ${isStreetViewActive ? "is-active" : ""}`}
-              onClick={handleToggleStreetView}
-              title={isStreetViewActive ? "Exit Street View" : "Toggle Street View (Pegman)"}
-              aria-label="Toggle Street View"
-            >
-              <PegmanIcon active={isStreetViewActive} />
-              <span className="gmap-ctrl-tooltip">
-                {isStreetViewActive ? "Exit Street View" : "Street View"}
-              </span>
-            </button>
           </div>
 
           <div className="loc-map-floating-tip">
