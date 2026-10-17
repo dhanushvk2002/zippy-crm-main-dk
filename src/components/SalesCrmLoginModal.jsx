@@ -131,15 +131,15 @@ const ROLES_INFO = {
     subBadge: "Field Sales & Territory OS",
     welcomeTitle: "Welcome Sales Executive",
     welcomeBack: "Welcome Back!",
-    subtitle: "",
+    subtitle: "Manage your leads, follow-ups, and sales activities anytime, anywhere with Zenve.",
     rightSubtitle: "Choose your preferred login method to access your dashboard.",
     headlinePart1: "Drive Sales.",
     headlinePart2: "Build Relationships.",
     headlineAccent: "For a Healthier\nTomorrow.",
     pillars: [
-      { icon: ExecTeamIcon, title: "Track Leads", desc: "", colorTheme: "mint" },
-      { icon: ExecChartIcon, title: "Stay Productive", desc: "", colorTheme: "lavender" },
-      { icon: ExecTargetIcon, title: "Achieve More", desc: "", colorTheme: "amber" },
+      { icon: ExecTeamIcon, title: "Track Leads", desc: "Manage and convert opportunities", colorTheme: "blue" },
+      { icon: ExecChartIcon, title: "Stay Productive", desc: "Plan follow-ups and meet targets", colorTheme: "blue" },
+      { icon: ExecTargetIcon, title: "Achieve More", desc: "Grow with Zenve", colorTheme: "blue" },
     ],
     chips: [],
     quote: "“Together for\nHappier, Healthier Pets.”",
@@ -726,97 +726,101 @@ export default function SalesCrmLoginModal({
             </div>
           </>
         ) : !isManagerRole ? (
-          <div className="zenve-exec-ambient-curves" aria-hidden="true">
-            {/* Top right light blue curve accent */}
+          <>
+            {/* Top-Right Sky Blue Corner Wave (Executive) */}
             <svg
-              className="zenve-exec-top-curve"
-              viewBox="0 0 500 350"
+              className="zenve-exec-top-corner-wave"
+              viewBox="0 0 360 240"
               preserveAspectRatio="none"
+              aria-hidden="true"
             >
               <path
-                d="M 120 0 C 260 120 400 180 500 140 L 500 0 Z"
-                fill="url(#execTopGrad)"
-                opacity="0.8"
+                d="M 60 0 C 140 80, 240 140, 360 210 L 360 0 Z"
+                fill="#bae6fd"
+                opacity="0.4"
               />
               <path
-                d="M 220 0 C 320 80 430 110 500 80 L 500 0 Z"
-                fill="#38bdf8"
-                opacity="0.35"
+                d="M 140 0 C 200 60, 280 110, 360 160 L 360 0 Z"
+                fill="#7dd3fc"
+                opacity="0.55"
               />
-              <defs>
-                <linearGradient id="execTopGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#0077e6" stopOpacity="0.45" />
-                  <stop offset="100%" stopColor="#38bdf8" stopOpacity="0.8" />
-                </linearGradient>
-              </defs>
             </svg>
 
-            {/* Bottom prominent curved deep blue swoop */}
-            <svg
-              className="zenve-exec-bottom-swoop"
-              viewBox="0 0 800 400"
-              preserveAspectRatio="none"
-            >
-              {/* Soft cyan/sky back wave */}
-              <path
-                d="M 0 260 C 220 220 540 280 800 380 L 800 400 L 0 400 Z"
-                fill="#38bdf8"
-                opacity="0.5"
-              />
-              {/* Middle royal blue wave */}
-              <path
-                d="M 0 200 C 200 170 480 250 800 395 L 800 400 L 0 400 Z"
-                fill="url(#execMidGrad)"
-              />
-              {/* Deep solid royal/navy blue front ribbon */}
-              <path
-                d="M 0 240 C 180 230 380 310 650 400 L 0 400 Z"
-                fill="url(#execFrontGrad)"
-              />
-              <defs>
-                <linearGradient id="execMidGrad" x1="0%" y1="0%" x2="100%" y2="80%">
-                  <stop offset="0%" stopColor="#0284c7" />
-                  <stop offset="60%" stopColor="#0066cc" />
-                  <stop offset="100%" stopColor="#0052a3" />
-                </linearGradient>
-                <linearGradient id="execFrontGrad" x1="0%" y1="0%" x2="80%" y2="100%">
-                  <stop offset="0%" stopColor="#0056b3" />
-                  <stop offset="50%" stopColor="#00479e" />
-                  <stop offset="100%" stopColor="#00387a" />
-                </linearGradient>
-              </defs>
-            </svg>
-
-            {/* Decorative Paw Prints */}
-            <div className="zenve-exec-paw-accent paw-top">
-              <PawIcon size={58} color="#60a5fa" />
-            </div>
-            <div className="zenve-exec-paw-accent paw-bottom-right">
-              <PawIcon size={64} color="#0077e6" />
-            </div>
-          </div>
+            {/* Bottom Organic Blue Swoop Banner with Quote (Executive) */}
+            {roleConfig.quote && (
+              <div className="zenve-exec-bottom-banner">
+                <svg
+                  className="zenve-exec-bottom-wave-svg"
+                  viewBox="0 0 1000 340"
+                  preserveAspectRatio="none"
+                  aria-hidden="true"
+                >
+                  <defs>
+                    <linearGradient id="execBottomWaveGrad" x1="0%" y1="0%" x2="100%" y2="80%">
+                      <stop offset="0%" stopColor="#0052cc" />
+                      <stop offset="45%" stopColor="#003d99" />
+                      <stop offset="100%" stopColor="#002266" />
+                    </linearGradient>
+                  </defs>
+                  {/* Sky-blue ribbon stroke / border */}
+                  <path
+                    d="M 0 135 C 160 70, 340 105, 500 205 C 660 300, 830 300, 1000 325"
+                    stroke="#38bdf8"
+                    strokeWidth="10"
+                    fill="none"
+                    opacity="0.95"
+                  />
+                  {/* Sky-blue background glow wave */}
+                  <path
+                    d="M 0 142 C 160 76, 340 110, 500 210 C 660 302, 830 302, 1000 328 L 1000 340 L 0 340 Z"
+                    fill="#38bdf8"
+                    opacity="0.6"
+                  />
+                  {/* Deep solid royal/navy blue curved banner */}
+                  <path
+                    d="M 0 152 C 160 88, 340 120, 500 218 C 660 305, 830 305, 1000 332 L 1000 340 L 0 340 Z"
+                    fill="url(#execBottomWaveGrad)"
+                  />
+                </svg>
+                <div className="zenve-exec-bottom-content">
+                  <span className="zenve-quote-text">
+                    {roleConfig.quote.split("\n").map((line, qIdx) => (
+                      <span key={qIdx}>
+                        {line}
+                        {qIdx === 0 && <br />}
+                      </span>
+                    ))}
+                  </span>
+                  <div className="zenve-quote-accent-bar" />
+                  <PawIcon size={52} color="#ffffff" className="zenve-exec-bottom-paw" />
+                </div>
+              </div>
+            )}
+          </>
         ) : null}
 
         <div className="zenve-left-content">
-          {/* Top Brand Header */}
-          <div className="zenve-brand-badge-row">
-            <img
-              src={zenveZippyLogoImg}
-              alt="Zenve Zippy"
-              className="zenve-brand-left-mascot-logo"
-            />
-            <div>
-              <h1 className="zenve-brand-logo-text">Zenve</h1>
-              <span className="zenve-brand-sub-badge">{roleConfig.portalTitle}</span>
-              {isManagerRole && (
-                <div className="zenve-manager-dot-dash" aria-hidden="true">
-                  <span className="zenve-dash" />
-                  <span className="zenve-dot" />
-                  <span className="zenve-dot" />
-                </div>
-              )}
+          {/* Top Brand Header (Shown only for Manager & Regional) */}
+          {(isManagerRole || isRegionalRole) && (
+            <div className="zenve-brand-badge-row">
+              <img
+                src={zenveZippyLogoImg}
+                alt="Zenve Zippy"
+                className="zenve-brand-left-mascot-logo"
+              />
+              <div>
+                <h1 className="zenve-brand-logo-text">Zenve</h1>
+                <span className="zenve-brand-sub-badge">{roleConfig.portalTitle}</span>
+                {isManagerRole && (
+                  <div className="zenve-manager-dot-dash" aria-hidden="true">
+                    <span className="zenve-dash" />
+                    <span className="zenve-dot" />
+                    <span className="zenve-dot" />
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Hero Main Headline */}
           <div className="zenve-hero-headlines">
@@ -853,12 +857,12 @@ export default function SalesCrmLoginModal({
                 {roleConfig.subtitle}
               </p>
             )}
-            {!isManagerRole && <div className="zenve-headline-accent-line" />}
+            {!isManagerRole && isRegionalRole && <div className="zenve-headline-accent-line" />}
           </div>
 
           {/* Value Pillars List / Circular Icons Stack */}
           {roleConfig.pillars && (
-            <div className={`zenve-value-pillars-stack ${isRegionalRole ? "regional-pillars" : isManagerRole ? "manager-pillars" : ""}`}>
+            <div className={`zenve-value-pillars-stack ${isRegionalRole ? "regional-pillars" : isManagerRole ? "manager-pillars" : "executive-pillars"}`}>
               {roleConfig.pillars.map((pillar, pIdx) => {
                 const PillarIcon = pillar.icon;
                 const cardThemeClass = pillar.colorTheme ? `zenve-card-${pillar.colorTheme}` : (pIdx === 0 ? "zenve-card-mint" : pIdx === 1 ? "zenve-card-lavender" : "zenve-card-amber");
@@ -870,7 +874,7 @@ export default function SalesCrmLoginModal({
                         size={24}
                         color={
                           currentRole === "executive"
-                            ? "#0062d2"
+                            ? "#0284c7"
                             : currentRole === "regional"
                               ? "#581c87"
                               : "#ffffff"
@@ -886,26 +890,23 @@ export default function SalesCrmLoginModal({
                       <h4 className="zenve-pillar-title">{pillar.title}</h4>
                       {pillar.desc && (
                         <p className="zenve-pillar-sub">
-                          {pillar.desc.split("\n").map((line, lIdx) => (
-                            <span key={lIdx}>
-                              {line}
-                              {lIdx < pillar.desc.split("\n").length - 1 && <br />}
-                            </span>
-                          ))}
+                          {pillar.desc}
                         </p>
                       )}
                     </div>
-                    <div className="zenve-pillar-arrow-circle">
-                      <ArrowRight size={17} />
-                    </div>
+                    {currentRole !== "executive" && (
+                      <div className="zenve-pillar-arrow-circle">
+                        <ArrowRight size={17} />
+                      </div>
+                    )}
                   </div>
                 );
               })}
             </div>
           )}
 
-          {/* Bottom Quote Banner */}
-          {!isRegionalRole && !isManagerRole && roleConfig.quote && (
+          {/* Bottom Quote Banner for Manager */}
+          {isManagerRole && roleConfig.quote && (
             <div className="zenve-bottom-quote-banner">
               <span className="zenve-quote-text">
                 {roleConfig.quote.split("\n").map((line, qIdx) => (

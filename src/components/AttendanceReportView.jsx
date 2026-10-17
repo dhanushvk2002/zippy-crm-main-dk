@@ -93,8 +93,8 @@ export default function AttendanceReportView({
       return execId
         ? String(execId)
         : executives[executives.length - 1]?.id
-        ? String(executives[executives.length - 1].id)
-        : "all";
+          ? String(executives[executives.length - 1].id)
+          : "all";
     }
     return "all";
   });
@@ -357,61 +357,61 @@ export default function AttendanceReportView({
         lunchOut: formatIsoToTimeStr(row.lunch_out_time || row.lunch_out),
         lunchOutLocation: (lunchOutLat != null || lunchOutArea || lunchOutFull)
           ? {
-              area: lunchOutArea,
-              city: lunchOutCity,
-              state: lunchOutState,
-              region: lunchOutState,
-              country: lunchOutCountry,
-              pincode: lunchOutPincode,
-              accuracy: lunchOutAccuracy,
-              location_accuracy: lunchOutAccuracy,
-              timestamp: lunchOutTimestamp,
-              location_timestamp: lunchOutTimestamp,
-              full_address: lunchOutFull,
-              locality: lunchOutFull,
-              displayAddress: lunchOutFull,
-              coords: { latitude: lunchOutLat, longitude: lunchOutLng },
-            }
+            area: lunchOutArea,
+            city: lunchOutCity,
+            state: lunchOutState,
+            region: lunchOutState,
+            country: lunchOutCountry,
+            pincode: lunchOutPincode,
+            accuracy: lunchOutAccuracy,
+            location_accuracy: lunchOutAccuracy,
+            timestamp: lunchOutTimestamp,
+            location_timestamp: lunchOutTimestamp,
+            full_address: lunchOutFull,
+            locality: lunchOutFull,
+            displayAddress: lunchOutFull,
+            coords: { latitude: lunchOutLat, longitude: lunchOutLng },
+          }
           : null,
         lunchIn: formatIsoToTimeStr(row.lunch_in_time || row.lunch_in),
         lunchInLocation: (lunchInLat != null || lunchInArea || lunchInFull)
           ? {
-              area: lunchInArea,
-              city: lunchInCity,
-              state: lunchInState,
-              region: lunchInState,
-              country: lunchInCountry,
-              pincode: lunchInPincode,
-              accuracy: lunchInAccuracy,
-              location_accuracy: lunchInAccuracy,
-              timestamp: lunchInTimestamp,
-              location_timestamp: lunchInTimestamp,
-              full_address: lunchInFull,
-              locality: lunchInFull,
-              displayAddress: lunchInFull,
-              coords: { latitude: lunchInLat, longitude: lunchInLng },
-            }
+            area: lunchInArea,
+            city: lunchInCity,
+            state: lunchInState,
+            region: lunchInState,
+            country: lunchInCountry,
+            pincode: lunchInPincode,
+            accuracy: lunchInAccuracy,
+            location_accuracy: lunchInAccuracy,
+            timestamp: lunchInTimestamp,
+            location_timestamp: lunchInTimestamp,
+            full_address: lunchInFull,
+            locality: lunchInFull,
+            displayAddress: lunchInFull,
+            coords: { latitude: lunchInLat, longitude: lunchInLng },
+          }
           : null,
         punchOut: outTime,
         punchOutLocation: (outLat != null || outArea || outFormatted)
           ? {
-              area: outArea,
-              city: outCity,
-              district: outDistrict,
-              state: outState,
-              region: outState,
-              country: outCountry,
-              pincode: outPincode,
-              accuracy: outAccuracy,
-              location_accuracy: outAccuracy,
-              location_source: outLocationSource,
-              timestamp: outTimestamp,
-              location_timestamp: outTimestamp,
-              full_address: outFull,
-              locality: outFormatted,
-              displayAddress: outFormatted,
-              coords: { latitude: outLat, longitude: outLng },
-            }
+            area: outArea,
+            city: outCity,
+            district: outDistrict,
+            state: outState,
+            region: outState,
+            country: outCountry,
+            pincode: outPincode,
+            accuracy: outAccuracy,
+            location_accuracy: outAccuracy,
+            location_source: outLocationSource,
+            timestamp: outTimestamp,
+            location_timestamp: outTimestamp,
+            full_address: outFull,
+            locality: outFormatted,
+            displayAddress: outFormatted,
+            coords: { latitude: outLat, longitude: outLng },
+          }
           : null,
         punchOutFaceImage: row.logout_selfie_url,
         duration: durStr,
@@ -1072,9 +1072,8 @@ export default function AttendanceReportView({
                         </td>
                         <td>
                           <span
-                            className={`att-rep-status-badge ${
-                              s.includes("work") ? "working" : s.includes("comp") ? "completed" : "present"
-                            }`}
+                            className={`att-rep-status-badge ${s.includes("work") ? "working" : s.includes("comp") ? "completed" : "present"
+                              }`}
                           >
                             <span className="att-status-dot" />
                             {row.status || "Present"}
@@ -1194,8 +1193,8 @@ export default function AttendanceReportView({
                                           {row.lunchOutLocation?.displayAddress
                                             ? `Lunch Out: ${normalizeFullAddress(row.lunchOutLocation.displayAddress)}`
                                             : row.lunchInLocation?.displayAddress
-                                            ? `Lunch In: ${normalizeFullAddress(row.lunchInLocation.displayAddress)}`
-                                            : (row.lunchOut || row.lunchIn ? "GPS captured" : "No lunch punch recorded")}
+                                              ? `Lunch In: ${normalizeFullAddress(row.lunchInLocation.displayAddress)}`
+                                              : (row.lunchOut || row.lunchIn ? "GPS captured" : "No lunch punch recorded")}
                                         </span>
                                       </div>
                                       {row.lunchInLocation?.displayAddress && row.lunchOutLocation?.displayAddress && row.lunchInLocation.displayAddress !== row.lunchOutLocation.displayAddress && (
