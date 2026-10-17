@@ -3145,9 +3145,10 @@
   border: 1px solid #cbd5e1;
   border-radius: 10px;
   height: 44px;
-  overflow: hidden;
   box-sizing: border-box;
   transition: border-color 0.2s, box-shadow 0.2s;
+  position: relative;
+  overflow: visible !important;
 }
 
 .zenve-phone-input-row:focus-within {
@@ -3155,26 +3156,208 @@
   box-shadow: 0 0 0 3px var(--portal-shadow);
 }
 
+.zenve-country-prefix-container {
+  position: relative;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
 .zenve-country-prefix {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   padding: 0 11px;
   background: #f8fafc;
+  border: none;
   border-right: 1px solid #cbd5e1;
+  border-top-left-radius: 9px;
+  border-bottom-left-radius: 9px;
   height: 100%;
   font-size: 0.84rem;
   font-weight: 700;
   color: #0b2239;
   user-select: none;
   flex-shrink: 0;
+  cursor: pointer;
+  outline: none;
+  transition: background 0.15s ease, border-color 0.15s ease;
+  font-family: inherit;
+}
+
+.zenve-country-prefix:hover {
+  background: #f1f5f9;
+}
+
+.zenve-country-prefix.active {
+  background: #e2e8f0;
 }
 
 .zenve-phone-prefix-icon {
   color: var(--portal-accent);
+  flex-shrink: 0;
+}
+
+.zenve-prefix-num {
+  font-family: inherit;
+  font-weight: 700;
+  letter-spacing: -0.2px;
 }
 
 .zenve-prefix-chevron {
+  color: #94a3b8;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), color 0.15s;
+  flex-shrink: 0;
+}
+
+.zenve-prefix-chevron.open {
+  transform: rotate(180deg);
+  color: var(--portal-accent);
+}
+
+/* Country Dropdown Popup Menu */
+.zenve-country-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 295px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 12px 32px -4px rgba(11, 34, 57, 0.18), 0 4px 12px rgba(0, 0, 0, 0.08);
+  z-index: 99999;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: zenveDropdownPop 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes zenveDropdownPop {
+  0% {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.97);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.zenve-country-search-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid #f1f5f9;
+  background: #f8fafc;
+}
+
+.zenve-country-search-icon {
+  color: #94a3b8;
+  flex-shrink: 0;
+}
+
+.zenve-country-search-input {
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  height: 24px !important;
+  font-size: 0.82rem !important;
+  color: #0f172a !important;
+  width: 100%;
+  outline: none;
+}
+
+.zenve-country-search-input::placeholder {
+  color: #94a3b8;
+}
+
+.zenve-country-list {
+  max-height: 220px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 5px;
+}
+
+.zenve-country-list::-webkit-scrollbar {
+  width: 5px;
+}
+.zenve-country-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+.zenve-country-list::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+.zenve-country-list::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.zenve-country-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 7px 10px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s ease;
+  font-size: 0.82rem;
+  color: #1e293b;
+  outline: none;
+  font-family: inherit;
+}
+
+.zenve-country-item:hover,
+.zenve-country-item:focus-visible {
+  background: #f1f5f9;
+}
+
+.zenve-country-item.selected {
+  background: #e0f2fe;
+  color: #0369a1;
+  font-weight: 600;
+}
+
+.zenve-item-flag {
+  font-size: 1.15rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.zenve-item-name {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 0.82rem;
+}
+
+.zenve-item-code {
+  font-weight: 700;
+  font-size: 0.8rem;
+  color: #64748b;
+  flex-shrink: 0;
+}
+
+.zenve-country-item.selected .zenve-item-code {
+  color: #0284c7;
+}
+
+.zenve-item-check {
+  color: #0284c7;
+  flex-shrink: 0;
+}
+
+.zenve-country-empty {
+  padding: 18px 12px;
+  text-align: center;
+  font-size: 0.82rem;
   color: #94a3b8;
 }
 
@@ -3188,6 +3371,8 @@
   outline: none;
   font-size: 0.88rem !important;
   color: #0b2239;
+  border-top-right-radius: 9px;
+  border-bottom-right-radius: 9px;
 }
 
 /* OTP Reveal section */

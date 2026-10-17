@@ -31,6 +31,7 @@ import {
   ShieldCheck,
   ChevronDown,
   Check,
+  Search,
   KeyRound,
   Briefcase,
   UserCheck,
@@ -203,6 +204,58 @@ const ROLES_INFO = {
   },
 };
 
+const COUNTRY_CODES = [
+  { code: "IN", name: "India", dialCode: "+91", flag: "🇮🇳", maxLen: 10 },
+  { code: "US", name: "United States", dialCode: "+1", flag: "🇺🇸", maxLen: 10 },
+  { code: "GB", name: "United Kingdom", dialCode: "+44", flag: "🇬🇧", maxLen: 10 },
+  { code: "AE", name: "United Arab Emirates", dialCode: "+971", flag: "🇦🇪", maxLen: 9 },
+  { code: "SA", name: "Saudi Arabia", dialCode: "+966", flag: "🇸🇦", maxLen: 9 },
+  { code: "CA", name: "Canada", dialCode: "+1", flag: "🇨🇦", maxLen: 10 },
+  { code: "AU", name: "Australia", dialCode: "+61", flag: "🇦🇺", maxLen: 9 },
+  { code: "SG", name: "Singapore", dialCode: "+65", flag: "🇸🇬", maxLen: 8 },
+  { code: "MY", name: "Malaysia", dialCode: "+60", flag: "🇲🇾", maxLen: 10 },
+  { code: "QA", name: "Qatar", dialCode: "+974", flag: "🇶🇦", maxLen: 8 },
+  { code: "KW", name: "Kuwait", dialCode: "+965", flag: "🇰🇼", maxLen: 8 },
+  { code: "OM", name: "Oman", dialCode: "+968", flag: "🇴🇲", maxLen: 8 },
+  { code: "BH", name: "Bahrain", dialCode: "+973", flag: "🇧🇭", maxLen: 8 },
+  { code: "DE", name: "Germany", dialCode: "+49", flag: "🇩🇪", maxLen: 11 },
+  { code: "FR", name: "France", dialCode: "+33", flag: "🇫🇷", maxLen: 9 },
+  { code: "IT", name: "Italy", dialCode: "+39", flag: "🇮🇹", maxLen: 10 },
+  { code: "ES", name: "Spain", dialCode: "+34", flag: "🇪🇸", maxLen: 9 },
+  { code: "NL", name: "Netherlands", dialCode: "+31", flag: "🇳🇱", maxLen: 9 },
+  { code: "RU", name: "Russia", dialCode: "+7", flag: "🇷🇺", maxLen: 10 },
+  { code: "CN", name: "China", dialCode: "+86", flag: "🇨🇳", maxLen: 11 },
+  { code: "JP", name: "Japan", dialCode: "+81", flag: "🇯🇵", maxLen: 10 },
+  { code: "KR", name: "South Korea", dialCode: "+82", flag: "🇰🇷", maxLen: 10 },
+  { code: "BR", name: "Brazil", dialCode: "+55", flag: "🇧🇷", maxLen: 11 },
+  { code: "ZA", name: "South Africa", dialCode: "+27", flag: "🇿🇦", maxLen: 9 },
+  { code: "NZ", name: "New Zealand", dialCode: "+64", flag: "🇳🇿", maxLen: 9 },
+  { code: "BD", name: "Bangladesh", dialCode: "+880", flag: "🇧🇩", maxLen: 10 },
+  { code: "LK", name: "Sri Lanka", dialCode: "+94", flag: "🇱🇰", maxLen: 9 },
+  { code: "NP", name: "Nepal", dialCode: "+977", flag: "🇳🇵", maxLen: 10 },
+  { code: "PK", name: "Pakistan", dialCode: "+92", flag: "🇵🇰", maxLen: 10 },
+  { code: "PH", name: "Philippines", dialCode: "+63", flag: "🇵🇭", maxLen: 10 },
+  { code: "ID", name: "Indonesia", dialCode: "+62", flag: "🇮🇩", maxLen: 11 },
+  { code: "TH", name: "Thailand", dialCode: "+66", flag: "🇹🇭", maxLen: 9 },
+  { code: "VN", name: "Vietnam", dialCode: "+84", flag: "🇻🇳", maxLen: 9 },
+  { code: "NG", name: "Nigeria", dialCode: "+234", flag: "🇳🇬", maxLen: 10 },
+  { code: "KE", name: "Kenya", dialCode: "+254", flag: "🇰🇪", maxLen: 9 },
+  { code: "EG", name: "Egypt", dialCode: "+20", flag: "🇪🇬", maxLen: 10 },
+  { code: "IE", name: "Ireland", dialCode: "+353", flag: "🇮🇪", maxLen: 9 },
+  { code: "CH", name: "Switzerland", dialCode: "+41", flag: "🇨🇭", maxLen: 9 },
+  { code: "SE", name: "Sweden", dialCode: "+46", flag: "🇸🇪", maxLen: 9 },
+  { code: "NO", name: "Norway", dialCode: "+47", flag: "🇳🇴", maxLen: 8 },
+  { code: "DK", name: "Denmark", dialCode: "+45", flag: "🇩🇰", maxLen: 8 },
+  { code: "FI", name: "Finland", dialCode: "+358", flag: "🇫🇮", maxLen: 9 },
+  { code: "PL", name: "Poland", dialCode: "+48", flag: "🇵🇱", maxLen: 9 },
+  { code: "MX", name: "Mexico", dialCode: "+52", flag: "🇲🇽", maxLen: 10 },
+  { code: "AR", name: "Argentina", dialCode: "+54", flag: "🇦🇷", maxLen: 10 },
+  { code: "CL", name: "Chile", dialCode: "+56", flag: "🇨🇱", maxLen: 9 },
+  { code: "CO", name: "Colombia", dialCode: "+57", flag: "🇨🇴", maxLen: 10 },
+  { code: "TR", name: "Turkey", dialCode: "+90", flag: "🇹🇷", maxLen: 10 },
+  { code: "IL", name: "Israel", dialCode: "+972", flag: "🇮🇱", maxLen: 9 },
+];
+
 export default function SalesCrmLoginModal({
   isOpen,
   initialRole = "executive",
@@ -246,7 +299,12 @@ export default function SalesCrmLoginModal({
 
   // Mobile OTP states
   const [phone, setPhone] = useState("");
-  const countryCode = "+91";
+  const [selectedCountry, setSelectedCountry] = useState(COUNTRY_CODES[0]);
+  const [isCountryDropdownOpen, setIsCountryDropdownOpen] = useState(false);
+  const [countrySearch, setCountrySearch] = useState("");
+  const countryPickerRef = useRef(null);
+  const countrySearchInputRef = useRef(null);
+  const countryCode = selectedCountry.dialCode;
   const [otp, setOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   const [otpLoading, setOtpLoading] = useState(false);
@@ -267,6 +325,49 @@ export default function SalesCrmLoginModal({
   const phoneInputRef = useRef(null);
   const emailInputRef = useRef(null);
   const leftPanelRef = useRef(null);
+
+  // Close country dropdown on click outside
+  useEffect(() => {
+    function handleOutsideClick(e) {
+      if (countryPickerRef.current && !countryPickerRef.current.contains(e.target)) {
+        setIsCountryDropdownOpen(false);
+        setCountrySearch("");
+      }
+    }
+    if (isCountryDropdownOpen) {
+      document.addEventListener("mousedown", handleOutsideClick);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+    };
+  }, [isCountryDropdownOpen]);
+
+  // Focus search input when country dropdown opens
+  useEffect(() => {
+    if (isCountryDropdownOpen && countrySearchInputRef.current) {
+      countrySearchInputRef.current.focus();
+    }
+  }, [isCountryDropdownOpen]);
+
+  // Wheel scrolling directly on country prefix badge to cycle through countries
+  function handleCountryWheel(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    const dir = e.deltaY > 0 ? 1 : -1;
+    const currentIndex = COUNTRY_CODES.findIndex((c) => c.code === selectedCountry.code);
+    const nextIndex = (currentIndex + dir + COUNTRY_CODES.length) % COUNTRY_CODES.length;
+    setSelectedCountry(COUNTRY_CODES[nextIndex]);
+  }
+
+  const filteredCountries = COUNTRY_CODES.filter((c) => {
+    if (!countrySearch.trim()) return true;
+    const q = countrySearch.toLowerCase().trim();
+    return (
+      c.name.toLowerCase().includes(q) ||
+      c.dialCode.toLowerCase().includes(q) ||
+      c.code.toLowerCase().includes(q)
+    );
+  });
 
   // Interactive Parallax, Dynamic Light Spotlight & Paw Ripples
   const [mouseCoords, setMouseCoords] = useState({ x: 0, y: 0, px: 50, py: 50 });
@@ -335,8 +436,14 @@ export default function SalesCrmLoginModal({
     setError("");
     setSuccessMsg("");
     const cleanPhone = phone.replace(/\D/g, "");
-    if (cleanPhone.length !== 10) {
-      setError("Please enter a valid 10-digit mobile number.");
+    const minLen = selectedCountry.code === "IN" ? 10 : 7;
+    const maxLen = selectedCountry.code === "IN" ? 10 : 15;
+    if (cleanPhone.length < minLen || cleanPhone.length > maxLen) {
+      setError(
+        selectedCountry.code === "IN"
+          ? "Please enter a valid 10-digit mobile number."
+          : `Please enter a valid mobile number for ${selectedCountry.name}.`
+      );
       return;
     }
 
@@ -363,8 +470,14 @@ export default function SalesCrmLoginModal({
     setError("");
     setSuccessMsg("");
     const cleanPhone = phone.replace(/\D/g, "");
-    if (cleanPhone.length !== 10) {
-      setError("Please enter a valid 10-digit mobile number.");
+    const minLen = selectedCountry.code === "IN" ? 10 : 7;
+    const maxLen = selectedCountry.code === "IN" ? 10 : 15;
+    if (cleanPhone.length < minLen || cleanPhone.length > maxLen) {
+      setError(
+        selectedCountry.code === "IN"
+          ? "Please enter a valid 10-digit mobile number."
+          : `Please enter a valid mobile number for ${selectedCountry.name}.`
+      );
       return;
     }
 
@@ -559,253 +672,253 @@ export default function SalesCrmLoginModal({
 
         {/* Hero Image as Integrated Left-Panel Background (Executive role only) */}
         {!isRegionalRole && !isManagerRole && (
-              <div className="zenve-portal-bg-img-wrap">
-                <img
-                  src={roleConfig.heroImg}
-                  alt={roleConfig.portalTitle}
-                  className="zenve-portal-bg-img"
-                />
-                <div className="zenve-bg-img-overlay-blend" />
+          <div className="zenve-portal-bg-img-wrap">
+            <img
+              src={roleConfig.heroImg}
+              alt={roleConfig.portalTitle}
+              className="zenve-portal-bg-img"
+            />
+            <div className="zenve-bg-img-overlay-blend" />
 
-                {/* Interactive Floating Live Zenve Feature Chips */}
-                {roleConfig.chips && roleConfig.chips[0] && (
-                  <div
-                    className={`zenve-interactive-chip chip-top ${activeBadge === "top" ? "active" : ""}`}
-                    onMouseEnter={() => setActiveBadge("top")}
-                    onMouseLeave={() => setActiveBadge(null)}
-                  >
-                    <div className="zenve-chip-dot pulse" />
-                    <span className="zenve-chip-icon">{roleConfig.chips[0].icon}</span>
-                    <div className="zenve-chip-text">
-                      <strong>{roleConfig.chips[0].title}</strong>
-                      <small>{roleConfig.chips[0].sub}</small>
-                    </div>
-                  </div>
-                )}
-
-                {roleConfig.chips && roleConfig.chips[1] && (
-                  <div
-                    className={`zenve-interactive-chip chip-bottom ${activeBadge === "bottom" ? "active" : ""}`}
-                    onMouseEnter={() => setActiveBadge("bottom")}
-                    onMouseLeave={() => setActiveBadge(null)}
-                  >
-                    <div className="zenve-chip-dot pulse-blue" />
-                    <span className="zenve-chip-icon">{roleConfig.chips[1].icon}</span>
-                    <div className="zenve-chip-text">
-                      <strong>{roleConfig.chips[1].title}</strong>
-                      <small>{roleConfig.chips[1].sub}</small>
-                    </div>
-                  </div>
-                )}
+            {/* Interactive Floating Live Zenve Feature Chips */}
+            {roleConfig.chips && roleConfig.chips[0] && (
+              <div
+                className={`zenve-interactive-chip chip-top ${activeBadge === "top" ? "active" : ""}`}
+                onMouseEnter={() => setActiveBadge("top")}
+                onMouseLeave={() => setActiveBadge(null)}
+              >
+                <div className="zenve-chip-dot pulse" />
+                <span className="zenve-chip-icon">{roleConfig.chips[0].icon}</span>
+                <div className="zenve-chip-text">
+                  <strong>{roleConfig.chips[0].title}</strong>
+                  <small>{roleConfig.chips[0].sub}</small>
+                </div>
               </div>
             )}
 
-            {/* Ambient Fluid Wave Swooshes */}
-            {isRegionalRole ? (
-              <>
-                <div className="zenve-ambient-wave wave-1" />
-                <div className="zenve-ambient-wave wave-2" />
-                <div className="zenve-floating-paw paw-1">
-                  <PawIcon size={72} color={roleConfig.accentColor} />
-                </div>
-                <div className="zenve-floating-paw paw-2">
-                  <PawIcon size={48} color={roleConfig.accentColor} />
-                </div>
-              </>
-            ) : !isManagerRole ? (
-              <div className="zenve-exec-ambient-curves" aria-hidden="true">
-                {/* Top right light blue curve accent */}
-                <svg
-                  className="zenve-exec-top-curve"
-                  viewBox="0 0 500 350"
-                  preserveAspectRatio="none"
-                >
-                  <path
-                    d="M 120 0 C 260 120 400 180 500 140 L 500 0 Z"
-                    fill="url(#execTopGrad)"
-                    opacity="0.8"
-                  />
-                  <path
-                    d="M 220 0 C 320 80 430 110 500 80 L 500 0 Z"
-                    fill="#38bdf8"
-                    opacity="0.35"
-                  />
-                  <defs>
-                    <linearGradient id="execTopGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                      <stop offset="0%" stopColor="#0077e6" stopOpacity="0.45" />
-                      <stop offset="100%" stopColor="#38bdf8" stopOpacity="0.8" />
-                    </linearGradient>
-                  </defs>
-                </svg>
-
-                {/* Bottom prominent curved deep blue swoop */}
-                <svg
-                  className="zenve-exec-bottom-swoop"
-                  viewBox="0 0 800 400"
-                  preserveAspectRatio="none"
-                >
-                  {/* Soft cyan/sky back wave */}
-                  <path
-                    d="M 0 260 C 220 220 540 280 800 380 L 800 400 L 0 400 Z"
-                    fill="#38bdf8"
-                    opacity="0.5"
-                  />
-                  {/* Middle royal blue wave */}
-                  <path
-                    d="M 0 200 C 200 170 480 250 800 395 L 800 400 L 0 400 Z"
-                    fill="url(#execMidGrad)"
-                  />
-                  {/* Deep solid royal/navy blue front ribbon */}
-                  <path
-                    d="M 0 240 C 180 230 380 310 650 400 L 0 400 Z"
-                    fill="url(#execFrontGrad)"
-                  />
-                  <defs>
-                    <linearGradient id="execMidGrad" x1="0%" y1="0%" x2="100%" y2="80%">
-                      <stop offset="0%" stopColor="#0284c7" />
-                      <stop offset="60%" stopColor="#0066cc" />
-                      <stop offset="100%" stopColor="#0052a3" />
-                    </linearGradient>
-                    <linearGradient id="execFrontGrad" x1="0%" y1="0%" x2="80%" y2="100%">
-                      <stop offset="0%" stopColor="#0056b3" />
-                      <stop offset="50%" stopColor="#00479e" />
-                      <stop offset="100%" stopColor="#00387a" />
-                    </linearGradient>
-                  </defs>
-                </svg>
-
-                {/* Decorative Paw Prints */}
-                <div className="zenve-exec-paw-accent paw-top">
-                  <PawIcon size={58} color="#60a5fa" />
-                </div>
-                <div className="zenve-exec-paw-accent paw-bottom-right">
-                  <PawIcon size={64} color="#0077e6" />
+            {roleConfig.chips && roleConfig.chips[1] && (
+              <div
+                className={`zenve-interactive-chip chip-bottom ${activeBadge === "bottom" ? "active" : ""}`}
+                onMouseEnter={() => setActiveBadge("bottom")}
+                onMouseLeave={() => setActiveBadge(null)}
+              >
+                <div className="zenve-chip-dot pulse-blue" />
+                <span className="zenve-chip-icon">{roleConfig.chips[1].icon}</span>
+                <div className="zenve-chip-text">
+                  <strong>{roleConfig.chips[1].title}</strong>
+                  <small>{roleConfig.chips[1].sub}</small>
                 </div>
               </div>
-            ) : null}
+            )}
+          </div>
+        )}
 
-            <div className="zenve-left-content">
-              {/* Top Brand Header */}
-              <div className="zenve-brand-badge-row">
-                <img
-                  src={zenveZippyLogoImg}
-                  alt="Zenve Zippy"
-                  className="zenve-brand-left-mascot-logo"
-                />
-                <div>
-                  <h1 className="zenve-brand-logo-text">Zenve</h1>
-                  <span className="zenve-brand-sub-badge">{roleConfig.portalTitle}</span>
-                  {isManagerRole && (
-                    <div className="zenve-manager-dot-dash" aria-hidden="true">
-                      <span className="zenve-dash" />
-                      <span className="zenve-dot" />
-                      <span className="zenve-dot" />
-                    </div>
-                  )}
-                </div>
-              </div>
+        {/* Ambient Fluid Wave Swooshes */}
+        {isRegionalRole ? (
+          <>
+            <div className="zenve-ambient-wave wave-1" />
+            <div className="zenve-ambient-wave wave-2" />
+            <div className="zenve-floating-paw paw-1">
+              <PawIcon size={72} color={roleConfig.accentColor} />
+            </div>
+            <div className="zenve-floating-paw paw-2">
+              <PawIcon size={48} color={roleConfig.accentColor} />
+            </div>
+          </>
+        ) : !isManagerRole ? (
+          <div className="zenve-exec-ambient-curves" aria-hidden="true">
+            {/* Top right light blue curve accent */}
+            <svg
+              className="zenve-exec-top-curve"
+              viewBox="0 0 500 350"
+              preserveAspectRatio="none"
+            >
+              <path
+                d="M 120 0 C 260 120 400 180 500 140 L 500 0 Z"
+                fill="url(#execTopGrad)"
+                opacity="0.8"
+              />
+              <path
+                d="M 220 0 C 320 80 430 110 500 80 L 500 0 Z"
+                fill="#38bdf8"
+                opacity="0.35"
+              />
+              <defs>
+                <linearGradient id="execTopGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#0077e6" stopOpacity="0.45" />
+                  <stop offset="100%" stopColor="#38bdf8" stopOpacity="0.8" />
+                </linearGradient>
+              </defs>
+            </svg>
 
-              {/* Hero Main Headline */}
-              <div className="zenve-hero-headlines">
-                <h2 className="zenve-hero-title-dark">{roleConfig.headlinePart1}</h2>
-                <h2
-                  className={
-                    isRegionalRole
-                      ? "zenve-hero-title-purple"
-                      : isManagerRole
-                      ? "zenve-hero-title-green"
-                      : "zenve-hero-title-dark"
-                  }
-                >
-                  {roleConfig.headlinePart2}
-                </h2>
-                <h2
-                  className={
-                    isRegionalRole
-                      ? "zenve-hero-title-orange"
-                      : isManagerRole
-                      ? "zenve-hero-title-dark"
-                      : "zenve-hero-title-accent"
-                  }
-                >
-                  {roleConfig.headlineAccent.split("\n").map((line, idx) => (
-                    <span key={idx}>
-                      {line}
-                      {idx === 0 && <br />}
-                    </span>
-                  ))}
-                </h2>
-                {roleConfig.subtitle && (
-                  <p className="zenve-hero-sub-description">
-                    {roleConfig.subtitle}
-                  </p>
-                )}
-                {!isManagerRole && <div className="zenve-headline-accent-line" />}
-              </div>
+            {/* Bottom prominent curved deep blue swoop */}
+            <svg
+              className="zenve-exec-bottom-swoop"
+              viewBox="0 0 800 400"
+              preserveAspectRatio="none"
+            >
+              {/* Soft cyan/sky back wave */}
+              <path
+                d="M 0 260 C 220 220 540 280 800 380 L 800 400 L 0 400 Z"
+                fill="#38bdf8"
+                opacity="0.5"
+              />
+              {/* Middle royal blue wave */}
+              <path
+                d="M 0 200 C 200 170 480 250 800 395 L 800 400 L 0 400 Z"
+                fill="url(#execMidGrad)"
+              />
+              {/* Deep solid royal/navy blue front ribbon */}
+              <path
+                d="M 0 240 C 180 230 380 310 650 400 L 0 400 Z"
+                fill="url(#execFrontGrad)"
+              />
+              <defs>
+                <linearGradient id="execMidGrad" x1="0%" y1="0%" x2="100%" y2="80%">
+                  <stop offset="0%" stopColor="#0284c7" />
+                  <stop offset="60%" stopColor="#0066cc" />
+                  <stop offset="100%" stopColor="#0052a3" />
+                </linearGradient>
+                <linearGradient id="execFrontGrad" x1="0%" y1="0%" x2="80%" y2="100%">
+                  <stop offset="0%" stopColor="#0056b3" />
+                  <stop offset="50%" stopColor="#00479e" />
+                  <stop offset="100%" stopColor="#00387a" />
+                </linearGradient>
+              </defs>
+            </svg>
 
-              {/* Value Pillars List / Circular Icons Stack */}
-              {roleConfig.pillars && (
-                <div className={`zenve-value-pillars-stack ${isRegionalRole ? "regional-pillars" : isManagerRole ? "manager-pillars" : ""}`}>
-                  {roleConfig.pillars.map((pillar, pIdx) => {
-                    const PillarIcon = pillar.icon;
-                    const cardThemeClass = pillar.colorTheme ? `zenve-card-${pillar.colorTheme}` : (pIdx === 0 ? "zenve-card-mint" : pIdx === 1 ? "zenve-card-lavender" : "zenve-card-amber");
-                    const iconThemeClass = pIdx === 0 ? "zenve-icon-teal" : pIdx === 1 ? "zenve-icon-purple" : "zenve-icon-amber";
-                    return (
-                      <div key={pIdx} className={`zenve-pillar-item ${cardThemeClass}`}>
-                        <div className={`zenve-pillar-icon-wrap ${iconThemeClass}`}>
-                          <PillarIcon
-                            size={24}
-                            color={
-                              currentRole === "executive"
-                                ? "#0062d2"
-                                : currentRole === "regional"
-                                ? "#581c87"
-                                : "#ffffff"
-                            }
-                            fill={
-                              currentRole === "regional" && pillar.title === "Growth Opportunities"
-                                ? "#581c87"
-                                : "none"
-                            }
-                          />
-                        </div>
-                        <div className="zenve-pillar-content">
-                          <h4 className="zenve-pillar-title">{pillar.title}</h4>
-                          {pillar.desc && (
-                            <p className="zenve-pillar-sub">
-                              {pillar.desc.split("\n").map((line, lIdx) => (
-                                <span key={lIdx}>
-                                  {line}
-                                  {lIdx < pillar.desc.split("\n").length - 1 && <br />}
-                                </span>
-                              ))}
-                            </p>
-                          )}
-                        </div>
-                        <div className="zenve-pillar-arrow-circle">
-                          <ArrowRight size={17} />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+            {/* Decorative Paw Prints */}
+            <div className="zenve-exec-paw-accent paw-top">
+              <PawIcon size={58} color="#60a5fa" />
+            </div>
+            <div className="zenve-exec-paw-accent paw-bottom-right">
+              <PawIcon size={64} color="#0077e6" />
+            </div>
+          </div>
+        ) : null}
 
-              {/* Bottom Quote Banner */}
-              {!isRegionalRole && !isManagerRole && roleConfig.quote && (
-                <div className="zenve-bottom-quote-banner">
-                  <span className="zenve-quote-text">
-                    {roleConfig.quote.split("\n").map((line, qIdx) => (
-                      <span key={qIdx}>
-                        {line}
-                        {qIdx === 0 && <br />}
-                      </span>
-                    ))}
-                  </span>
-                  <div className="zenve-quote-accent-bar" />
+        <div className="zenve-left-content">
+          {/* Top Brand Header */}
+          <div className="zenve-brand-badge-row">
+            <img
+              src={zenveZippyLogoImg}
+              alt="Zenve Zippy"
+              className="zenve-brand-left-mascot-logo"
+            />
+            <div>
+              <h1 className="zenve-brand-logo-text">Zenve</h1>
+              <span className="zenve-brand-sub-badge">{roleConfig.portalTitle}</span>
+              {isManagerRole && (
+                <div className="zenve-manager-dot-dash" aria-hidden="true">
+                  <span className="zenve-dash" />
+                  <span className="zenve-dot" />
+                  <span className="zenve-dot" />
                 </div>
               )}
             </div>
+          </div>
+
+          {/* Hero Main Headline */}
+          <div className="zenve-hero-headlines">
+            <h2 className="zenve-hero-title-dark">{roleConfig.headlinePart1}</h2>
+            <h2
+              className={
+                isRegionalRole
+                  ? "zenve-hero-title-purple"
+                  : isManagerRole
+                    ? "zenve-hero-title-green"
+                    : "zenve-hero-title-dark"
+              }
+            >
+              {roleConfig.headlinePart2}
+            </h2>
+            <h2
+              className={
+                isRegionalRole
+                  ? "zenve-hero-title-orange"
+                  : isManagerRole
+                    ? "zenve-hero-title-dark"
+                    : "zenve-hero-title-accent"
+              }
+            >
+              {roleConfig.headlineAccent.split("\n").map((line, idx) => (
+                <span key={idx}>
+                  {line}
+                  {idx === 0 && <br />}
+                </span>
+              ))}
+            </h2>
+            {roleConfig.subtitle && (
+              <p className="zenve-hero-sub-description">
+                {roleConfig.subtitle}
+              </p>
+            )}
+            {!isManagerRole && <div className="zenve-headline-accent-line" />}
+          </div>
+
+          {/* Value Pillars List / Circular Icons Stack */}
+          {roleConfig.pillars && (
+            <div className={`zenve-value-pillars-stack ${isRegionalRole ? "regional-pillars" : isManagerRole ? "manager-pillars" : ""}`}>
+              {roleConfig.pillars.map((pillar, pIdx) => {
+                const PillarIcon = pillar.icon;
+                const cardThemeClass = pillar.colorTheme ? `zenve-card-${pillar.colorTheme}` : (pIdx === 0 ? "zenve-card-mint" : pIdx === 1 ? "zenve-card-lavender" : "zenve-card-amber");
+                const iconThemeClass = pIdx === 0 ? "zenve-icon-teal" : pIdx === 1 ? "zenve-icon-purple" : "zenve-icon-amber";
+                return (
+                  <div key={pIdx} className={`zenve-pillar-item ${cardThemeClass}`}>
+                    <div className={`zenve-pillar-icon-wrap ${iconThemeClass}`}>
+                      <PillarIcon
+                        size={24}
+                        color={
+                          currentRole === "executive"
+                            ? "#0062d2"
+                            : currentRole === "regional"
+                              ? "#581c87"
+                              : "#ffffff"
+                        }
+                        fill={
+                          currentRole === "regional" && pillar.title === "Growth Opportunities"
+                            ? "#581c87"
+                            : "none"
+                        }
+                      />
+                    </div>
+                    <div className="zenve-pillar-content">
+                      <h4 className="zenve-pillar-title">{pillar.title}</h4>
+                      {pillar.desc && (
+                        <p className="zenve-pillar-sub">
+                          {pillar.desc.split("\n").map((line, lIdx) => (
+                            <span key={lIdx}>
+                              {line}
+                              {lIdx < pillar.desc.split("\n").length - 1 && <br />}
+                            </span>
+                          ))}
+                        </p>
+                      )}
+                    </div>
+                    <div className="zenve-pillar-arrow-circle">
+                      <ArrowRight size={17} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Bottom Quote Banner */}
+          {!isRegionalRole && !isManagerRole && roleConfig.quote && (
+            <div className="zenve-bottom-quote-banner">
+              <span className="zenve-quote-text">
+                {roleConfig.quote.split("\n").map((line, qIdx) => (
+                  <span key={qIdx}>
+                    {line}
+                    {qIdx === 0 && <br />}
+                  </span>
+                ))}
+              </span>
+              <div className="zenve-quote-accent-bar" />
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ══════════════════════════════════════════════════════
@@ -978,22 +1091,91 @@ export default function SalesCrmLoginModal({
                     Mobile Number <span className="zenve-required-asterisk">*</span>
                   </label>
                   <div className="zenve-phone-input-row">
-                    <div className="zenve-country-prefix">
-                      <Smartphone size={15} className="zenve-phone-prefix-icon" />
-                      <span>{countryCode}</span>
-                      <ChevronDown size={12} className="zenve-prefix-chevron" />
+                    <div className="zenve-country-prefix-container" ref={countryPickerRef}>
+                      <button
+                        type="button"
+                        className={`zenve-country-prefix ${isCountryDropdownOpen ? "active" : ""}`}
+                        onClick={() => setIsCountryDropdownOpen((prev) => !prev)}
+                        onWheel={handleCountryWheel}
+                        title="Click to choose country or scroll mouse wheel to change"
+                        aria-label="Select country code"
+                        aria-expanded={isCountryDropdownOpen}
+                      >
+                        <Smartphone size={15} className="zenve-phone-prefix-icon" />
+                        <span className="zenve-prefix-num">{countryCode}</span>
+                        <ChevronDown
+                          size={12}
+                          className={`zenve-prefix-chevron ${isCountryDropdownOpen ? "open" : ""}`}
+                        />
+                      </button>
+
+                      {isCountryDropdownOpen && (
+                        <div className="zenve-country-dropdown-menu">
+                          <div className="zenve-country-search-wrap">
+                            <Search size={14} className="zenve-country-search-icon" />
+                            <input
+                              ref={countrySearchInputRef}
+                              type="text"
+                              className="zenve-country-search-input"
+                              placeholder="Search country or code..."
+                              value={countrySearch}
+                              onChange={(e) => setCountrySearch(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Escape") {
+                                  setIsCountryDropdownOpen(false);
+                                  setCountrySearch("");
+                                }
+                              }}
+                            />
+                          </div>
+                          <div className="zenve-country-list">
+                            {filteredCountries.length === 0 ? (
+                              <div className="zenve-country-empty">No matching countries</div>
+                            ) : (
+                              filteredCountries.map((c) => {
+                                const isSelected = c.code === selectedCountry.code;
+                                return (
+                                  <button
+                                    key={c.code}
+                                    type="button"
+                                    className={`zenve-country-item ${isSelected ? "selected" : ""}`}
+                                    onClick={() => {
+                                      setSelectedCountry(c);
+                                      setIsCountryDropdownOpen(false);
+                                      setCountrySearch("");
+                                      if (phoneInputRef.current) {
+                                        phoneInputRef.current.focus();
+                                      }
+                                    }}
+                                  >
+                                    <span className="zenve-item-flag">{c.flag}</span>
+                                    <span className="zenve-item-name">{c.name}</span>
+                                    <span className="zenve-item-code">{c.dialCode}</span>
+                                    {isSelected && <Check size={14} className="zenve-item-check" />}
+                                  </button>
+                                );
+                              })
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
                     <input
                       ref={phoneInputRef}
                       type="tel"
                       inputMode="numeric"
-                      maxLength={10}
+                      maxLength={selectedCountry.code === "IN" ? 10 : 15}
                       className="zenve-phone-input"
-                      placeholder="Enter 10-digit mobile number"
+                      placeholder={
+                        selectedCountry.code === "IN"
+                          ? "Enter 10-digit mobile number"
+                          : `Enter mobile number (${selectedCountry.name})`
+                      }
                       value={phone}
                       onChange={(e) => {
                         const digits = e.target.value.replace(/\D/g, "");
-                        if (digits.length <= 10) setPhone(digits);
+                        const maxL = selectedCountry.code === "IN" ? 10 : 15;
+                        if (digits.length <= maxL) setPhone(digits);
                         setError("");
                       }}
                       required
@@ -1042,7 +1224,9 @@ export default function SalesCrmLoginModal({
                   disabled={
                     mobileLoading ||
                     otpLoading ||
-                    phone.replace(/\D/g, "").length !== 10 ||
+                    (selectedCountry.code === "IN"
+                      ? phone.replace(/\D/g, "").length !== 10
+                      : phone.replace(/\D/g, "").length < 7) ||
                     (otpSent && otp.length < 4)
                   }
                 >
